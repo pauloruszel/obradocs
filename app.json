@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "Obradocs",
+    "slug": "obradocs",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0C5BAA"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
+      },
+      "permissions": [
+        "CAMERA",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.pauloruszel.obradocs"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Autorize o Obradocs a usar a camera para enviar fotos da obra."
+        }
+      ]
+    ],
+    "extra": {
+      "supabaseUrl": "https://vemopbgkbhlyvipkwqxc.supabase.co",
+      "supabaseAnonKey": "sb_publishable_JqA22GSBkVbZnB9ZSs0fUg_XYJzap-h",
+      "eas": {
+        "projectId": "65dda883-c9be-41e9-9cb2-801e9813241d"
+      }
+    },
+    "owner": "pauloruszel"
+  }
+}

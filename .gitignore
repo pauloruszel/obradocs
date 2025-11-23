@@ -1,0 +1,13 @@
+node_modules
+.expo
+.expo-shared
+dist
+build
+*.log
+coverage
+android
+ios
+.env
+*.local
+expo-debug.log
+expo-error.log
