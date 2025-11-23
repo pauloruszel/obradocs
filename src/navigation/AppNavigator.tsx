@@ -3,10 +3,12 @@ import ArquivoViewScreen from "@screens/ArquivoViewScreen";
 import EntrarObraScreen from "@screens/EntrarObraScreen";
 import HistoricoScreen from "@screens/HistoricoScreen";
 import LoginScreen from "@screens/LoginScreen";
+import ForgotPasswordScreen from "@screens/ForgotPasswordScreen";
 import NovaObraScreen from "@screens/NovaObraScreen";
 import ObraDetailScreen from "@screens/ObraDetailScreen";
 import ObrasListScreen from "@screens/ObrasListScreen";
 import PermissoesScreen from "@screens/PermissoesScreen";
+import ResetPasswordScreen from "@screens/ResetPasswordScreen";
 import UploadArquivoScreen from "@screens/UploadArquivoScreen";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import React from "react";
@@ -14,6 +16,8 @@ import { ActivityIndicator, View } from "react-native";
 
 export type RootStackParamList = {
   Login: undefined;
+  ForgotPassword: undefined;
+  ResetPassword: undefined;
   ObrasList: undefined;
   NovaObra: undefined;
   EntrarObra: undefined;
@@ -40,7 +44,19 @@ const AppNavigator = () => {
   return (
     <Stack.Navigator>
       {!user ? (
-        <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+        <>
+          <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+          <Stack.Screen
+            name="ForgotPassword"
+            component={ForgotPasswordScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="ResetPassword"
+            component={ResetPasswordScreen}
+            options={{ headerShown: false }}
+          />
+        </>
       ) : (
         <>
           <Stack.Screen name="ObrasList" component={ObrasListScreen} options={{ title: "Obras" }} />
@@ -63,6 +79,11 @@ const AppNavigator = () => {
           <Stack.Screen name="ArquivoView" component={ArquivoViewScreen} options={{ title: "Arquivo" }} />
           <Stack.Screen name="Historico" component={HistoricoScreen} options={{ title: "Historico" }} />
           <Stack.Screen name="Permissoes" component={PermissoesScreen} options={{ title: "Permissoes" }} />
+          <Stack.Screen
+            name="ResetPassword"
+            component={ResetPasswordScreen}
+            options={{ headerShown: false, presentation: "modal" }}
+          />
         </>
       )}
     </Stack.Navigator>
