@@ -17,3 +17,6 @@ Thumbs.db
 .vscode
 .idea
 %ProgramData%/Microsoft/Windows/UUS/State/
+_scan.py
+_scan_output.txt
+AGENTES.md
