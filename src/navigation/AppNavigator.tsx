@@ -13,6 +13,7 @@ import UploadArquivoScreen from "@screens/UploadArquivoScreen";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import React from "react";
 import { ActivityIndicator, View } from "react-native";
+import { Papel } from "@models/models";
 
 export type RootStackParamList = {
   Login: undefined;
@@ -23,7 +24,7 @@ export type RootStackParamList = {
   EntrarObra: undefined;
   ObraDetail: { obraId: string; nome: string };
   UploadArquivo: { obraId: string };
-  ArquivoView: { arquivoId: string; obraId: string; path: string; nome: string; tipo: string };
+  ArquivoView: { arquivoId: string; obraId: string; path: string; nome: string; tipo: string; papel?: Papel };
   Historico: { obraId: string };
   Permissoes: { obraId: string; isOwner: boolean };
 };

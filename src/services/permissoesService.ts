@@ -27,8 +27,12 @@ export const removerPermissao = async (permissaoId: string) => {
   if (error) throw error;
 };
 
-export const buscarUsuarioPorEmail = async (email: string) => {
-  const { data, error } = await supabase.from('profiles').select('*').ilike('email', email);
+export const convidarUsuarioPorEmail = async (obraId: string, email: string, papel: Papel = "EDITOR") => {
+  const { data, error } = await supabase.rpc("adicionar_permissao_por_email", {
+    p_obra_id: obraId,
+    p_email: email,
+    p_papel: papel,
+  });
   if (error) throw error;
-  return data?.[0];
+  return data;
 };

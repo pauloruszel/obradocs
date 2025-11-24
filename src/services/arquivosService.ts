@@ -183,3 +183,21 @@ export const gerarUrlTemporaria = async (path: string) => {
   if (error) return null;
   return data?.signedUrl ?? null;
 };
+
+export const renomearArquivo = async (arquivoId: string, novoNome: string) => {
+  const trimmed = novoNome.trim();
+  const { data, error } = await supabase
+    .from("arquivos")
+    .update({ nome_original: trimmed })
+    .eq("id", arquivoId)
+    .select()
+    .single();
+  if (error) throw error;
+  await supabase.from("historico").insert({
+    obra_id: data?.obra_id,
+    user_id: data?.enviado_por,
+    acao: "RENOMEAR_ARQUIVO",
+    detalhes: { arquivoId, novoNome: trimmed },
+  });
+  return data as Arquivo;
+};

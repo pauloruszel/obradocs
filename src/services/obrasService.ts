@@ -23,11 +23,12 @@ const normalizarCodigoEntrada = (codigo: string) => {
 
 export const listObrasDoUsuario = async (userId: string): Promise<Obra[]> => {
   const { data, error } = await supabase
-    .from("permissoes")
-    .select("obras(*)")
-    .eq("user_id", userId);
+    .from("obras")
+    .select("*, permissoes!inner(user_id)")
+    .eq("permissoes.user_id", userId)
+    .is("deleted_at", null);
   if (error) throw error;
-  return (data || []).map((row: any) => row.obras) as Obra[];
+  return (data || []) as Obra[];
 };
 
 export const criarObra = async (nome: string, userId: string): Promise<Obra> => {
@@ -49,27 +50,47 @@ export const criarObra = async (nome: string, userId: string): Promise<Obra> => 
   return data as Obra;
 };
 
-export const entrarPorCodigo = async (codigo: string, userId: string) => {
+export const entrarPorCodigo = async (codigo: string) => {
   const normalized = normalizarCodigoEntrada(codigo);
-  const { data: obra, error } = await supabase
-    .from("obras")
-    .select("*")
-    .eq("codigo_compartilhamento", normalized)
-    .single();
+  const { data, error } = await supabase.rpc("entrar_por_codigo", { p_codigo: normalized });
 
-  if (error || !obra) throw new Error("Obra nao encontrada");
+  if (error || !data) {
+    throw new Error(error?.message || "Obra nao encontrada");
+  }
 
-  await supabase
-    .from("permissoes")
-    .upsert({ obra_id: obra.id, user_id: userId, papel: "EDITOR" }, { onConflict: "obra_id,user_id" });
-  await supabase
-    .from("historico")
-    .insert({ obra_id: obra.id, user_id: userId, acao: "ENTROU_OBRA", detalhes: { codigo } });
-  return obra as Obra;
+  return data as Obra;
 };
 
 export const fetchObra = async (id: string): Promise<Obra | null> => {
-  const { data, error } = await supabase.from("obras").select("*").eq("id", id).single();
+  const { data, error } = await supabase
+    .from("obras")
+    .select("*")
+    .eq("id", id)
+    .is("deleted_at", null)
+    .single();
   if (error) return null;
   return data as Obra;
+};
+
+export const renomearObra = async (obraId: string, novoNome: string) => {
+  const trimmed = novoNome.trim();
+  const { data, error } = await supabase
+    .from("obras")
+    .update({ nome: trimmed })
+    .eq("id", obraId)
+    .is("deleted_at", null)
+    .select()
+    .single();
+  if (error) throw error;
+  await supabase.from("historico").insert({
+    obra_id: obraId,
+    acao: "RENOMEAR_OBRA",
+    detalhes: { novoNome: trimmed },
+  });
+  return data as Obra;
+};
+
+export const excluirObra = async (obraId: string) => {
+  const { error } = await supabase.rpc("soft_delete_obra", { p_obra_id: obraId });
+  if (error) throw error;
 };

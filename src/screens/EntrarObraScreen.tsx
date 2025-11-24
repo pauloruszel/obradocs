@@ -15,7 +15,7 @@ const EntrarObraScreen = ({ navigation }: Props) => {
   const handleEnter = async () => {
     if (!user) return;
     try {
-      const obra = await entrarPorCodigo(codigo.trim().toUpperCase(), user.id);
+      const obra = await entrarPorCodigo(codigo.trim());
       toastSuccess("Sucesso", "Voce entrou na obra");
       navigation.navigate("ObraDetail", { obraId: obra.id, nome: obra.nome });
     } catch (e: any) {

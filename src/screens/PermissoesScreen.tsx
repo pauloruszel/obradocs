@@ -3,9 +3,8 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList } from "r
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "@navigation/AppNavigator";
 import {
-  adicionarPermissao,
   atualizarPermissao,
-  buscarUsuarioPorEmail,
+  convidarUsuarioPorEmail,
   listarPermissoes,
   removerPermissao,
 } from "@services/permissoesService";
@@ -36,19 +35,19 @@ const PermissoesScreen = ({ route }: Props) => {
   }, [obraId]);
 
   const handleAdd = async () => {
-    if (!email) return;
+    const trimmed = email.trim();
+    if (!trimmed) {
+      toastInfo("Informe o e-mail");
+      return;
+    }
     try {
-      const user = await buscarUsuarioPorEmail(email.trim());
-      if (!user) {
-        toastInfo("Usuario nao encontrado");
-        return;
-      }
-      await adicionarPermissao(obraId, user.id, "EDITOR");
+      await convidarUsuarioPorEmail(obraId, trimmed, "EDITOR");
       await load();
       setEmail("");
       toastSuccess("Permissao adicionada");
     } catch (e: any) {
-      toastError("Erro", e.message || "Nao foi possivel adicionar.");
+      const msg = (e?.message as string) || "";
+      toastError("Erro", msg || "Nao foi possivel adicionar.");
     }
   };
 
