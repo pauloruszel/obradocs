@@ -58,3 +58,11 @@ Aplicativo movel (React Native + Expo) com backend Supabase para gestao colabora
 ## Observacoes
 - Conversao de foto para PDF esta como opcional (envio mantem JPEG).
 - Ajuste icones/splash em `assets/` conforme identidade visual antes de publicar.
+
+## Novidades recentes
+- UI/UX: tela de login redesenhada (fundo azul, card) e logos circularizadas; splash em modo cover.
+- Recuperacao de senha completa: telas Forgot/Reset com toasts e validacao; link “Esqueci minha senha” no login.
+- Permissoes/convites: uso de RPCs `adicionar_permissao_por_email` e `entrar_por_codigo` (evita RLS bloquear buscas por e-mail/codigo).
+- Soft delete de obras: colunas `deleted_at/deleted_by`, funcao `soft_delete_obra` e policies ajustadas; listagens filtram obras ativas.
+- Renomear obra/arquivo: modal dedicado para renomear obra (OWNER/EDITOR) e rename direto em ArquivoView; updates registrados em historico.
+- Tipo estatico para imagens (`src/types/images.d.ts`) e ignorados extras no `.gitignore` (scan, assets de sistema).
