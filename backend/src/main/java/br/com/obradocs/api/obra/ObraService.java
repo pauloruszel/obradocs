@@ -19,16 +19,19 @@ class ObraService {
 	private final ObraRepository obras;
 	private final PermissaoRepository permissoes;
 	private final HistoricoRepository historicos;
+	private final HistoricoService historico;
 	private final ObraAuthorizationService authorization;
 
 	ObraService(
 			ObraRepository obras,
 			PermissaoRepository permissoes,
 			HistoricoRepository historicos,
+			HistoricoService historico,
 			ObraAuthorizationService authorization) {
 		this.obras = obras;
 		this.permissoes = permissoes;
 		this.historicos = historicos;
+		this.historico = historico;
 		this.authorization = authorization;
 	}
 
@@ -49,8 +52,8 @@ class ObraService {
 		String nomeNormalizado = nome.trim();
 		Obra obra = obras.save(new Obra(nomeNormalizado, gerarCodigoUnico(), usuarioId));
 		permissoes.save(new Permissao(obra.getId(), usuarioId, Papel.OWNER));
-		historicos.save(new Historico(
-				obra.getId(), usuarioId, "CRIACAO_OBRA", Map.of("nome", nomeNormalizado)));
+		historico.registrar(
+				obra.getId(), usuarioId, "CRIACAO_OBRA", Map.of("nome", nomeNormalizado));
 		return obra;
 	}
 
@@ -61,11 +64,11 @@ class ObraService {
 
 		if (permissoes.findByObraIdAndUserId(obra.getId(), usuarioId).isEmpty()) {
 			permissoes.save(new Permissao(obra.getId(), usuarioId, Papel.EDITOR));
-			historicos.save(new Historico(
+			historico.registrar(
 					obra.getId(),
 					usuarioId,
 					"ENTROU_OBRA",
-					Map.of("codigo", obra.getCodigoCompartilhamento())));
+					Map.of("codigo", obra.getCodigoCompartilhamento()));
 		}
 		return obra;
 	}
@@ -76,8 +79,8 @@ class ObraService {
 		authorization.exigirEdicao(obraId, usuarioId);
 		String nomeNormalizado = novoNome.trim();
 		obra.renomear(nomeNormalizado);
-		historicos.save(new Historico(
-				obraId, usuarioId, "RENOMEAR_OBRA", Map.of("novoNome", nomeNormalizado)));
+		historico.registrar(
+				obraId, usuarioId, "RENOMEAR_OBRA", Map.of("novoNome", nomeNormalizado));
 		return obra;
 	}
 
@@ -86,8 +89,8 @@ class ObraService {
 		Obra obra = buscarAtiva(obraId);
 		authorization.exigirEdicao(obraId, usuarioId);
 		obra.excluir(usuarioId);
-		historicos.save(new Historico(
-				obraId, usuarioId, "EXCLUIR_OBRA", Map.of("soft_delete", true)));
+		historico.registrar(
+				obraId, usuarioId, "EXCLUIR_OBRA", Map.of("soft_delete", true));
 	}
 
 	@Transactional(readOnly = true)

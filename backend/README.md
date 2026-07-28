@@ -8,7 +8,9 @@ Backend Spring Boot 4.1 e Java 21.
 2. Defina `JWT_SECRET` com pelo menos 32 bytes.
 3. Execute: `.\mvnw.cmd spring-boot:run`.
 
-O Flyway cria as tabelas `usuarios`, `obras`, `permissoes` e `historico` automaticamente.
+O Flyway cria as tabelas `usuarios`, `obras`, `permissoes`, `historico` e `arquivos` automaticamente.
+
+Configure um bucket S3 compativel pelas variaveis do `.env.example`. Para desenvolvimento local, pode ser usado MinIO; no Railway, conecte um Storage Bucket ao servico e injete as credenciais `AWS_*`.
 
 ## Endpoints
 
@@ -26,8 +28,14 @@ O Flyway cria as tabelas `usuarios`, `obras`, `permissoes` e `historico` automat
 - `PATCH /v1/obras/{obraId}/permissoes/{permissaoId}`
 - `DELETE /v1/obras/{obraId}/permissoes/{permissaoId}`
 - `GET /v1/obras/{obraId}/historico`
+- `GET /v1/obras/{obraId}/arquivos?tipo=FOTO`
+- `POST /v1/obras/{obraId}/arquivos` como `multipart/form-data`, com `tipo` e `arquivo`
+- `PATCH /v1/arquivos/{arquivoId}`
+- `GET /v1/arquivos/{arquivoId}/download-url`
 - `GET /actuator/health`
+
+Uploads aceitam PDF e JPEG de ate 10 MB. O backend verifica permissao, extensao, MIME e assinatura binaria antes de armazenar e gera URLs privadas com validade configuravel por `STORAGE_DOWNLOAD_URL_TTL`.
 
 ## Railway
 
-Crie um PostgreSQL e um servico usando `backend/Dockerfile`. Referencie no servico as variaveis `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER` e `PGPASSWORD` fornecidas pelo PostgreSQL e defina `JWT_SECRET`.
+Crie um PostgreSQL, um Storage Bucket e um servico usando `backend/Dockerfile`. Referencie no servico as variaveis `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER` e `PGPASSWORD` fornecidas pelo PostgreSQL, defina `JWT_SECRET` e injete as credenciais do bucket como `AWS_ENDPOINT_URL`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_BUCKET_NAME`, `AWS_DEFAULT_REGION` e `AWS_S3_URL_STYLE`.

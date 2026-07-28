@@ -9,6 +9,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import br.com.obradocs.api.auth.AuthService.EmailJaCadastradoException;
 
@@ -43,5 +44,12 @@ class ApiExceptionHandler {
 	@ExceptionHandler(AccessDeniedException.class)
 	ProblemDetail acessoNegado(AccessDeniedException exception) {
 		return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, exception.getMessage());
+	}
+
+	@ExceptionHandler(MaxUploadSizeExceededException.class)
+	ProblemDetail uploadMuitoGrande() {
+		return ProblemDetail.forStatusAndDetail(
+				HttpStatus.CONTENT_TOO_LARGE,
+				"Arquivo muito grande; limite de 10 MB");
 	}
 }
