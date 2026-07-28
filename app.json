@@ -48,8 +48,7 @@
       ]
     ],
     "extra": {
-      "supabaseUrl": "https://vemopbgkbhlyvipkwqxc.supabase.co",
-      "supabaseAnonKey": "sb_publishable_JqA22GSBkVbZnB9ZSs0fUg_XYJzap-h",
+      "apiUrl": "http://localhost:8080",
       "eas": {
         "projectId": "65dda883-c9be-41e9-9cb2-801e9813241d"
       }
