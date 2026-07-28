@@ -1,12 +1,5 @@
-import { Historico } from '@models/models';
-import { supabase } from './supabase';
+import { Historico } from "@models/models";
+import { apiRequest } from "./apiClient";
 
-export const listarHistorico = async (obraId: string): Promise<Historico[]> => {
-  const { data, error } = await supabase
-    .from('historico')
-    .select('*, profiles:profiles(id, nome)')
-    .eq('obra_id', obraId)
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  return data as any;
-};
+export const listarHistorico = async (obraId: string): Promise<Historico[]> =>
+  apiRequest<Historico[]>(`/v1/obras/${obraId}/historico`);
