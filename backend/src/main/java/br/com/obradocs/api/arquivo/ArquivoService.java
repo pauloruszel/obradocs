@@ -41,6 +41,13 @@ class ArquivoService {
 				: arquivos.findAllByObraIdAndTipoOrderByCreatedAtDesc(obraId, tipo);
 	}
 
+	@Transactional(readOnly = true)
+	Arquivo buscar(UUID arquivoId, UUID usuarioId) {
+		Arquivo arquivo = buscarPorId(arquivoId);
+		authorization.exigirLeitura(arquivo.getObraId(), usuarioId);
+		return arquivo;
+	}
+
 	@Transactional
 	Arquivo enviar(UUID obraId, ArquivoTipo tipo, MultipartFile multipart, UUID usuarioId) {
 		authorization.exigirEdicao(obraId, usuarioId);
@@ -71,14 +78,14 @@ class ArquivoService {
 
 	@Transactional(readOnly = true)
 	S3Storage.DownloadTemporario criarDownload(UUID arquivoId, UUID usuarioId) {
-		Arquivo arquivo = buscar(arquivoId);
+		Arquivo arquivo = buscarPorId(arquivoId);
 		authorization.exigirLeitura(arquivo.getObraId(), usuarioId);
 		return storage.criarDownload(arquivo.getStoragePath(), arquivo.getContentType());
 	}
 
 	@Transactional
 	Arquivo renomear(UUID arquivoId, String novoNome, UUID usuarioId) {
-		Arquivo arquivo = buscar(arquivoId);
+		Arquivo arquivo = buscarPorId(arquivoId);
 		authorization.exigirEdicao(arquivo.getObraId(), usuarioId);
 		String nome = validarNome(novoNome);
 		validarExtensao(nome, arquivo.getContentType());
@@ -91,7 +98,7 @@ class ArquivoService {
 		return arquivo;
 	}
 
-	private Arquivo buscar(UUID arquivoId) {
+	private Arquivo buscarPorId(UUID arquivoId) {
 		return arquivos.findById(arquivoId)
 				.orElseThrow(() -> new NoSuchElementException("Arquivo nao encontrado"));
 	}

@@ -120,6 +120,8 @@ class ArquivoIntegrationTests {
 		JsonNode listagem = json(get(
 				"/v1/obras/" + obraId + "/arquivos?tipo=PROJETO", owner.token()));
 		assertThat(listagem.size()).isEqualTo(1);
+		JsonNode metadados = json(get("/v1/arquivos/" + arquivoId, owner.token()));
+		assertThat(metadados.path("nome_original").stringValue()).isEqualTo("projeto.pdf");
 
 		JsonNode download = json(get(
 				"/v1/arquivos/" + arquivoId + "/download-url", owner.token()));

@@ -45,10 +45,10 @@
         {
           "cameraPermission": "Autorize o Obradocs a usar a camera para enviar fotos da obra."
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "extra": {
-      "apiUrl": "http://localhost:8080",
       "eas": {
         "projectId": "65dda883-c9be-41e9-9cb2-801e9813241d"
       }

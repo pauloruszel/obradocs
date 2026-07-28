@@ -20,7 +20,7 @@ const NovaObraScreen = ({ navigation }: Props) => {
       return;
     }
     try {
-      const obra = await criarObra(nome, user.id);
+      const obra = await criarObra(nome);
       setCodigo(obra.codigo_compartilhamento);
       toastSuccess("Obra criada", `Codigo: ${obra.codigo_compartilhamento}`);
     } catch (e: any) {

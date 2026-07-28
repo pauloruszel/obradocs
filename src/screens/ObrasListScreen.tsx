@@ -21,7 +21,7 @@ const ObrasListScreen = () => {
     if (!user) return;
     setLoading(true);
     try {
-      const result = await listObrasDoUsuario(user.id);
+      const result = await listObrasDoUsuario();
       setObras(result);
     } catch (e) {
       console.warn(e);

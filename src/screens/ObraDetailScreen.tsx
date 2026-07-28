@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "@navigation/AppNavigator";
 import { Arquivo, ArquivoTipo } from "@models/models";
 import { listarArquivos } from "@services/arquivosService";
-import { supabase } from "@services/supabase";
+import { listarPermissoes } from "@services/permissoesService";
 import { useAuth } from "@context/AuthContext";
 import { useFocusEffect } from "@react-navigation/native";
 import { toastError, toastSuccess } from "@utils/toast";
@@ -44,19 +44,17 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
 
   const loadPermissao = async () => {
     if (!user) return;
-    const { data, error } = await supabase
-      .from("permissoes")
-      .select("papel")
-      .eq("obra_id", obraId)
-      .eq("user_id", user.id)
-      .single();
-    if (error) {
+    try {
+      const permissoes = await listarPermissoes(obraId);
+      const permissao = permissoes.find((item) => item.user_id === user.id);
+      if (permissao) {
+        setPapel(permissao.papel);
+      }
+    } catch (error) {
       const msg = (error as Error)?.message || "";
       const offline = msg.toLowerCase().includes("network") || msg.toLowerCase().includes("fetch");
       toastError(offline ? "Sem conexao" : "Erro ao carregar permissao", offline ? "Verifique a internet." : "Tente recarregar a obra.");
-      return;
     }
-    if (data?.papel) setPapel(data.papel);
   };
 
   const loadArquivos = async () => {
@@ -81,22 +79,6 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
       loadArquivos();
     }, [selected, obraId])
   );
-
-  useEffect(() => {
-    const channel = supabase
-      .channel(`arquivos-obra-${obraId}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "arquivos", filter: `obra_id=eq.${obraId}` },
-        () => {
-          loadArquivos();
-        }
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [obraId, selected]);
 
   const onRefresh = async () => {
     setRefreshing(true);

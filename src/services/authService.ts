@@ -1,60 +1,69 @@
-import { Profile } from "@models/models";
+import { AuthUser, Session } from "@models/models";
 import { apiRequest } from "./apiClient";
-import { tokenStorage } from "./tokenStorage";
+import { clearStoredSession, getStoredSession, setStoredSession } from "./tokenStorage";
 
-export type AuthUser = Profile;
-
-export type AuthSession = {
-  access_token: string;
-  user: AuthUser;
+const saveSession = async (session: Session) => {
+  await setStoredSession(session);
+  return session;
 };
 
-type AuthResponse = {
-  access_token: string;
-  token_type: string;
-  expires_in: number;
-  user: AuthUser;
-};
+export const signIn = async (email: string, senha: string) =>
+  saveSession(
+    await apiRequest<Session>("/auth/login", {
+      method: "POST",
+      authenticated: false,
+      body: JSON.stringify({ email, senha }),
+    }),
+  );
 
-const persistSession = async (response: AuthResponse): Promise<AuthSession> => {
-  await tokenStorage.setAccessToken(response.access_token);
-  return {
-    access_token: response.access_token,
-    user: response.user,
-  };
-};
+export const signUp = async (nome: string, email: string, senha: string) =>
+  saveSession(
+    await apiRequest<Session>("/auth/register", {
+      method: "POST",
+      authenticated: false,
+      body: JSON.stringify({ nome, email, senha }),
+    }),
+  );
 
-export const signIn = async (email: string, password: string) => {
-  const response = await apiRequest<AuthResponse>("/auth/login", {
-    method: "POST",
-    authenticated: false,
-    body: JSON.stringify({ email: email.trim(), senha: password }),
-  });
-  return { session: await persistSession(response), profile: response.user };
-};
-
-export const signUp = async (nome: string, email: string, password: string) => {
-  const response = await apiRequest<AuthResponse>("/auth/register", {
-    method: "POST",
-    authenticated: false,
-    body: JSON.stringify({ nome: nome.trim() || email.trim(), email: email.trim(), senha: password }),
-  });
-  return { session: await persistSession(response), profile: response.user };
-};
-
-export const getCurrentProfile = () => apiRequest<Profile>("/auth/me");
-
-export const restoreSession = async (): Promise<AuthSession | null> => {
-  const accessToken = await tokenStorage.getAccessToken();
-  if (!accessToken) return null;
-
+export const restoreSession = async (): Promise<Session | null> => {
+  if (!(await getStoredSession())) {
+    return null;
+  }
   try {
-    const profile = await getCurrentProfile();
-    return { access_token: accessToken, user: profile };
+    const user = await apiRequest<AuthUser>("/auth/me");
+    const session = await getStoredSession();
+    return session ? { ...session, user } : null;
   } catch {
-    await tokenStorage.clear();
+    await clearStoredSession();
     return null;
   }
 };
 
-export const signOut = () => tokenStorage.clear();
+export const signOut = async () => {
+  const session = await getStoredSession();
+  try {
+    if (session?.refresh_token) {
+      await apiRequest<void>("/auth/logout", {
+        method: "POST",
+        authenticated: false,
+        body: JSON.stringify({ refresh_token: session.refresh_token }),
+      });
+    }
+  } finally {
+    await clearStoredSession();
+  }
+};
+
+export const solicitarRedefinicaoSenha = (email: string) =>
+  apiRequest<void>("/auth/forgot-password", {
+    method: "POST",
+    authenticated: false,
+    body: JSON.stringify({ email }),
+  });
+
+export const redefinirSenha = (token: string, senha: string) =>
+  apiRequest<void>("/auth/reset-password", {
+    method: "POST",
+    authenticated: false,
+    body: JSON.stringify({ token, senha }),
+  });

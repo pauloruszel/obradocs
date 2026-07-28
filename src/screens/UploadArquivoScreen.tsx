@@ -98,7 +98,8 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
         file.name.toLowerCase().endsWith(".pdf") || file.mime === "application/pdf";
       const isJpeg =
         file.name.toLowerCase().endsWith(".jpg") ||
-        file.name.toLowerCase().endsWith(".jpeg");
+        file.name.toLowerCase().endsWith(".jpeg") ||
+        file.mime === "image/jpeg";
 
       if (!isPdf && !isJpeg) {
         toastError("Formato invalido", "Use PDF ou JPEG.");
@@ -112,7 +113,7 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
         tipo,
         uri: file.uri,
         nomeOriginal: file.name,
-        userId: user.id,
+        contentType: isPdf ? "application/pdf" : "image/jpeg",
       });
 
       toastSuccess("Sucesso", "Arquivo enviado.");

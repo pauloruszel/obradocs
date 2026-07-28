@@ -1,18 +1,16 @@
-import { Profile } from "@models/models";
+import { AuthUser, Profile, Session } from "@models/models";
 import {
-  AuthSession,
-  AuthUser,
-  getCurrentProfile,
   restoreSession,
-  signIn as apiSignIn,
-  signOut as apiSignOut,
-  signUp as apiSignUp,
+  signIn as login,
+  signOut as logout,
+  signUp as register,
 } from "@services/authService";
+import { setUnauthorizedHandler } from "@services/apiClient";
 import { toastError, toastInfo } from "@utils/toast";
 import React, { createContext, useContext, useEffect, useState } from "react";
 
 type AuthContextValue = {
-  session: AuthSession | null;
+  session: Session | null;
   user: AuthUser | null;
   profile: Profile | null;
   loading: boolean;
@@ -24,39 +22,29 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [session, setSession] = useState<AuthSession | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const init = async () => {
-      try {
-        const activeSession = await restoreSession();
-        setSession(activeSession);
-        if (activeSession) {
-          setProfile(await getCurrentProfile());
-        }
-      } catch (err) {
-        console.warn("Falha ao iniciar auth", (err as Error)?.message);
-        setSession(null);
-        setProfile(null);
-      } finally {
-        setLoading(false);
-      }
-    };
+    setUnauthorizedHandler(() => {
+      setSession(null);
+      toastInfo("Sessao encerrada", "Faca login novamente para continuar.");
+    });
 
-    init();
+    restoreSession()
+      .then(setSession)
+      .catch((error) => console.warn("Falha ao restaurar sessao", error))
+      .finally(() => setLoading(false));
+
+    return () => setUnauthorizedHandler(null);
   }, []);
 
   const signIn = async (email: string, password: string) => {
     setLoading(true);
     try {
-      const result = await apiSignIn(email, password);
-      setSession(result.session);
-      setProfile(result.profile ?? (await getCurrentProfile()));
+      setSession(await login(email, password));
     } catch (error) {
       toastError("Falha no login", (error as Error).message);
-      throw error;
     } finally {
       setLoading(false);
     }
@@ -65,22 +53,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signUp = async (name: string, email: string, password: string) => {
     setLoading(true);
     try {
-      const result = await apiSignUp(name, email, password);
-      setSession(result.session);
-      setProfile(result.profile ?? (await getCurrentProfile()));
+      setSession(await register(name, email, password));
     } catch (error) {
-      toastError("Erro ao criar conta", (error as Error).message ?? "Tente novamente");
-      throw error;
+      toastError("Erro ao criar conta", (error as Error).message || "Tente novamente");
     } finally {
       setLoading(false);
     }
   };
 
   const signOut = async () => {
-    await apiSignOut();
-    setSession(null);
-    setProfile(null);
-    toastInfo("Sessao encerrada", "Faca login novamente para continuar.");
+    try {
+      await logout();
+    } finally {
+      setSession(null);
+    }
   };
 
   return (
@@ -88,7 +74,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       value={{
         session,
         user: session?.user ?? null,
-        profile,
+        profile: session?.user ?? null,
         loading,
         signIn,
         signUp,
@@ -101,9 +87,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 };
 
 export const useAuth = () => {
-  const ctx = useContext(AuthContext);
-  if (!ctx) {
+  const context = useContext(AuthContext);
+  if (!context) {
     throw new Error("useAuth deve ser usado dentro de AuthProvider");
   }
-  return ctx;
+  return context;
 };

@@ -52,12 +52,12 @@ const PermissoesScreen = ({ route }: Props) => {
   };
 
   const handleUpdate = async (permissao: Permissao, papel: Papel) => {
-    await atualizarPermissao(permissao.id, papel);
+    await atualizarPermissao(obraId, permissao.id, papel);
     load();
   };
 
   const handleRemove = async (permissao: Permissao) => {
-    await removerPermissao(permissao.id);
+    await removerPermissao(obraId, permissao.id);
     load();
   };
 

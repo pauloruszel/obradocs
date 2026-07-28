@@ -1,69 +1,66 @@
 import { Arquivo, ArquivoTipo } from "@models/models";
-import * as FileSystem from "expo-file-system/legacy";
+import { Platform } from "react-native";
 import { apiRequest } from "./apiClient";
 
-const MAX_SIZE_BYTES = 10 * 1024 * 1024;
-
-export const listarArquivos = async (
+export const listarArquivos = (
   obraId: string,
-  tipo?: ArquivoTipo
-): Promise<Arquivo[]> => {
-  const query = tipo ? `?tipo=${encodeURIComponent(tipo)}` : "";
-  return apiRequest<Arquivo[]>(`/v1/obras/${obraId}/arquivos${query}`);
-};
+  tipo?: ArquivoTipo,
+): Promise<Arquivo[]> =>
+  apiRequest(
+    `/v1/obras/${obraId}/arquivos${tipo ? `?tipo=${encodeURIComponent(tipo)}` : ""}`,
+  );
+
+export const buscarArquivo = (arquivoId: string): Promise<Arquivo> =>
+  apiRequest(`/v1/arquivos/${arquivoId}`);
 
 export const uploadArquivo = async ({
   obraId,
   tipo,
   uri,
   nomeOriginal,
-  userId: _userId,
+  contentType,
 }: {
   obraId: string;
   tipo: ArquivoTipo;
   uri: string;
   nomeOriginal: string;
-  userId: string;
+  contentType: string;
 }): Promise<Arquivo> => {
-  const info = await FileSystem.getInfoAsync(uri);
-  if (!info.exists) {
-    throw new Error("Arquivo nao existe no dispositivo.");
+  const form = new FormData();
+  form.append("tipo", tipo);
+  if (Platform.OS === "web") {
+    const blob = await fetch(uri).then((response) => response.blob());
+    const appendFile = form.append.bind(form) as (
+      field: string,
+      value: Blob,
+      fileName: string,
+    ) => void;
+    appendFile("arquivo", blob, nomeOriginal);
+  } else {
+    form.append(
+      "arquivo",
+      {
+        uri,
+        name: nomeOriginal,
+        type: contentType,
+      } as unknown as Blob,
+    );
   }
-  if (info.size && info.size > MAX_SIZE_BYTES) {
-    throw new Error("Arquivo muito grande (>10MB).");
-  }
-
-  const ext = nomeOriginal.split(".").pop()?.toLowerCase() || "dat";
-  const mimeType = ext === "pdf" ? "application/pdf" : "image/jpeg";
-  const formData = new FormData();
-  formData.append("tipo", tipo);
-  formData.append(
-    "arquivo",
-    { uri, name: nomeOriginal, type: mimeType } as unknown as Blob
-  );
-
-  return apiRequest<Arquivo>(`/v1/obras/${obraId}/arquivos`, {
+  return apiRequest(`/v1/obras/${obraId}/arquivos`, {
     method: "POST",
-    body: formData,
+    body: form,
   });
 };
 
-export const gerarUrlTemporaria = async (arquivoIdOuPath: string): Promise<string | null> => {
-  try {
-    const response = await apiRequest<{ url: string }>(
-      `/v1/arquivos/${encodeURIComponent(arquivoIdOuPath)}/download-url`
-    );
-    return response.url;
-  } catch {
-    return null;
-  }
+export const gerarUrlTemporaria = async (arquivoId: string): Promise<string> => {
+  const response = await apiRequest<{ url: string }>(
+    `/v1/arquivos/${arquivoId}/download-url`,
+  );
+  return response.url;
 };
 
-export const renomearArquivo = async (
-  arquivoId: string,
-  novoNome: string
-): Promise<Arquivo> =>
-  apiRequest<Arquivo>(`/v1/arquivos/${arquivoId}`, {
+export const renomearArquivo = (arquivoId: string, nome: string): Promise<Arquivo> =>
+  apiRequest(`/v1/arquivos/${arquivoId}`, {
     method: "PATCH",
-    body: JSON.stringify({ nome_original: novoNome.trim() }),
+    body: JSON.stringify({ nome: nome.trim() }),
   });

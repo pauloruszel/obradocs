@@ -61,4 +61,8 @@ class Usuario {
 	void onUpdate() {
 		updatedAt = Instant.now();
 	}
+
+	void alterarSenha(String senhaHash) {
+		this.senhaHash = senhaHash;
+	}
 }

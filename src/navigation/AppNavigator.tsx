@@ -18,7 +18,7 @@ import { Papel } from "@models/models";
 export type RootStackParamList = {
   Login: undefined;
   ForgotPassword: undefined;
-  ResetPassword: undefined;
+  ResetPassword: { token?: string } | undefined;
   ObrasList: undefined;
   NovaObra: undefined;
   EntrarObra: undefined;

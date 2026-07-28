@@ -2,6 +2,7 @@ package br.com.obradocs.api.config;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -25,22 +26,51 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
-@EnableConfigurationProperties(SecurityConfig.JwtProperties.class)
+@EnableConfigurationProperties({
+		SecurityConfig.JwtProperties.class,
+		SecurityConfig.PasswordResetProperties.class,
+		SecurityConfig.CorsProperties.class
+})
 public class SecurityConfig {
 
 	@Bean
-	SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+	SecurityFilterChain securityFilterChain(
+			HttpSecurity http,
+			CorsConfigurationSource corsConfigurationSource) throws Exception {
 		return http
 				.csrf(csrf -> csrf.disable())
+				.cors(cors -> cors.configurationSource(corsConfigurationSource))
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authorizeHttpRequests(auth -> auth
-						.requestMatchers(HttpMethod.POST, "/auth/register", "/auth/login").permitAll()
+						.requestMatchers(
+								HttpMethod.POST,
+								"/auth/register",
+								"/auth/login",
+								"/auth/refresh",
+								"/auth/logout",
+								"/auth/forgot-password",
+								"/auth/reset-password")
+						.permitAll()
 						.requestMatchers("/actuator/health").permitAll()
 						.anyRequest().authenticated())
 				.oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
 				.build();
+	}
+
+	@Bean
+	CorsConfigurationSource corsConfigurationSource(CorsProperties properties) {
+		CorsConfiguration configuration = new CorsConfiguration();
+		configuration.setAllowedOrigins(properties.allowedOrigins());
+		configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "DELETE", "OPTIONS"));
+		configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+		source.registerCorsConfiguration("/**", configuration);
+		return source;
 	}
 
 	@Bean
@@ -75,7 +105,7 @@ public class SecurityConfig {
 	}
 
 	@ConfigurationProperties("app.jwt")
-	public record JwtProperties(String secret, Duration accessTokenTtl) {
+	public record JwtProperties(String secret, Duration accessTokenTtl, Duration refreshTokenTtl) {
 
 		public JwtProperties {
 			if (secret == null || secret.isBlank()) {
@@ -83,6 +113,35 @@ public class SecurityConfig {
 			}
 			if (accessTokenTtl == null || accessTokenTtl.isNegative() || accessTokenTtl.isZero()) {
 				throw new IllegalStateException("JWT_ACCESS_TOKEN_TTL deve ser positivo");
+			}
+			if (refreshTokenTtl == null || refreshTokenTtl.isNegative() || refreshTokenTtl.isZero()) {
+				throw new IllegalStateException("JWT_REFRESH_TOKEN_TTL deve ser positivo");
+			}
+		}
+	}
+
+	@ConfigurationProperties("app.password-reset")
+	public record PasswordResetProperties(String url, Duration tokenTtl, String from) {
+
+		public PasswordResetProperties {
+			if (url == null || url.isBlank()) {
+				throw new IllegalStateException("PASSWORD_RESET_URL deve ser informado");
+			}
+			if (tokenTtl == null || tokenTtl.isNegative() || tokenTtl.isZero()) {
+				throw new IllegalStateException("PASSWORD_RESET_TOKEN_TTL deve ser positivo");
+			}
+			if (from == null || from.isBlank()) {
+				throw new IllegalStateException("PASSWORD_RESET_FROM deve ser informado");
+			}
+		}
+	}
+
+	@ConfigurationProperties("app.cors")
+	public record CorsProperties(List<String> allowedOrigins) {
+
+		public CorsProperties {
+			if (allowedOrigins == null || allowedOrigins.isEmpty()) {
+				throw new IllegalStateException("CORS_ALLOWED_ORIGINS deve ser informado");
 			}
 		}
 	}

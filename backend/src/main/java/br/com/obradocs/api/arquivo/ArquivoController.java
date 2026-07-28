@@ -1,30 +1,21 @@
 package br.com.obradocs.api.arquivo;
 
-import java.net.URI;
-import java.time.Instant;
-import java.util.List;
-import java.util.UUID;
-
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RequestPart;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
-import lombok.RequiredArgsConstructor;
+import java.net.URI;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/v1")
@@ -43,16 +34,18 @@ class ArquivoController {
 				.toList();
 	}
 
-	@PostMapping(
-			value = "/obras/{obraId}/arquivos",
-			consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	@GetMapping("/arquivos/{arquivoId}")
+	ArquivoResponse buscar(@PathVariable UUID arquivoId, @AuthenticationPrincipal Jwt jwt) {
+		return ArquivoResponse.from(service.buscar(arquivoId, usuarioId(jwt)));
+	}
+
+	@PostMapping(value = "/obras/{obraId}/arquivos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 	ResponseEntity<ArquivoResponse> enviar(
 			@PathVariable UUID obraId,
 			@RequestParam ArquivoTipo tipo,
 			@RequestPart MultipartFile arquivo,
 			@AuthenticationPrincipal Jwt jwt) {
-		return ResponseEntity.status(HttpStatus.CREATED)
-				.body(ArquivoResponse.from(service.enviar(obraId, tipo, arquivo, usuarioId(jwt))));
+		return ResponseEntity.status(HttpStatus.CREATED).body(ArquivoResponse.from(service.enviar(obraId, tipo, arquivo, usuarioId(jwt))));
 	}
 
 	@PatchMapping("/arquivos/{arquivoId}")

@@ -1,7 +1,10 @@
 import { Arquivo } from "@models/models";
 import { RootStackParamList } from "@navigation/AppNavigator";
-import { gerarUrlTemporaria, renomearArquivo } from "@services/arquivosService";
-import { supabase } from "@services/supabase";
+import {
+  buscarArquivo,
+  gerarUrlTemporaria,
+  renomearArquivo,
+} from "@services/arquivosService";
 import { toastError, toastSuccess } from "@utils/toast";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useEffect, useState } from "react";
@@ -11,7 +14,7 @@ import WebView from "react-native-webview";
 type Props = NativeStackScreenProps<RootStackParamList, "ArquivoView">;
 
 const ArquivoViewScreen = ({ route, navigation }: Props) => {
-  const { path, tipo, arquivoId, papel = "VIEWER" } = route.params;
+  const { tipo, arquivoId, papel = "VIEWER" } = route.params;
   const [url, setUrl] = useState<string | null>(null);
   const [meta, setMeta] = useState<Arquivo | null>(null);
   const [renomeando, setRenomeando] = useState(false);
@@ -21,23 +24,19 @@ const ArquivoViewScreen = ({ route, navigation }: Props) => {
   useEffect(() => {
     const load = async () => {
       try {
-        const signed = await gerarUrlTemporaria(path);
-        if (!signed) {
-          throw new Error("Nao foi possivel gerar link temporario para o arquivo.");
-        }
+        const [signed, arquivo] = await Promise.all([
+          gerarUrlTemporaria(arquivoId),
+          buscarArquivo(arquivoId),
+        ]);
         setUrl(signed);
-        const { data, error } = await supabase.from("arquivos").select("*").eq("id", arquivoId).single();
-        if (error) {
-          throw error;
-        }
-        setMeta(data as Arquivo);
+        setMeta(arquivo);
       } catch (e: any) {
         toastError("Erro", e?.message || "Nao foi possivel abrir o arquivo.");
         navigation.goBack();
       }
     };
     load();
-  }, [path, arquivoId, navigation]);
+  }, [arquivoId, navigation]);
 
   useEffect(() => {
     if (meta?.nome_original) {

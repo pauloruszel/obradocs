@@ -15,7 +15,7 @@ import {
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
 import { showMessage } from "react-native-flash-message";
-import { supabase } from "@services/supabase";
+import { solicitarRedefinicaoSenha } from "@services/authService";
 import { RootStackParamList } from "@navigation/AppNavigator";
 import logo from "../../assets/logo-obradocs.png";
 
@@ -68,17 +68,7 @@ const ForgotPasswordScreen = () => {
     setLoading(true);
     setInfoMessage("");
     try {
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        redirectTo: "obradocs/reset",
-      });
-
-      if (resetError) {
-        showMessage({
-          type: "danger",
-          message: "Nao foi possivel enviar agora. Verifique a conexao e tente novamente.",
-        });
-        return;
-      }
+      await solicitarRedefinicaoSenha(email.trim());
 
       const confirmation =
         "Se houver uma conta associada a este e-mail, voce recebera as instrucoes em alguns minutos.";

@@ -12,17 +12,19 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useNavigation } from "@react-navigation/native";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { showMessage } from "react-native-flash-message";
-import { supabase } from "@services/supabase";
+import { redefinirSenha } from "@services/authService";
 import { RootStackParamList } from "@navigation/AppNavigator";
+import { useAuth } from "@context/AuthContext";
 import logo from "../../assets/logo-obradocs.png";
 
 const PRIMARY_COLOR = "#0C5BAA";
 
-const ResetPasswordScreen = () => {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+type Props = NativeStackScreenProps<RootStackParamList, "ResetPassword">;
+
+const ResetPasswordScreen = ({ route, navigation }: Props) => {
+  const { user, signOut } = useAuth();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
@@ -78,34 +80,29 @@ const ResetPasswordScreen = () => {
     setLoading(true);
     setError("");
     try {
-      const { data, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !data.session) {
+      const token = route.params?.token;
+      if (!token) {
         showMessage({
           type: "danger",
-          message: "Sessao de redefinicao expirada. Solicite um novo link.",
+          message: "Link de redefinicao invalido. Solicite um novo link.",
         });
         navigation.navigate("ForgotPassword");
         return;
       }
 
-      const { error: updateError } = await supabase.auth.updateUser({ password });
-      if (updateError) {
-        showMessage({
-          type: "danger",
-          message: "Nao foi possivel atualizar a senha agora.",
-        });
-        return;
-      }
+      await redefinirSenha(token, password);
 
       showMessage({ type: "success", message: "Senha redefinida com sucesso!" });
       timeoutRef.current = setTimeout(async () => {
-        await supabase.auth.signOut();
-        navigation.navigate("Login");
+        await signOut();
+        if (!user) {
+          navigation.navigate("Login");
+        }
       }, 1200);
-    } catch {
+    } catch (error) {
       showMessage({
         type: "danger",
-        message: "Falha de rede ao atualizar a senha.",
+        message: (error as Error).message || "Falha de rede ao atualizar a senha.",
       });
     } finally {
       setLoading(false);
