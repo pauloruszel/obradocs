@@ -18,22 +18,15 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import lombok.RequiredArgsConstructor;
 
 @Component
+@RequiredArgsConstructor
 class S3Storage {
 
 	private final S3Client client;
 	private final S3Presigner presigner;
 	private final StorageConfig.StorageProperties properties;
-
-	S3Storage(
-			S3Client client,
-			S3Presigner presigner,
-			StorageConfig.StorageProperties properties) {
-		this.client = client;
-		this.presigner = presigner;
-		this.properties = properties;
-	}
 
 	void armazenar(String path, MultipartFile arquivo, String contentType) {
 		PutObjectRequest request = PutObjectRequest.builder()

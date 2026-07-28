@@ -14,9 +14,14 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "historico")
+@Getter(AccessLevel.PACKAGE)
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 class Historico {
 
 	@Id
@@ -39,9 +44,6 @@ class Historico {
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt;
 
-	protected Historico() {
-	}
-
 	Historico(UUID obraId, UUID userId, String acao, Map<String, Object> detalhes) {
 		this.obraId = obraId;
 		this.userId = userId;
@@ -52,29 +54,5 @@ class Historico {
 	@PrePersist
 	void onCreate() {
 		createdAt = Instant.now();
-	}
-
-	UUID getId() {
-		return id;
-	}
-
-	UUID getObraId() {
-		return obraId;
-	}
-
-	UUID getUserId() {
-		return userId;
-	}
-
-	String getAcao() {
-		return acao;
-	}
-
-	Map<String, Object> getDetalhes() {
-		return detalhes;
-	}
-
-	Instant getCreatedAt() {
-		return createdAt;
 	}
 }

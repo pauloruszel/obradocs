@@ -24,16 +24,14 @@ import org.springframework.web.multipart.MultipartFile;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/v1")
+@RequiredArgsConstructor
 class ArquivoController {
 
 	private final ArquivoService service;
-
-	ArquivoController(ArquivoService service) {
-		this.service = service;
-	}
 
 	@GetMapping("/obras/{obraId}/arquivos")
 	List<ArquivoResponse> listar(

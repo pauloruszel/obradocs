@@ -9,18 +9,15 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import lombok.RequiredArgsConstructor;
+
 @Service
+@RequiredArgsConstructor
 class AuthService {
 
 	private final UsuarioRepository usuarios;
 	private final PasswordEncoder passwordEncoder;
 	private final JwtService jwtService;
-
-	AuthService(UsuarioRepository usuarios, PasswordEncoder passwordEncoder, JwtService jwtService) {
-		this.usuarios = usuarios;
-		this.passwordEncoder = passwordEncoder;
-		this.jwtService = jwtService;
-	}
 
 	@Transactional
 	AuthResult cadastrar(String nome, String email, String senha) {

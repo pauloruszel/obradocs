@@ -13,11 +13,16 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Table(
 		name = "permissoes",
 		uniqueConstraints = @UniqueConstraint(name = "uk_permissoes_obra_usuario", columnNames = {"obra_id", "user_id"}))
+@Getter(AccessLevel.PACKAGE)
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 class Permissao {
 
 	@Id
@@ -37,9 +42,6 @@ class Permissao {
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt;
 
-	protected Permissao() {
-	}
-
 	Permissao(UUID obraId, UUID userId, Papel papel) {
 		this.obraId = obraId;
 		this.userId = userId;
@@ -53,25 +55,5 @@ class Permissao {
 
 	void alterarPapel(Papel papel) {
 		this.papel = papel;
-	}
-
-	UUID getId() {
-		return id;
-	}
-
-	UUID getObraId() {
-		return obraId;
-	}
-
-	UUID getUserId() {
-		return userId;
-	}
-
-	Papel getPapel() {
-		return papel;
-	}
-
-	Instant getCreatedAt() {
-		return createdAt;
 	}
 }

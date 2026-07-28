@@ -11,9 +11,14 @@ import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "usuarios")
+@Getter(AccessLevel.PACKAGE)
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 class Usuario {
 
 	@Id
@@ -36,10 +41,8 @@ class Usuario {
 	private Instant createdAt;
 
 	@Column(name = "updated_at", nullable = false)
+	@Getter(AccessLevel.NONE)
 	private Instant updatedAt;
-
-	protected Usuario() {
-	}
 
 	Usuario(String nome, String email, String senhaHash) {
 		this.nome = nome;
@@ -57,29 +60,5 @@ class Usuario {
 	@PreUpdate
 	void onUpdate() {
 		updatedAt = Instant.now();
-	}
-
-	UUID getId() {
-		return id;
-	}
-
-	String getNome() {
-		return nome;
-	}
-
-	String getEmail() {
-		return email;
-	}
-
-	String getSenhaHash() {
-		return senhaHash;
-	}
-
-	boolean isAtivo() {
-		return ativo;
-	}
-
-	Instant getCreatedAt() {
-		return createdAt;
 	}
 }

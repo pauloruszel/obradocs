@@ -12,9 +12,14 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "arquivos")
+@Getter(AccessLevel.PACKAGE)
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 class Arquivo {
 
 	@Id
@@ -46,9 +51,6 @@ class Arquivo {
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt;
 
-	protected Arquivo() {
-	}
-
 	Arquivo(
 			UUID obraId,
 			ArquivoTipo tipo,
@@ -73,41 +75,5 @@ class Arquivo {
 
 	void renomear(String nomeOriginal) {
 		this.nomeOriginal = nomeOriginal;
-	}
-
-	UUID getId() {
-		return id;
-	}
-
-	UUID getObraId() {
-		return obraId;
-	}
-
-	ArquivoTipo getTipo() {
-		return tipo;
-	}
-
-	String getNomeOriginal() {
-		return nomeOriginal;
-	}
-
-	String getStoragePath() {
-		return storagePath;
-	}
-
-	String getContentType() {
-		return contentType;
-	}
-
-	long getTamanhoBytes() {
-		return tamanhoBytes;
-	}
-
-	UUID getEnviadoPor() {
-		return enviadoPor;
-	}
-
-	Instant getCreatedAt() {
-		return createdAt;
 	}
 }

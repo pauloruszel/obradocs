@@ -11,19 +11,15 @@ import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.stereotype.Service;
 
 import br.com.obradocs.api.config.SecurityConfig.JwtProperties;
+import lombok.RequiredArgsConstructor;
 
 @Service
+@RequiredArgsConstructor
 class JwtService {
 
 	private final JwtEncoder encoder;
 	private final JwtProperties properties;
-	private final Clock clock;
-
-	JwtService(JwtEncoder encoder, JwtProperties properties) {
-		this.encoder = encoder;
-		this.properties = properties;
-		this.clock = Clock.systemUTC();
-	}
+	private final Clock clock = Clock.systemUTC();
 
 	Token emitir(Usuario usuario) {
 		Instant issuedAt = clock.instant();

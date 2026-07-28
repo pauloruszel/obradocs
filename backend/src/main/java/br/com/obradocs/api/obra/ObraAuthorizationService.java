@@ -6,16 +6,15 @@ import java.util.UUID;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
+import lombok.AccessLevel;
+import lombok.RequiredArgsConstructor;
+
 @Service
+@RequiredArgsConstructor(access = AccessLevel.PACKAGE)
 public class ObraAuthorizationService {
 
 	private final ObraRepository obras;
 	private final PermissaoRepository permissoes;
-
-	ObraAuthorizationService(ObraRepository obras, PermissaoRepository permissoes) {
-		this.obras = obras;
-		this.permissoes = permissoes;
-	}
 
 	public void exigirLeitura(UUID obraId, UUID usuarioId) {
 		if (obras.findByIdAndDeletedAtIsNull(obraId).isEmpty()) {

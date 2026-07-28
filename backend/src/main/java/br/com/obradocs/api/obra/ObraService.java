@@ -10,7 +10,10 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import lombok.RequiredArgsConstructor;
+
 @Service
+@RequiredArgsConstructor
 class ObraService {
 
 	private static final String CODIGO_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -21,19 +24,6 @@ class ObraService {
 	private final HistoricoRepository historicos;
 	private final HistoricoService historico;
 	private final ObraAuthorizationService authorization;
-
-	ObraService(
-			ObraRepository obras,
-			PermissaoRepository permissoes,
-			HistoricoRepository historicos,
-			HistoricoService historico,
-			ObraAuthorizationService authorization) {
-		this.obras = obras;
-		this.permissoes = permissoes;
-		this.historicos = historicos;
-		this.historico = historico;
-		this.authorization = authorization;
-	}
 
 	@Transactional(readOnly = true)
 	List<Obra> listar(UUID usuarioId) {

@@ -18,16 +18,14 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/auth")
+@RequiredArgsConstructor
 class AuthController {
 
 	private final AuthService authService;
-
-	AuthController(AuthService authService) {
-		this.authService = authService;
-	}
 
 	@PostMapping("/register")
 	ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {

@@ -18,8 +18,10 @@ import org.springframework.web.multipart.MultipartFile;
 
 import br.com.obradocs.api.obra.HistoricoService;
 import br.com.obradocs.api.obra.ObraAuthorizationService;
+import lombok.RequiredArgsConstructor;
 
 @Service
+@RequiredArgsConstructor
 class ArquivoService {
 
 	private static final long MAX_SIZE_BYTES = 10L * 1024 * 1024;
@@ -30,17 +32,6 @@ class ArquivoService {
 	private final ObraAuthorizationService authorization;
 	private final HistoricoService historico;
 	private final S3Storage storage;
-
-	ArquivoService(
-			ArquivoRepository arquivos,
-			ObraAuthorizationService authorization,
-			HistoricoService historico,
-			S3Storage storage) {
-		this.arquivos = arquivos;
-		this.authorization = authorization;
-		this.historico = historico;
-		this.storage = storage;
-	}
 
 	@Transactional(readOnly = true)
 	List<Arquivo> listar(UUID obraId, ArquivoTipo tipo, UUID usuarioId) {

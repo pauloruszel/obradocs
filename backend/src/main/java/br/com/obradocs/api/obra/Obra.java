@@ -10,9 +10,14 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "obras")
+@Getter(AccessLevel.PACKAGE)
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 class Obra {
 
 	@Id
@@ -37,9 +42,6 @@ class Obra {
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt;
 
-	protected Obra() {
-	}
-
 	Obra(String nome, String codigoCompartilhamento, UUID createdBy) {
 		this.nome = nome;
 		this.codigoCompartilhamento = codigoCompartilhamento;
@@ -58,33 +60,5 @@ class Obra {
 	void excluir(UUID usuarioId) {
 		deletedAt = Instant.now();
 		deletedBy = usuarioId;
-	}
-
-	UUID getId() {
-		return id;
-	}
-
-	String getNome() {
-		return nome;
-	}
-
-	String getCodigoCompartilhamento() {
-		return codigoCompartilhamento;
-	}
-
-	UUID getCreatedBy() {
-		return createdBy;
-	}
-
-	Instant getDeletedAt() {
-		return deletedAt;
-	}
-
-	UUID getDeletedBy() {
-		return deletedBy;
-	}
-
-	Instant getCreatedAt() {
-		return createdAt;
 	}
 }

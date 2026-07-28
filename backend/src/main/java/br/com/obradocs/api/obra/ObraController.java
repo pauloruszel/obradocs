@@ -23,16 +23,14 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/v1/obras")
+@RequiredArgsConstructor
 class ObraController {
 
 	private final ObraService service;
-
-	ObraController(ObraService service) {
-		this.service = service;
-	}
 
 	@GetMapping
 	List<ObraResponse> listar(@AuthenticationPrincipal Jwt jwt) {
