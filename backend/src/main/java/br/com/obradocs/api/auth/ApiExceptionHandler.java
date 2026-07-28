@@ -1,7 +1,10 @@
 package br.com.obradocs.api.auth;
 
+import java.util.NoSuchElementException;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -25,5 +28,20 @@ class ApiExceptionHandler {
 	@ExceptionHandler(MethodArgumentNotValidException.class)
 	ProblemDetail dadosInvalidos() {
 		return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Dados invalidos");
+	}
+
+	@ExceptionHandler(IllegalArgumentException.class)
+	ProblemDetail argumentoInvalido(IllegalArgumentException exception) {
+		return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
+	}
+
+	@ExceptionHandler(NoSuchElementException.class)
+	ProblemDetail naoEncontrado(NoSuchElementException exception) {
+		return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, exception.getMessage());
+	}
+
+	@ExceptionHandler(AccessDeniedException.class)
+	ProblemDetail acessoNegado(AccessDeniedException exception) {
+		return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, exception.getMessage());
 	}
 }
