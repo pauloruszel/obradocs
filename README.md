@@ -2,6 +2,8 @@
 
 Aplicativo movel (React Native + Expo) com backend Supabase para gestao colaborativa de obras com compartilhamento por codigo, upload de PDFs/JPEGs e controle de permissoes via RLS.
 
+> Migracao em andamento: o novo backend Spring Boot, PostgreSQL e Flyway esta em `backend/`. O aplicativo ainda usa Supabase ate a troca da camada de servicos.
+
 ## Tecnologias
 - React Native + Expo (TypeScript)
 - Navegacao: `@react-navigation/native` + `native-stack`
