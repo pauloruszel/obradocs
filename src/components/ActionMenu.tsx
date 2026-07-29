@@ -1,6 +1,7 @@
 import React, { ReactNode } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { X } from "lucide-react-native";
+import { runAfterActionMenuClose } from "@utils/actionMenu";
 import { colors, radius, spacing } from "@theme/index";
 
 export type ActionMenuItem = {
@@ -36,10 +37,7 @@ const ActionMenu = ({ visible, title, items, onClose }: Props) => (
           <Pressable
             key={item.label}
             style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}
-            onPress={() => {
-              onClose();
-              item.onPress();
-            }}
+            onPress={() => runAfterActionMenuClose(onClose, item.onPress)}
             accessibilityRole="button"
           >
             {item.icon}
