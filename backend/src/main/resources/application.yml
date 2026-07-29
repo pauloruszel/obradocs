@@ -15,17 +15,6 @@ spring:
     enabled: true
   jackson:
     property-naming-strategy: SNAKE_CASE
-  mail:
-    host: ${SMTP_HOST:localhost}
-    port: ${SMTP_PORT:25}
-    username: ${SMTP_USERNAME:}
-    password: ${SMTP_PASSWORD:}
-    properties:
-      mail:
-        smtp:
-          auth: ${SMTP_AUTH:false}
-          starttls:
-            enable: ${SMTP_STARTTLS:false}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -52,6 +41,9 @@ app:
     url: ${PASSWORD_RESET_URL:obradocs://reset}
     token-ttl: ${PASSWORD_RESET_TOKEN_TTL:30m}
     from: ${PASSWORD_RESET_FROM:nao-responda@obradocs.app}
+  brevo:
+    api-url: ${BREVO_API_URL:https://api.brevo.com/v3/smtp/email}
+    api-key: ${BREVO_API_KEY}
   storage:
     endpoint: ${AWS_ENDPOINT_URL}
     access-key-id: ${AWS_ACCESS_KEY_ID}

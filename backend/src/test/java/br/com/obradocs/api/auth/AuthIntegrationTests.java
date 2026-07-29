@@ -1,6 +1,7 @@
 package br.com.obradocs.api.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.verify;
 
@@ -8,7 +9,6 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -18,8 +18,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -50,7 +48,7 @@ class AuthIntegrationTests {
 	ObjectMapper objectMapper;
 
 	@MockitoBean
-	JavaMailSender mailSender;
+	BrevoEmailSender emailSender;
 
 	@Autowired
 	JdbcTemplate jdbc;
@@ -141,15 +139,15 @@ class AuthIntegrationTests {
 		post("/auth/register", """
 				{"nome":"Usuario Reset","email":"%s","senha":"senha123"}
 				""".formatted(email));
-		clearInvocations(mailSender);
+		clearInvocations(emailSender);
 
 		assertThat(post("/auth/forgot-password", """
 				{"email":"%s"}
 				""".formatted(email)).statusCode()).isEqualTo(204);
-		ArgumentCaptor<SimpleMailMessage> message = ArgumentCaptor.forClass(SimpleMailMessage.class);
-		verify(mailSender).send(message.capture());
+		ArgumentCaptor<String> link = ArgumentCaptor.forClass(String.class);
+		verify(emailSender).enviarRedefinicao(any(Usuario.class), link.capture());
 		Matcher tokenMatcher = Pattern.compile("[?&]token=([A-Za-z0-9_-]+)")
-				.matcher(Objects.requireNonNull(message.getValue().getText()));
+				.matcher(link.getValue());
 		assertThat(tokenMatcher.find()).isTrue();
 		String token = tokenMatcher.group(1);
 
@@ -186,14 +184,14 @@ class AuthIntegrationTests {
 		assertThat(objectMapper.readTree(login.body()).path("detail").stringValue())
 				.contains("Redefinicao de senha obrigatoria");
 
-		clearInvocations(mailSender);
+		clearInvocations(emailSender);
 		assertThat(post("/auth/forgot-password", """
 				{"email":"%s"}
 				""".formatted(email)).statusCode()).isEqualTo(204);
-		ArgumentCaptor<SimpleMailMessage> message = ArgumentCaptor.forClass(SimpleMailMessage.class);
-		verify(mailSender).send(message.capture());
+		ArgumentCaptor<String> link = ArgumentCaptor.forClass(String.class);
+		verify(emailSender).enviarRedefinicao(any(Usuario.class), link.capture());
 		Matcher tokenMatcher = Pattern.compile("[?&]token=([A-Za-z0-9_-]+)")
-				.matcher(message.getValue().getText());
+				.matcher(link.getValue());
 		assertThat(tokenMatcher.find()).isTrue();
 
 		assertThat(post("/auth/reset-password", """

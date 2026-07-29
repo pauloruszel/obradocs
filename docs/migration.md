@@ -10,7 +10,7 @@ redefinir a senha antes do primeiro login.
 1. Faca backup do Supabase e do PostgreSQL de destino.
 2. Interrompa cadastros, uploads e alteracoes no aplicativo antigo.
 3. Suba a API nova uma vez para o Flyway aplicar as migracoes ate `V5`.
-4. Configure o SMTP da API e confirme o fluxo de recuperacao de senha.
+4. Configure a API HTTPS da Brevo e confirme o fluxo de recuperacao de senha.
 5. Use um PostgreSQL e um bucket de destino vazios.
 
 O `service_role` do Supabase ignora RLS. Use a chave somente no terminal local,

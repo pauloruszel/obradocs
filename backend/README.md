@@ -46,7 +46,7 @@ Uploads aceitam PDF e JPEG de ate 10 MB. O backend verifica permissao, extensao,
 
 Crie um PostgreSQL, um Storage Bucket e um servico usando `backend/Dockerfile`. Referencie no servico as variaveis `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER` e `PGPASSWORD` fornecidas pelo PostgreSQL, defina `JWT_SECRET` e injete as credenciais do bucket como `AWS_ENDPOINT_URL`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_BUCKET_NAME`, `AWS_DEFAULT_REGION` e `AWS_S3_URL_STYLE`.
 
-Configure `PASSWORD_RESET_URL=obradocs://reset`, `PASSWORD_RESET_FROM` e as variaveis `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_AUTH` e `SMTP_STARTTLS` para recuperacao de senha.
+Configure `PASSWORD_RESET_URL=obradocs://reset`, `PASSWORD_RESET_FROM` e `BREVO_API_KEY` para recuperacao de senha pela API HTTPS da Brevo.
 
 ## Migracao
 

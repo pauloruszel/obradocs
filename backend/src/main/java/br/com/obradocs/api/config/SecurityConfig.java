@@ -1,5 +1,6 @@
 package br.com.obradocs.api.config;
 
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
@@ -34,6 +35,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableConfigurationProperties({
 		SecurityConfig.JwtProperties.class,
 		SecurityConfig.PasswordResetProperties.class,
+		SecurityConfig.BrevoProperties.class,
 		SecurityConfig.CorsProperties.class
 })
 public class SecurityConfig {
@@ -132,6 +134,19 @@ public class SecurityConfig {
 			}
 			if (from == null || from.isBlank()) {
 				throw new IllegalStateException("PASSWORD_RESET_FROM deve ser informado");
+			}
+		}
+	}
+
+	@ConfigurationProperties("app.brevo")
+	public record BrevoProperties(URI apiUrl, String apiKey) {
+
+		public BrevoProperties {
+			if (apiUrl == null) {
+				throw new IllegalStateException("BREVO_API_URL deve ser informada");
+			}
+			if (apiKey == null || apiKey.isBlank()) {
+				throw new IllegalStateException("BREVO_API_KEY deve ser informada");
 			}
 		}
 	}

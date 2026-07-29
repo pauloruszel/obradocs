@@ -12,9 +12,6 @@ import java.util.Locale;
 import java.util.UUID;
 
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.mail.MailException;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -39,7 +36,7 @@ class AuthService {
 	private final JwtService jwtService;
 	private final JwtProperties jwtProperties;
 	private final PasswordResetProperties passwordResetProperties;
-	private final JavaMailSender mailSender;
+	private final BrevoEmailSender emailSender;
 	private final Clock clock = Clock.systemUTC();
 
 	@Transactional
@@ -148,21 +145,9 @@ class AuthService {
 				+ separator
 				+ "token="
 				+ URLEncoder.encode(token, StandardCharsets.UTF_8);
-		SimpleMailMessage message = new SimpleMailMessage();
-		message.setFrom(passwordResetProperties.from());
-		message.setTo(usuario.getEmail());
-		message.setSubject("Redefinicao de senha do Obradocs");
-		message.setText("""
-				Ola, %s.
-
-				Use o link abaixo para definir uma nova senha:
-				%s
-
-				Se voce nao solicitou a redefinicao, ignore esta mensagem.
-				""".formatted(usuario.getNome(), link));
 		try {
-			mailSender.send(message);
-		} catch (MailException exception) {
+			emailSender.enviarRedefinicao(usuario, link);
+		} catch (BrevoEmailSender.EmailDeliveryException exception) {
 			log.error("Falha ao enviar redefinicao de senha para usuario {}", usuario.getId(), exception);
 		}
 	}
