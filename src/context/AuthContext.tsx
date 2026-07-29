@@ -40,24 +40,18 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    setLoading(true);
     try {
       setSession(await login(email, password));
     } catch (error) {
       toastError("Falha no login", (error as Error).message);
-    } finally {
-      setLoading(false);
     }
   };
 
   const signUp = async (name: string, email: string, password: string) => {
-    setLoading(true);
     try {
       setSession(await register(name, email, password));
     } catch (error) {
       toastError("Erro ao criar conta", (error as Error).message || "Tente novamente");
-    } finally {
-      setLoading(false);
     }
   };
 

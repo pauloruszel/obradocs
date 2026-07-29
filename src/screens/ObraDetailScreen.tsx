@@ -54,7 +54,6 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
   };
 
   const loadArquivos = async () => {
-    setLoading(true);
     try {
       const result = await listarArquivos(obraId, selected);
       const filtered = selected ? result.filter((a) => a.tipo === selected) : result;
@@ -175,7 +174,13 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
           <TouchableOpacity
             key={categoria}
             style={[styles.tab, selected === categoria && styles.tabActive]}
-            onPress={() => setSelected(categoria)}
+            onPress={() => {
+              if (categoria !== selected) {
+                setArquivos([]);
+                setLoading(true);
+                setSelected(categoria);
+              }
+            }}
           >
             <Text style={[styles.tabText, selected === categoria && styles.tabTextActive]}>
               {arquivoTipoLabel[categoria]}

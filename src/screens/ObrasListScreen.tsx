@@ -19,7 +19,6 @@ const ObrasListScreen = () => {
 
   const load = async () => {
     if (!user) return;
-    setLoading(true);
     try {
       const result = await listObrasDoUsuario();
       setObras(result);
