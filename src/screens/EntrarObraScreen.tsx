@@ -16,16 +16,16 @@ const EntrarObraScreen = ({ navigation }: Props) => {
     if (!user) return;
     try {
       const obra = await entrarPorCodigo(codigo.trim());
-      toastSuccess("Sucesso", "Voce entrou na obra");
+      toastSuccess("Acesso liberado", "Você entrou na obra.");
       navigation.navigate("ObraDetail", { obraId: obra.id, nome: obra.nome });
     } catch (e: any) {
-      toastError("Nao encontrada", e.message || "Verifique o codigo");
+      toastError("Obra não encontrada", e.message || "Verifique o código informado.");
     }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Codigo da obra</Text>
+      <Text style={styles.label}>Código da obra</Text>
       <TextInput
         style={styles.input}
         placeholder="XXXX-XXXX"

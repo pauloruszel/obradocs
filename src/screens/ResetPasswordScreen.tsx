@@ -84,7 +84,7 @@ const ResetPasswordScreen = ({ route, navigation }: Props) => {
       if (!token) {
         showMessage({
           type: "danger",
-          message: "Link de redefinicao invalido. Solicite um novo link.",
+          message: "Link de redefinição inválido. Solicite um novo link.",
         });
         navigation.navigate("ForgotPassword");
         return;

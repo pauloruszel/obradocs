@@ -22,7 +22,7 @@ const NovaObraScreen = ({ navigation }: Props) => {
     try {
       const obra = await criarObra(nome);
       setCodigo(obra.codigo_compartilhamento);
-      toastSuccess("Obra criada", `Codigo: ${obra.codigo_compartilhamento}`);
+      toastSuccess("Obra criada", `Código: ${obra.codigo_compartilhamento}`);
     } catch (e: any) {
       toastError("Erro ao criar obra", e.message);
     }
@@ -31,13 +31,13 @@ const NovaObraScreen = ({ navigation }: Props) => {
   return (
     <View style={styles.container}>
       <Text style={styles.label}>Nome da obra</Text>
-      <TextInput style={styles.input} value={nome} onChangeText={setNome} placeholder="Ex: Reforma Casa" />
+      <TextInput style={styles.input} value={nome} onChangeText={setNome} placeholder="Ex.: Reforma da casa" />
       <TouchableOpacity style={styles.primaryButton} onPress={handleCreate}>
         <Text style={styles.primaryText}>Salvar</Text>
       </TouchableOpacity>
       {codigo && (
         <View style={styles.codeBox}>
-          <Text style={styles.codeLabel}>Codigo de compartilhamento</Text>
+          <Text style={styles.codeLabel}>Código de compartilhamento</Text>
           <Text style={styles.code}>{codigo}</Text>
           <TouchableOpacity
             style={styles.secondaryButton}

@@ -44,7 +44,7 @@ const ForgotPasswordScreen = () => {
     }
     const regex = /\S+@\S+\.\S+/;
     if (!regex.test(trimmed)) {
-      return "E-mail invalido.";
+      return "E-mail inválido.";
     }
     return "";
   };
@@ -111,7 +111,7 @@ const ForgotPasswordScreen = () => {
               />
             </View>
             <Text style={styles.title}>Redefinir senha</Text>
-            <Text style={styles.subtitle}>Informe seu e-mail e enviaremos um link para redefinicao.</Text>
+            <Text style={styles.subtitle}>Informe seu e-mail e enviaremos um link para redefinição.</Text>
           </View>
 
           <View style={styles.card}>
@@ -142,7 +142,7 @@ const ForgotPasswordScreen = () => {
               activeOpacity={0.9}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               accessibilityRole="button"
-              accessibilityLabel="Enviar link de redefinicao"
+              accessibilityLabel="Enviar link de redefinição"
               accessible
             >
               {loading ? (

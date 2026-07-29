@@ -30,7 +30,7 @@ export const setUnauthorizedHandler = (handler: (() => void) | null) => {
 
 const endpoint = (path: string) => {
   if (!API_URL) {
-    throw new Error("EXPO_PUBLIC_API_URL nao configurada");
+    throw new Error("EXPO_PUBLIC_API_URL não configurada");
   }
   return `${API_URL}${path}`;
 };

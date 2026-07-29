@@ -28,8 +28,8 @@ const ObrasListScreen = () => {
       const msg = (e as Error)?.message || "";
       const offline = msg.toLowerCase().includes("network") || msg.toLowerCase().includes("fetch");
       toastError(
-        offline ? "Sem conexao" : "Falha ao carregar obras",
-        offline ? "Verifique sua internet." : "Verifique sua conexao ou refaca o login.",
+        offline ? "Sem conexão" : "Não foi possível carregar as obras",
+        offline ? "Verifique sua internet." : "Verifique sua conexão ou entre novamente.",
       );
     } finally {
       setLoading(false);
@@ -54,7 +54,7 @@ const ObrasListScreen = () => {
       onPress={() => navigation.navigate("ObraDetail", { obraId: item.id, nome: item.nome })}
     >
       <Text style={styles.cardTitle}>{item.nome}</Text>
-      <Text style={styles.cardSubtitle}>Codigo: {item.codigo_compartilhamento}</Text>
+      <Text style={styles.cardSubtitle}>Código: {item.codigo_compartilhamento}</Text>
     </TouchableOpacity>
   );
 
@@ -69,17 +69,17 @@ const ObrasListScreen = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Minhas Obras</Text>
+        <Text style={styles.title}>Minhas obras</Text>
         <TouchableOpacity onPress={signOut}>
           <Text style={styles.link}>Sair</Text>
         </TouchableOpacity>
       </View>
       <View style={styles.actions}>
         <TouchableOpacity style={styles.primaryButton} onPress={() => navigation.navigate("NovaObra")}>
-          <Text style={styles.primaryText}>Nova Obra</Text>
+          <Text style={styles.primaryText}>Nova obra</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate("EntrarObra")}>
-          <Text style={styles.secondaryText}>Entrar com codigo</Text>
+          <Text style={styles.secondaryText}>Entrar com código</Text>
         </TouchableOpacity>
       </View>
       <FlatList
@@ -87,7 +87,7 @@ const ObrasListScreen = () => {
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        ListEmptyComponent={<Text style={styles.empty}>Nenhuma obra ainda. Crie ou entre com um codigo.</Text>}
+        ListEmptyComponent={<Text style={styles.empty}>Nenhuma obra ainda. Crie uma ou entre com um código.</Text>}
       />
     </View>
   );

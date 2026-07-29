@@ -17,18 +17,14 @@ import { listarPermissoes } from "@services/permissoesService";
 import { useAuth } from "@context/AuthContext";
 import { useFocusEffect } from "@react-navigation/native";
 import { toastError, toastSuccess } from "@utils/toast";
+import { arquivoTipoLabel, formatDateTime, formatFileName, papelLabel } from "@utils/display";
 import { renomearObra, excluirObra } from "@services/obrasService";
 import RenameObraModal from "@components/RenameObraModal";
 import { showMessage } from "react-native-flash-message";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ObraDetail">;
 
-const categorias: { label: string; value: ArquivoTipo }[] = [
-  { label: "Orcamentos", value: "ORCAMENTO" },
-  { label: "Notas Fiscais", value: "NOTA_FISCAL" },
-  { label: "Projetos", value: "PROJETO" },
-  { label: "Fotos", value: "FOTO" },
-];
+const categorias: ArquivoTipo[] = ["ORCAMENTO", "NOTA_FISCAL", "PROJETO", "FOTO"];
 
 const ObraDetailScreen = ({ route, navigation }: Props) => {
   const { obraId, nome } = route.params;
@@ -53,7 +49,7 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
     } catch (error) {
       const msg = (error as Error)?.message || "";
       const offline = msg.toLowerCase().includes("network") || msg.toLowerCase().includes("fetch");
-      toastError(offline ? "Sem conexao" : "Erro ao carregar permissao", offline ? "Verifique a internet." : "Tente recarregar a obra.");
+      toastError(offline ? "Sem conexão" : "Não foi possível carregar a permissão", offline ? "Verifique a internet." : "Tente recarregar a obra.");
     }
   };
 
@@ -67,7 +63,7 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
       console.warn(e);
       const msg = (e as Error)?.message || "";
       const offline = msg.toLowerCase().includes("network") || msg.toLowerCase().includes("fetch");
-      toastError(offline ? "Sem conexao" : "Erro ao carregar arquivos", offline ? "Verifique a internet." : "Verifique o acesso a obra.");
+      toastError(offline ? "Sem conexão" : "Não foi possível carregar os arquivos", offline ? "Verifique a internet." : "Verifique seu acesso à obra.");
     } finally {
       setLoading(false);
     }
@@ -100,8 +96,8 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
         })
       }
     >
-      <Text style={styles.cardTitle}>{item.nome_original}</Text>
-      <Text style={styles.cardSubtitle}>{new Date(item.created_at || "").toLocaleString()}</Text>
+      <Text style={styles.cardTitle}>{formatFileName(item.nome_original)}</Text>
+      <Text style={styles.cardSubtitle}>{formatDateTime(item.created_at)}</Text>
     </TouchableOpacity>
   );
 
@@ -124,7 +120,7 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
     } catch {
       showMessage({
         type: "danger",
-        message: "Nao foi possivel atualizar o nome agora. Tente novamente.",
+        message: "Não foi possível atualizar o nome agora. Tente novamente.",
       });
     } finally {
       setRenameLoading(false);
@@ -134,7 +130,7 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
   const handleExcluirObra = () => {
     Alert.alert(
       "Excluir obra",
-      "Tem certeza que deseja excluir esta obra? Essa acao nao pode ser desfeita.",
+      "Tem certeza de que deseja excluir esta obra? Essa ação não pode ser desfeita.",
       [
         { text: "Cancelar", style: "cancel" },
         {
@@ -143,7 +139,7 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
           onPress: async () => {
             try {
               await excluirObra(obraId);
-              toastSuccess("Obra excluida");
+              toastSuccess("Obra excluída");
               navigation.navigate("ObrasList");
             } catch {
               toastError("Erro ao excluir", "Tente novamente");
@@ -159,7 +155,7 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
       <View style={styles.headerBox}>
         <View style={{ flex: 1 }}>
           <Text style={styles.obraTitle}>{obraNome}</Text>
-          <Text style={styles.obraSubtitle}>{papel === "OWNER" ? "Owner" : papel === "EDITOR" ? "Editor" : "Viewer"}</Text>
+          <Text style={styles.obraSubtitle}>{papelLabel[papel]}</Text>
         </View>
         {canEditar && (
           <TouchableOpacity style={styles.linkButton} onPress={() => setRenameVisible(true)}>
@@ -175,25 +171,27 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
       )}
 
       <View style={styles.tabRow}>
-        {categorias.map((c) => (
+        {categorias.map((categoria) => (
           <TouchableOpacity
-            key={c.value}
-            style={[styles.tab, selected === c.value && styles.tabActive]}
-            onPress={() => setSelected(c.value)}
+            key={categoria}
+            style={[styles.tab, selected === categoria && styles.tabActive]}
+            onPress={() => setSelected(categoria)}
           >
-            <Text style={[styles.tabText, selected === c.value && styles.tabTextActive]}>{c.label}</Text>
+            <Text style={[styles.tabText, selected === categoria && styles.tabTextActive]}>
+              {arquivoTipoLabel[categoria]}
+            </Text>
           </TouchableOpacity>
         ))}
       </View>
       <View style={styles.actions}>
         <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate("Historico", { obraId })}>
-          <Text style={styles.secondaryText}>Historico</Text>
+          <Text style={styles.secondaryText}>Histórico</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.secondaryButton}
           onPress={() => navigation.navigate("Permissoes", { obraId, isOwner: papel === "OWNER" })}
         >
-          <Text style={styles.secondaryText}>Permissoes</Text>
+          <Text style={styles.secondaryText}>Permissões</Text>
         </TouchableOpacity>
       </View>
       {loading ? (

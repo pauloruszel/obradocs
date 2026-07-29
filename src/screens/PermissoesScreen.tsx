@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList } from "react-native";
+import { Alert, View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "@navigation/AppNavigator";
 import {
@@ -10,6 +10,7 @@ import {
 } from "@services/permissoesService";
 import { Permissao, Papel } from "@models/models";
 import { toastError, toastSuccess, toastInfo } from "@utils/toast";
+import { papelLabel } from "@utils/display";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Permissoes">;
 
@@ -17,6 +18,8 @@ const PermissoesScreen = ({ route }: Props) => {
   const { obraId, isOwner } = route.params;
   const [permissoes, setPermissoes] = useState<Permissao[]>([]);
   const [email, setEmail] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const load = async () => {
     try {
@@ -26,7 +29,10 @@ const PermissoesScreen = ({ route }: Props) => {
       console.warn(e);
       const msg = (e as Error)?.message || "";
       const offline = msg.toLowerCase().includes("network") || msg.toLowerCase().includes("fetch");
-      toastError(offline ? "Sem conexao" : "Erro ao carregar permissoes", offline ? "Verifique a internet." : "Tente novamente.");
+      toastError(
+        offline ? "Sem conexão" : "Não foi possível carregar as permissões",
+        offline ? "Verifique a internet." : "Tente novamente.",
+      );
     }
   };
 
@@ -40,130 +46,198 @@ const PermissoesScreen = ({ route }: Props) => {
       toastInfo("Informe o e-mail");
       return;
     }
+    setAdding(true);
     try {
       await convidarUsuarioPorEmail(obraId, trimmed, "EDITOR");
       await load();
       setEmail("");
-      toastSuccess("Permissao adicionada");
+      toastSuccess("Permissão adicionada");
     } catch (e: any) {
       const msg = (e?.message as string) || "";
-      toastError("Erro", msg || "Nao foi possivel adicionar.");
+      toastError("Não foi possível adicionar", msg || "Tente novamente.");
+    } finally {
+      setAdding(false);
     }
   };
 
   const handleUpdate = async (permissao: Permissao, papel: Papel) => {
-    await atualizarPermissao(obraId, permissao.id, papel);
-    load();
+    if (permissao.papel === papel) {
+      return;
+    }
+    setUpdatingId(permissao.id);
+    try {
+      await atualizarPermissao(obraId, permissao.id, papel);
+      await load();
+      toastSuccess("Permissão atualizada");
+    } catch (e: any) {
+      toastError("Não foi possível atualizar", e?.message || "Tente novamente.");
+    } finally {
+      setUpdatingId(null);
+    }
   };
 
   const handleRemove = async (permissao: Permissao) => {
-    await removerPermissao(obraId, permissao.id);
-    load();
+    setUpdatingId(permissao.id);
+    try {
+      await removerPermissao(obraId, permissao.id);
+      await load();
+      toastSuccess("Acesso removido");
+    } catch (e: any) {
+      toastError("Não foi possível remover", e?.message || "Tente novamente.");
+    } finally {
+      setUpdatingId(null);
+    }
   };
 
-  const renderItem = ({ item }: { item: Permissao }) => (
-    <View style={styles.card}>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.title}>{item.profiles?.nome || item.user_id}</Text>
-        <Text style={styles.subtitle}>{item.profiles?.email}</Text>
-        <Text style={styles.chip}>{item.papel}</Text>
-      </View>
-      {isOwner && item.papel !== "OWNER" && (
-        <View style={{ gap: 6 }}>
-          <TouchableOpacity style={styles.smallButton} onPress={() => handleUpdate(item, "EDITOR")}>
-            <Text style={styles.smallText}>Editor</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.smallButton} onPress={() => handleUpdate(item, "VIEWER")}>
-            <Text style={styles.smallText}>Viewer</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.dangerButton} onPress={() => handleRemove(item)}>
-            <Text style={styles.smallDanger}>Remover</Text>
-          </TouchableOpacity>
+  const confirmRemove = (permissao: Permissao) => {
+    const name = permissao.profiles?.nome || "este usuário";
+    Alert.alert("Remover acesso?", `${name} deixará de acessar esta obra.`, [
+      { text: "Cancelar", style: "cancel" },
+      { text: "Remover", style: "destructive", onPress: () => handleRemove(permissao) },
+    ]);
+  };
+
+  const renderItem = ({ item }: { item: Permissao }) => {
+    const name = item.profiles?.nome || item.user_id;
+    const initial = name.trim().charAt(0).toUpperCase();
+    const updating = updatingId === item.id;
+
+    return (
+      <View style={styles.card}>
+        <View style={styles.personRow}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{initial}</Text>
+          </View>
+          <View style={styles.personInfo}>
+            <Text style={styles.title}>{name}</Text>
+            {!!item.profiles?.email && <Text style={styles.subtitle}>{item.profiles.email}</Text>}
+          </View>
+          <View style={styles.roleBadge}>
+            <Text style={styles.roleBadgeText}>{papelLabel[item.papel]}</Text>
+          </View>
         </View>
-      )}
-    </View>
-  );
+        {isOwner && item.papel !== "OWNER" && (
+          <View style={styles.permissionActions}>
+            <View style={styles.roleOptions}>
+              {(["EDITOR", "VIEWER"] as Papel[]).map((role) => (
+                <TouchableOpacity
+                  key={role}
+                  style={[styles.roleOption, item.papel === role && styles.roleOptionActive]}
+                  onPress={() => handleUpdate(item, role)}
+                  disabled={updating}
+                  accessibilityState={{ selected: item.papel === role, disabled: updating }}
+                >
+                  <Text style={[styles.roleOptionText, item.papel === role && styles.roleOptionTextActive]}>
+                    {papelLabel[role]}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity
+              style={styles.removeButton}
+              onPress={() => confirmRemove(item)}
+              disabled={updating}
+            >
+              <Text style={styles.removeText}>{updating ? "Atualizando..." : "Remover"}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
       {isOwner && (
         <View style={styles.addBox}>
-          <Text style={styles.label}>Adicionar usuario por e-mail</Text>
+          <Text style={styles.sectionTitle}>Adicionar usuário</Text>
+          <Text style={styles.helper}>Novos usuários entram como Editor.</Text>
           <TextInput
             style={styles.input}
             placeholder="usuario@exemplo.com"
             autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="email-address"
+            returnKeyType="done"
             value={email}
             onChangeText={setEmail}
+            onSubmitEditing={handleAdd}
           />
-          <TouchableOpacity style={styles.primaryButton} onPress={handleAdd}>
-            <Text style={styles.primaryText}>Adicionar</Text>
+          <TouchableOpacity
+            style={[styles.primaryButton, (!email.trim() || adding) && styles.buttonDisabled]}
+            onPress={handleAdd}
+            disabled={!email.trim() || adding}
+          >
+            <Text style={styles.primaryText}>{adding ? "Adicionando..." : "Adicionar"}</Text>
           </TouchableOpacity>
         </View>
       )}
+      <View style={styles.listHeader}>
+        <Text style={styles.sectionTitle}>Pessoas com acesso</Text>
+        <Text style={styles.count}>{permissoes.length}</Text>
+      </View>
       <FlatList
         data={permissoes}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        ListEmptyComponent={<Text style={styles.empty}>Nenhum usuario listado.</Text>}
+        contentContainerStyle={permissoes.length === 0 ? styles.emptyContent : undefined}
+        ListEmptyComponent={<Text style={styles.empty}>Nenhum usuário listado.</Text>}
       />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f7f8fa", padding: 12 },
+  container: { flex: 1, backgroundColor: "#f7f8fa", padding: 16 },
   addBox: {
     backgroundColor: "#fff",
     padding: 12,
-    borderRadius: 10,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: "#e5e7eb",
     marginBottom: 12,
   },
-  label: { fontWeight: "600", marginBottom: 6 },
+  sectionTitle: { color: "#0f172a", fontSize: 16, fontWeight: "700" },
+  helper: { color: "#64748b", marginTop: 4, marginBottom: 10 },
   input: {
     borderWidth: 1,
     borderColor: "#d0d4d9",
     padding: 10,
-    borderRadius: 10,
+    borderRadius: 8,
     backgroundColor: "#fff",
     marginBottom: 8,
   },
-  primaryButton: { backgroundColor: "#0C5BAA", padding: 12, borderRadius: 10, alignItems: "center" },
+  primaryButton: { minHeight: 46, backgroundColor: "#0C5BAA", padding: 12, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  buttonDisabled: { opacity: 0.45 },
   primaryText: { color: "#fff", fontWeight: "700" },
+  listHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
+  count: { color: "#475569", fontWeight: "700" },
   card: {
     backgroundColor: "#fff",
-    padding: 12,
-    borderRadius: 10,
+    padding: 14,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: "#e5e7eb",
     marginBottom: 10,
-    flexDirection: "row",
-    alignItems: "center",
   },
-  title: { fontWeight: "700" },
-  subtitle: { color: "#6b7280", marginBottom: 4 },
-  chip: { color: "#0C5BAA", fontWeight: "700" },
-  smallButton: {
-    borderWidth: 1,
-    borderColor: "#0C5BAA",
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  smallText: { color: "#0C5BAA", fontWeight: "700" },
-  dangerButton: {
-    borderWidth: 1,
-    borderColor: "#e11d48",
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  smallDanger: { color: "#e11d48", fontWeight: "700" },
-  empty: { textAlign: "center", color: "#6b7280", marginTop: 12 },
+  personRow: { flexDirection: "row", alignItems: "center" },
+  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#e0efff", alignItems: "center", justifyContent: "center", marginRight: 10 },
+  avatarText: { color: "#0C5BAA", fontWeight: "800" },
+  personInfo: { flex: 1, minWidth: 0 },
+  title: { color: "#0f172a", fontWeight: "700" },
+  subtitle: { color: "#64748b", marginTop: 2 },
+  roleBadge: { backgroundColor: "#eff6ff", borderRadius: 8, paddingVertical: 5, paddingHorizontal: 8, marginLeft: 8 },
+  roleBadgeText: { color: "#0C5BAA", fontSize: 12, fontWeight: "700" },
+  permissionActions: { borderTopWidth: 1, borderTopColor: "#e2e8f0", marginTop: 12, paddingTop: 12, flexDirection: "row", alignItems: "center", gap: 10 },
+  roleOptions: { flex: 1, flexDirection: "row" },
+  roleOption: { flex: 1, minHeight: 40, borderWidth: 1, borderColor: "#cbd5e1", alignItems: "center", justifyContent: "center" },
+  roleOptionActive: { backgroundColor: "#0C5BAA", borderColor: "#0C5BAA" },
+  roleOptionText: { color: "#475569", fontSize: 13, fontWeight: "700" },
+  roleOptionTextActive: { color: "#fff" },
+  removeButton: { minHeight: 40, justifyContent: "center", paddingHorizontal: 4 },
+  removeText: { color: "#be123c", fontSize: 13, fontWeight: "700" },
+  emptyContent: { flexGrow: 1, justifyContent: "center" },
+  empty: { textAlign: "center", color: "#64748b" },
 });
 
 export default PermissoesScreen;

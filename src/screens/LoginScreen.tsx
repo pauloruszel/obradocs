@@ -36,7 +36,7 @@ const LoginScreen = () => {
   const handleLogin = async () => {
     const trimmedEmail = email.trim();
     if (!isValidEmail(trimmedEmail) || password.length < 6) {
-      toastError("Dados invalidos", "Informe um e-mail valido e senha com pelo menos 6 caracteres.");
+      toastError("Dados inválidos", "Informe um e-mail válido e uma senha com pelo menos 6 caracteres.");
       return;
     }
     setSubmitting(true);
@@ -53,8 +53,8 @@ const LoginScreen = () => {
     const trimmedEmail = email.trim();
     if (!isValidEmail(trimmedEmail) || password.length < 6 || name.trim().length < 2) {
       toastError(
-        "Dados invalidos",
-        "Nome (min. 2 letras), e-mail valido e senha com pelo menos 6 caracteres.",
+        "Dados inválidos",
+        "Informe nome, e-mail válido e uma senha com pelo menos 6 caracteres.",
       );
       return;
     }

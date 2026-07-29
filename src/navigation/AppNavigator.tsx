@@ -61,11 +61,11 @@ const AppNavigator = () => {
       ) : (
         <>
           <Stack.Screen name="ObrasList" component={ObrasListScreen} options={{ title: "Obras" }} />
-          <Stack.Screen name="NovaObra" component={NovaObraScreen} options={{ title: "Nova Obra" }} />
+          <Stack.Screen name="NovaObra" component={NovaObraScreen} options={{ title: "Nova obra" }} />
           <Stack.Screen
             name="EntrarObra"
             component={EntrarObraScreen}
-            options={{ title: "Entrar pela Obra" }}
+            options={{ title: "Entrar em uma obra" }}
           />
           <Stack.Screen
             name="ObraDetail"
@@ -75,11 +75,11 @@ const AppNavigator = () => {
           <Stack.Screen
             name="UploadArquivo"
             component={UploadArquivoScreen}
-            options={{ title: "Enviar Arquivo" }}
+            options={{ title: "Enviar arquivo" }}
           />
           <Stack.Screen name="ArquivoView" component={ArquivoViewScreen} options={{ title: "Arquivo" }} />
-          <Stack.Screen name="Historico" component={HistoricoScreen} options={{ title: "Historico" }} />
-          <Stack.Screen name="Permissoes" component={PermissoesScreen} options={{ title: "Permissoes" }} />
+          <Stack.Screen name="Historico" component={HistoricoScreen} options={{ title: "Histórico" }} />
+          <Stack.Screen name="Permissoes" component={PermissoesScreen} options={{ title: "Permissões" }} />
           <Stack.Screen
             name="ResetPassword"
             component={ResetPasswordScreen}
