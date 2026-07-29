@@ -5,6 +5,8 @@ type BrowserDialogs = {
   confirm: (message: string) => boolean;
 };
 
+type BrowserGlobal = typeof globalThis & Partial<BrowserDialogs>;
+
 const messageText = (title: string, message?: string) =>
   [title, message].filter(Boolean).join("\n\n");
 
@@ -39,12 +41,15 @@ export const executeWebAlert = (
 let installed = false;
 
 export const installWebAlertPolyfill = () => {
-  if (installed || Platform.OS !== "web" || typeof window === "undefined") return;
+  if (installed || Platform.OS !== "web") return;
+
+  const browser = globalThis as BrowserGlobal;
+  if (typeof browser.alert !== "function" || typeof browser.confirm !== "function") return;
 
   installed = true;
   Alert.alert = (title, message, buttons) =>
     executeWebAlert(title, message, buttons, {
-      alert: (text) => window.alert(text),
-      confirm: (text) => window.confirm(text),
+      alert: browser.alert!.bind(browser),
+      confirm: browser.confirm!.bind(browser),
     });
 };
