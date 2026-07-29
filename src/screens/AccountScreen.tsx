@@ -1,25 +1,27 @@
 import React, { useState } from "react";
+import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import {
-  ActivityIndicator,
-  Alert,
-  Linking,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+  ChevronDown,
+  ChevronRight,
+  CircleHelp,
+  FileText,
+  LogOut,
+  ShieldCheck,
+  Trash2,
+  UserRound,
+} from "lucide-react-native";
 import { useAuth } from "@context/AuthContext";
 import { publicApiUrl } from "@services/apiClient";
 import { toastError, toastInfo } from "@utils/toast";
-
-const PRIMARY = "#0C5BAA";
+import AppButton from "@components/AppButton";
+import AppInput from "@components/AppInput";
+import { colors, layout, radius, spacing, typography } from "@theme/index";
 
 const AccountScreen = () => {
   const { user, signOut, deleteAccount } = useAuth();
   const [password, setPassword] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [dangerVisible, setDangerVisible] = useState(false);
 
   const open = (path: string) =>
     Linking.openURL(publicApiUrl(path)).catch(() =>
@@ -33,7 +35,7 @@ const AccountScreen = () => {
     }
     Alert.alert(
       "Excluir conta permanentemente?",
-      "Suas obras sem outro proprietário e todos os arquivos delas serão excluídos. Esta ação não pode ser desfeita.",
+      "Suas obras sem outro proprietário e os arquivos delas serão excluídos. Esta ação não pode ser desfeita.",
       [
         { text: "Cancelar", style: "cancel" },
         {
@@ -55,110 +57,194 @@ const AccountScreen = () => {
     );
   };
 
+  const links = [
+    {
+      label: "Política de Privacidade",
+      icon: ShieldCheck,
+      onPress: () => open("/privacy.html"),
+    },
+    { label: "Termos de Uso", icon: FileText, onPress: () => open("/terms.html") },
+    { label: "Ajuda e contato", icon: CircleHelp, onPress: () => open("/support.html") },
+  ];
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.sectionTitle}>Dados da conta</Text>
-      <View style={styles.account}>
-        <Text style={styles.name}>{user?.nome}</Text>
-        <Text style={styles.email}>{user?.email}</Text>
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.profile}>
+        <View style={styles.avatar}>
+          <UserRound size={28} color={colors.primary} />
+        </View>
+        <View style={styles.profileInfo}>
+          <Text style={styles.name}>{user?.nome}</Text>
+          <Text style={styles.email} numberOfLines={1}>{user?.email}</Text>
+        </View>
       </View>
 
       <Text style={styles.sectionTitle}>Informações e ajuda</Text>
-      <View style={styles.links}>
-        <TouchableOpacity style={styles.linkRow} onPress={() => open("/privacy.html")}>
-          <Text style={styles.linkText}>Política de Privacidade</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.linkRow} onPress={() => open("/terms.html")}>
-          <Text style={styles.linkText}>Termos de Uso</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.linkRow} onPress={() => open("/support.html")}>
-          <Text style={styles.linkText}>Ajuda e contato</Text>
-        </TouchableOpacity>
+      <View style={styles.linkGroup}>
+        {links.map(({ label, icon: Icon, onPress }, index) => (
+          <Pressable
+            key={label}
+            style={({ pressed }) => [
+              styles.linkRow,
+              index < links.length - 1 && styles.linkBorder,
+              pressed && styles.pressed,
+            ]}
+            onPress={onPress}
+            accessibilityRole="link"
+          >
+            <View style={styles.linkIcon}>
+              <Icon size={20} color={colors.primary} />
+            </View>
+            <Text style={styles.linkText}>{label}</Text>
+            <ChevronRight size={19} color={colors.textMuted} />
+          </Pressable>
+        ))}
       </View>
 
-      <TouchableOpacity style={styles.signOut} onPress={signOut}>
-        <Text style={styles.signOutText}>Sair da conta</Text>
-      </TouchableOpacity>
+      <AppButton
+        label="Sair da conta"
+        variant="secondary"
+        icon={<LogOut size={19} color={colors.primary} />}
+        onPress={signOut}
+        style={styles.signOut}
+      />
 
-      <View style={styles.danger}>
-        <Text style={styles.dangerTitle}>Excluir conta</Text>
-        <Text style={styles.description}>
-          Informe sua senha atual. Obras sem outro proprietário e seus arquivos serão excluídos
-          permanentemente.
-        </Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Senha atual"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-          editable={!deleting}
-          autoCapitalize="none"
+      <Pressable
+        style={styles.dangerHeader}
+        onPress={() => setDangerVisible((current) => !current)}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: dangerVisible }}
+      >
+        <View style={styles.dangerIcon}>
+          <Trash2 size={20} color={colors.danger} />
+        </View>
+        <View style={styles.dangerHeaderText}>
+          <Text style={styles.dangerTitle}>Excluir conta</Text>
+          <Text style={styles.dangerSummary}>Remover permanentemente seus dados</Text>
+        </View>
+        <ChevronDown
+          size={20}
+          color={colors.textMuted}
+          style={{ transform: [{ rotate: dangerVisible ? "180deg" : "0deg" }] }}
         />
-        <TouchableOpacity
-          style={[styles.deleteButton, deleting && styles.disabled]}
-          onPress={confirmDelete}
-          disabled={deleting}
-        >
-          {deleting ? (
-            <ActivityIndicator color="#b42318" />
-          ) : (
-            <Text style={styles.deleteText}>Excluir minha conta</Text>
-          )}
-        </TouchableOpacity>
-      </View>
+      </Pressable>
+
+      {dangerVisible && (
+        <View style={styles.dangerContent}>
+          <Text style={styles.description}>
+            Obras sem outro proprietário e seus arquivos serão excluídos permanentemente.
+          </Text>
+          <AppInput
+            label="Senha atual"
+            placeholder="Confirme sua senha"
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+            editable={!deleting}
+            autoCapitalize="none"
+            autoComplete="current-password"
+          />
+          <AppButton
+            label="Excluir minha conta"
+            variant="danger"
+            onPress={confirmDelete}
+            loading={deleting}
+            disabled={!password}
+            style={styles.deleteButton}
+          />
+        </View>
+      )}
     </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f7f8fa" },
-  content: { padding: 20, paddingBottom: 40 },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#475569",
-    marginBottom: 8,
-    marginTop: 8,
+  screen: { flex: 1, backgroundColor: colors.background },
+  content: {
+    width: "100%",
+    maxWidth: layout.maxContentWidth,
+    alignSelf: "center",
+    padding: spacing.lg,
+    paddingBottom: spacing.xxl,
   },
-  account: { paddingVertical: 8, marginBottom: 20 },
-  name: { fontSize: 20, fontWeight: "700", color: "#0f172a" },
-  email: { color: "#64748b", marginTop: 4 },
-  links: { borderTopWidth: 1, borderTopColor: "#dbe2ea", marginBottom: 20 },
-  linkRow: { minHeight: 52, justifyContent: "center", borderBottomWidth: 1, borderBottomColor: "#dbe2ea" },
-  linkText: { color: PRIMARY, fontSize: 16, fontWeight: "600" },
-  signOut: {
-    minHeight: 48,
+  profile: {
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: PRIMARY,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: spacing.xl,
+  },
+  avatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: colors.primarySoft,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 8,
-    marginBottom: 28,
+    marginRight: spacing.md,
   },
-  signOutText: { color: PRIMARY, fontWeight: "700", fontSize: 16 },
-  danger: { borderTopWidth: 1, borderTopColor: "#f1b4b4", paddingTop: 20 },
-  dangerTitle: { fontSize: 18, fontWeight: "700", color: "#b42318" },
-  description: { color: "#64748b", lineHeight: 21, marginTop: 6, marginBottom: 14 },
-  input: {
+  profileInfo: { flex: 1, minWidth: 0 },
+  name: { color: colors.text, fontSize: 19, fontWeight: "800" },
+  email: { color: colors.textMuted, marginTop: spacing.xs },
+  sectionTitle: { ...typography.sectionTitle, marginBottom: spacing.md },
+  linkGroup: {
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "#cbd5e1",
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    minHeight: 48,
-    backgroundColor: "#fff",
-    marginBottom: 12,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    overflow: "hidden",
   },
-  deleteButton: {
-    minHeight: 48,
+  linkRow: {
+    minHeight: 58,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.md,
+  },
+  linkBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  pressed: { backgroundColor: colors.surfaceMuted },
+  linkIcon: { width: 36, alignItems: "flex-start" },
+  linkText: { flex: 1, color: colors.text, fontSize: 15, fontWeight: "600" },
+  signOut: { marginVertical: spacing.xl },
+  dangerHeader: {
+    minHeight: 66,
+    flexDirection: "row",
+    alignItems: "center",
+    padding: spacing.md,
     borderWidth: 1,
-    borderColor: "#dc2626",
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+  },
+  dangerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    backgroundColor: colors.dangerSoft,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 8,
+    marginRight: spacing.md,
   },
-  deleteText: { color: "#b42318", fontWeight: "700", fontSize: 16 },
-  disabled: { opacity: 0.6 },
+  dangerHeaderText: { flex: 1 },
+  dangerTitle: { color: colors.danger, fontWeight: "700" },
+  dangerSummary: { color: colors.textMuted, fontSize: 13, marginTop: spacing.xs },
+  dangerContent: {
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderColor: colors.border,
+    borderBottomLeftRadius: radius.md,
+    borderBottomRightRadius: radius.md,
+    backgroundColor: colors.surface,
+    padding: spacing.lg,
+  },
+  description: { color: colors.textMuted, lineHeight: 21, marginBottom: spacing.lg },
+  deleteButton: { marginTop: spacing.lg },
 });
 
 export default AccountScreen;

@@ -1,3 +1,16 @@
+import React, { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import {
+  Image,
+  Linking,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import WebView from "react-native-webview";
+import { FileText, MoreVertical, Pencil, ShieldAlert } from "lucide-react-native";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Arquivo } from "@models/models";
 import { RootStackParamList } from "@navigation/AppNavigator";
 import {
@@ -7,20 +20,11 @@ import {
 } from "@services/arquivosService";
 import { toastError, toastSuccess } from "@utils/toast";
 import { arquivoTipoLabel, formatDateTime, formatFileName } from "@utils/display";
-import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import React, { useCallback, useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Image,
-  Linking,
-  Platform,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
-import WebView from "react-native-webview";
+import ActionMenu, { ActionMenuItem } from "@components/ActionMenu";
+import AppButton from "@components/AppButton";
+import RenameObraModal from "@components/RenameObraModal";
+import ScreenState from "@components/ScreenState";
+import { colors, radius, spacing } from "@theme/index";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ArquivoView">;
 
@@ -30,22 +34,41 @@ const ArquivoViewScreen = ({ route, navigation }: Props) => {
   const [meta, setMeta] = useState<Arquivo | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [renomeando, setRenomeando] = useState(false);
-  const [novoNome, setNovoNome] = useState(route.params.nome || "");
-  const [salvando, setSalvando] = useState(false);
+  const [renameVisible, setRenameVisible] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
+
+  const displayName = formatFileName(meta?.nome_original || route.params.nome || "");
+  const canEdit = papel === "OWNER" || papel === "EDITOR";
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: "Arquivo",
+      headerRight: () => (
+        <Pressable
+          style={styles.headerMenu}
+          onPress={() => setMenuVisible(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Abrir ações do arquivo"
+        >
+          <MoreVertical size={23} color={colors.primary} />
+        </Pressable>
+      ),
+    });
+  }, [navigation]);
 
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const [signed, arquivo] = await Promise.all([
+      const [signedUrl, file] = await Promise.all([
         gerarUrlTemporaria(arquivoId),
         buscarArquivo(arquivoId),
       ]);
-      setUrl(signed);
-      setMeta(arquivo);
-    } catch (e: any) {
-      setLoadError(e?.message || "Não foi possível abrir o arquivo.");
+      setUrl(signedUrl);
+      setMeta(file);
+    } catch (error) {
+      setLoadError((error as Error)?.message || "Não foi possível abrir o arquivo.");
     } finally {
       setLoading(false);
     }
@@ -55,140 +78,96 @@ const ArquivoViewScreen = ({ route, navigation }: Props) => {
     load();
   }, [load]);
 
-  useEffect(() => {
-    if (meta?.nome_original) {
-      setNovoNome(formatFileName(meta.nome_original));
+  const saveName = async (newName: string) => {
+    const trimmed = newName.trim();
+    if (!trimmed) {
+      toastError("Nome inválido", "Informe um nome para o arquivo.");
+      return;
     }
-  }, [meta]);
+    setSaving(true);
+    try {
+      setMeta(await renomearArquivo(arquivoId, trimmed));
+      setRenameVisible(false);
+      toastSuccess("Nome atualizado");
+    } catch (error) {
+      toastError("Não foi possível renomear", (error as Error).message || "Tente novamente.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
-  if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator color="#0C5BAA" />
-        <Text style={styles.loadingText}>Carregando arquivo...</Text>
-      </View>
-    );
-  }
+  const menuItems: ActionMenuItem[] = [
+    ...(canEdit
+      ? [
+          {
+            label: "Renomear arquivo",
+            icon: <Pencil size={20} color={colors.text} />,
+            onPress: () => setRenameVisible(true),
+          },
+        ]
+      : []),
+    {
+      label: "Denunciar conteúdo",
+      icon: <ShieldAlert size={20} color={colors.text} />,
+      onPress: () =>
+        navigation.navigate("ReportContent", {
+          targetType: "ARQUIVO",
+          targetId: arquivoId,
+          title: displayName,
+        }),
+    },
+  ];
 
+  if (loading) return <ScreenState loading title="Carregando arquivo" />;
   if (loadError || !url || !meta) {
     return (
-      <View style={styles.errorState}>
-        <Text style={styles.errorTitle}>Não foi possível abrir o arquivo</Text>
-        <Text style={styles.errorText}>{loadError || "Tente novamente."}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={load}>
-          <Text style={styles.primaryText}>Tentar novamente</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.secondaryText}>Voltar</Text>
-        </TouchableOpacity>
-      </View>
+      <ScreenState
+        icon={<FileText size={44} color={colors.textMuted} />}
+        title="Não foi possível abrir o arquivo"
+        description={loadError || "Tente novamente."}
+        actionLabel="Tentar novamente"
+        onAction={load}
+      />
     );
   }
 
-  const displayName = formatFileName(meta.nome_original);
   const isPdf =
     meta.content_type === "application/pdf" || displayName.toLowerCase().endsWith(".pdf");
-  const canEditar = papel === "OWNER" || papel === "EDITOR";
   const fileSize =
     meta.tamanho_bytes >= 1024 * 1024
       ? `${(meta.tamanho_bytes / (1024 * 1024)).toFixed(1)} MB`
       : `${Math.max(1, Math.round(meta.tamanho_bytes / 1024))} KB`;
 
-  const handleSalvarNome = async () => {
-    const trimmed = novoNome.trim();
-    if (!trimmed) {
-      toastError("Digite um nome válido");
-      return;
-    }
-    setSalvando(true);
-    try {
-      const atualizado = await renomearArquivo(arquivoId, trimmed);
-      setMeta(atualizado);
-      setRenomeando(false);
-      toastSuccess("Nome atualizado");
-    } catch (e: any) {
-      toastError("Erro ao renomear", e?.message || "Tente novamente");
-    } finally {
-      setSalvando(false);
-    }
-  };
-
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.titleRow}>
-          <Text style={styles.title} numberOfLines={2}>{displayName}</Text>
-          <View style={styles.headerActions}>
-            <TouchableOpacity
-              style={styles.reportButton}
-              onPress={() =>
-                navigation.navigate("ReportContent", {
-                  targetType: "ARQUIVO",
-                  targetId: arquivoId,
-                  title: displayName,
-                })
-              }
-            >
-              <Text style={styles.reportText}>Denunciar</Text>
-            </TouchableOpacity>
-            {canEditar && !renomeando && (
-              <TouchableOpacity style={styles.linkButton} onPress={() => setRenomeando(true)}>
-                <Text style={styles.linkText}>Renomear</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
+      <View style={styles.metadata}>
+        <Text style={styles.title} numberOfLines={2}>{displayName}</Text>
         <Text style={styles.subtitle}>
-          {[arquivoTipoLabel[meta.tipo], fileSize, formatDateTime(meta.created_at)].filter(Boolean).join(" · ")}
+          {[arquivoTipoLabel[meta.tipo], fileSize, formatDateTime(meta.created_at)]
+            .filter(Boolean)
+            .join(" · ")}
         </Text>
-        {canEditar && renomeando && (
-          <View style={styles.renameBox}>
-            <Text style={styles.inputLabel}>Nome do arquivo</Text>
-            <TextInput
-              style={styles.input}
-              value={novoNome}
-              onChangeText={setNovoNome}
-              placeholder="Novo nome do arquivo"
-              selectTextOnFocus
-            />
-            <View style={styles.renameActions}>
-              <TouchableOpacity
-                style={styles.secondaryButton}
-                onPress={() => {
-                  setRenomeando(false);
-                  setNovoNome(displayName);
-                }}
-              >
-                <Text style={styles.secondaryText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.primaryButton, salvando && styles.buttonDisabled]}
-                onPress={handleSalvarNome}
-                disabled={salvando}
-              >
-                <Text style={styles.primaryText}>{salvando ? "Salvando..." : "Salvar"}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
       </View>
+
       <View style={styles.viewer}>
         {isPdf && Platform.OS === "android" ? (
           <View style={styles.pdfFallback}>
+            <View style={styles.pdfIcon}>
+              <FileText size={34} color={colors.primary} />
+            </View>
             <Text style={styles.pdfTitle}>Documento PDF</Text>
             <Text style={styles.pdfDescription}>
-              Abra o documento no visualizador instalado no seu dispositivo.
+              Abra o documento no visualizador instalado no seu aparelho.
             </Text>
-            <TouchableOpacity
-              style={styles.openPdfButton}
+            <AppButton
+              label="Abrir PDF"
               onPress={() =>
                 Linking.openURL(url).catch(() =>
                   toastError("Não foi possível abrir o PDF", "Tente novamente."),
                 )
               }
-            >
-              <Text style={styles.primaryText}>Abrir PDF</Text>
-            </TouchableOpacity>
+              style={styles.openButton}
+            />
           </View>
         ) : isPdf ? (
           <WebView source={{ uri: url }} style={styles.webView} />
@@ -196,113 +175,59 @@ const ArquivoViewScreen = ({ route, navigation }: Props) => {
           <Image source={{ uri: url }} style={styles.image} />
         )}
       </View>
+
+      <ActionMenu
+        visible={menuVisible}
+        title="Ações do arquivo"
+        items={menuItems}
+        onClose={() => setMenuVisible(false)}
+      />
+      <RenameObraModal
+        visible={renameVisible}
+        currentName={displayName}
+        title="Renomear arquivo"
+        label="Novo nome do arquivo"
+        helper="Mantenha a extensão para identificar corretamente o formato."
+        onCancel={() => setRenameVisible(false)}
+        onSave={saveName}
+        loading={saving}
+      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 12,
+  container: { flex: 1, backgroundColor: colors.surface },
+  headerMenu: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
+  metadata: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
+    borderBottomColor: colors.border,
   },
-  titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  title: { color: "#0f172a", fontSize: 18, fontWeight: "700", flex: 1, marginRight: 12 },
-  subtitle: { color: "#64748b", marginTop: 6, fontSize: 13 },
-  centered: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#f7f8fa" },
-  loadingText: { color: "#64748b", marginTop: 10 },
-  errorState: {
-    flex: 1,
-    padding: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#f7f8fa",
-  },
-  errorTitle: { color: "#0f172a", fontSize: 18, fontWeight: "700", textAlign: "center" },
-  errorText: { color: "#64748b", marginTop: 6, marginBottom: 16, textAlign: "center" },
-  retryButton: {
-    minHeight: 46,
-    minWidth: 180,
-    backgroundColor: "#0C5BAA",
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 16,
-  },
-  backButton: { minHeight: 44, alignItems: "center", justifyContent: "center", marginTop: 6, paddingHorizontal: 20 },
-  viewer: { flex: 1, backgroundColor: "#eef2f6" },
-  webView: { flex: 1, backgroundColor: "#eef2f6" },
+  title: { color: colors.text, fontSize: 17, fontWeight: "700" },
+  subtitle: { color: colors.textMuted, marginTop: spacing.xs, fontSize: 13 },
+  viewer: { flex: 1, backgroundColor: "#EEF2F6" },
+  webView: { flex: 1, backgroundColor: "#EEF2F6" },
   image: { flex: 1, width: "100%", resizeMode: "contain" },
-  pdfFallback: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
-  pdfTitle: { fontSize: 20, fontWeight: "700", color: "#0f172a" },
+  pdfFallback: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl },
+  pdfIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: radius.md,
+    backgroundColor: colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pdfTitle: { fontSize: 20, fontWeight: "700", color: colors.text, marginTop: spacing.lg },
   pdfDescription: {
-    color: "#64748b",
+    color: colors.textMuted,
     textAlign: "center",
     lineHeight: 21,
-    marginTop: 8,
-    marginBottom: 18,
+    marginTop: spacing.sm,
+    marginBottom: spacing.lg,
   },
-  openPdfButton: {
-    minHeight: 48,
-    minWidth: 180,
-    backgroundColor: "#0C5BAA",
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 18,
-  },
-  linkButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#0C5BAA",
-  },
-  linkText: { color: "#0C5BAA", fontWeight: "700" },
-  headerActions: { flexDirection: "row", gap: 6, alignItems: "center" },
-  reportButton: { minHeight: 36, justifyContent: "center", paddingHorizontal: 6 },
-  reportText: { color: "#64748b", fontWeight: "600", fontSize: 13 },
-  renameBox: {
-    backgroundColor: "#f8fafc",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    padding: 10,
-    marginTop: 12,
-    gap: 8,
-  },
-  inputLabel: { color: "#334155", fontWeight: "700" },
-  input: {
-    borderWidth: 1,
-    borderColor: "#d0d4d9",
-    padding: 12,
-    borderRadius: 8,
-    backgroundColor: "#fff",
-  },
-  renameActions: { flexDirection: "row", gap: 8 },
-  secondaryButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#0C5BAA",
-    padding: 12,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  secondaryText: { color: "#0C5BAA", fontWeight: "700" },
-  primaryButton: {
-    flex: 1,
-    backgroundColor: "#0C5BAA",
-    padding: 12,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  primaryText: { color: "#fff", fontWeight: "700" },
-  buttonDisabled: { opacity: 0.55 },
+  openButton: { minWidth: 180 },
 });
 
 export default ArquivoViewScreen;

@@ -1,12 +1,29 @@
-import React, { useCallback, useState } from "react";
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl } from "react-native";
+import React, { useCallback, useLayoutEffect, useState } from "react";
+import {
+  FlatList,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
+import {
+  Building2,
+  ChevronRight,
+  CircleUserRound,
+  KeyRound,
+  Plus,
+} from "lucide-react-native";
 import { listObrasDoUsuario } from "@services/obrasService";
 import { useAuth } from "@context/AuthContext";
 import { Obra } from "@models/models";
 import { RootStackParamList } from "@navigation/AppNavigator";
 import { toastError } from "@utils/toast";
+import AppButton from "@components/AppButton";
+import ScreenState from "@components/ScreenState";
+import { colors, layout, radius, spacing } from "@theme/index";
 
 type Nav = NativeStackNavigationProp<RootStackParamList, "ObrasList">;
 
@@ -17,28 +34,46 @@ const ObrasListScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const load = async () => {
-    if (!user) return;
-    try {
-      const result = await listObrasDoUsuario();
-      setObras(result);
-    } catch (e) {
-      console.warn(e);
-      const msg = (e as Error)?.message || "";
-      const offline = msg.toLowerCase().includes("network") || msg.toLowerCase().includes("fetch");
-      toastError(
-        offline ? "Sem conexão" : "Não foi possível carregar as obras",
-        offline ? "Verifique sua internet." : "Verifique sua conexão ou entre novamente.",
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: "Minhas obras",
+      headerRight: () => (
+        <Pressable
+          style={styles.accountButton}
+          onPress={() => navigation.navigate("Account")}
+          accessibilityRole="button"
+          accessibilityLabel="Abrir minha conta"
+        >
+          <CircleUserRound size={24} color={colors.primary} />
+        </Pressable>
+      ),
+    });
+  }, [navigation]);
+
+  const load = useCallback(
+    async (showInitialLoader = false) => {
+      if (!user) return;
+      if (showInitialLoader) setLoading(true);
+      try {
+        setObras(await listObrasDoUsuario());
+      } catch (error) {
+        const message = (error as Error)?.message || "";
+        const offline = /network|fetch/i.test(message);
+        toastError(
+          offline ? "Sem conexão" : "Não foi possível carregar as obras",
+          offline ? "Verifique sua internet." : "Tente novamente em alguns instantes.",
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [user],
+  );
 
   useFocusEffect(
     useCallback(() => {
-      load();
-    }, [user])
+      load(obras.length === 0);
+    }, [load]),
   );
 
   const onRefresh = async () => {
@@ -48,85 +83,128 @@ const ObrasListScreen = () => {
   };
 
   const renderItem = ({ item }: { item: Obra }) => (
-    <TouchableOpacity
-      style={styles.card}
+    <Pressable
+      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
       onPress={() => navigation.navigate("ObraDetail", { obraId: item.id, nome: item.nome })}
+      accessibilityRole="button"
+      accessibilityLabel={`Abrir obra ${item.nome}`}
     >
-      <Text style={styles.cardTitle}>{item.nome}</Text>
-      <Text style={styles.cardSubtitle}>Código: {item.codigo_compartilhamento}</Text>
-    </TouchableOpacity>
+      <View style={styles.cardIcon}>
+        <Building2 size={22} color={colors.primary} />
+      </View>
+      <View style={styles.cardContent}>
+        <Text style={styles.cardTitle} numberOfLines={2}>
+          {item.nome}
+        </Text>
+        <View style={styles.codeRow}>
+          <KeyRound size={14} color={colors.textMuted} />
+          <Text style={styles.cardSubtitle}>{item.codigo_compartilhamento}</Text>
+        </View>
+      </View>
+      <ChevronRight size={20} color={colors.textMuted} />
+    </Pressable>
   );
 
   if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator />
-      </View>
-    );
+    return <ScreenState loading title="Carregando suas obras" />;
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Minhas obras</Text>
-        <TouchableOpacity
-          onPress={() => navigation.navigate("Account")}
-          accessibilityRole="button"
-          accessibilityLabel="Abrir minha conta"
-        >
-          <Text style={styles.link}>Minha conta</Text>
-        </TouchableOpacity>
+    <View style={styles.screen}>
+      <View style={styles.content}>
+        <View style={styles.actions}>
+          <AppButton
+            label="Nova obra"
+            icon={<Plus size={19} color={colors.white} />}
+            onPress={() => navigation.navigate("NovaObra")}
+            style={styles.action}
+          />
+          <AppButton
+            label="Entrar com código"
+            icon={<KeyRound size={18} color={colors.primary} />}
+            onPress={() => navigation.navigate("EntrarObra")}
+            variant="secondary"
+            style={styles.action}
+          />
+        </View>
+
+        <FlatList
+          data={obras}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+          contentContainerStyle={obras.length === 0 ? styles.emptyList : styles.list}
+          ListHeaderComponent={
+            obras.length > 0 ? <Text style={styles.listTitle}>{obras.length} {obras.length === 1 ? "obra" : "obras"}</Text> : null
+          }
+          ListEmptyComponent={
+            <ScreenState
+              icon={<Building2 size={44} color={colors.primary} />}
+              title="Sua primeira obra começa aqui"
+              description="Crie uma obra para organizar documentos ou entre em uma obra existente usando um código."
+              actionLabel="Criar nova obra"
+              onAction={() => navigation.navigate("NovaObra")}
+            />
+          }
+        />
       </View>
-      <View style={styles.actions}>
-        <TouchableOpacity style={styles.primaryButton} onPress={() => navigation.navigate("NovaObra")}>
-          <Text style={styles.primaryText}>Nova obra</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate("EntrarObra")}>
-          <Text style={styles.secondaryText}>Entrar com código</Text>
-        </TouchableOpacity>
-      </View>
-      <FlatList
-        data={obras}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        ListEmptyComponent={<Text style={styles.empty}>Nenhuma obra ainda. Crie uma ou entre com um código.</Text>}
-      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f7f8fa", padding: 16 },
-  centered: { flex: 1, alignItems: "center", justifyContent: "center" },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
-  title: { fontSize: 22, fontWeight: "700", color: "#0C5BAA" },
-  link: { color: "#0C5BAA", fontWeight: "600" },
-  actions: { flexDirection: "row", gap: 8, marginBottom: 12 },
-  primaryButton: { flex: 1, backgroundColor: "#0C5BAA", padding: 12, borderRadius: 10, alignItems: "center" },
-  primaryText: { color: "#fff", fontWeight: "600" },
-  secondaryButton: {
-    flex: 1,
+  screen: { flex: 1, backgroundColor: colors.background, alignItems: "center" },
+  content: { flex: 1, width: "100%", maxWidth: layout.maxContentWidth, padding: spacing.lg },
+  accountButton: {
+    width: 48,
+    height: 48,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: -spacing.sm,
+  },
+  actions: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.xl },
+  action: { flex: 1 },
+  list: { paddingBottom: spacing.xxl },
+  listTitle: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: spacing.sm,
+  },
+  card: {
+    minHeight: 76,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: "#0C5BAA",
-    padding: 12,
-    borderRadius: 10,
+    borderColor: colors.border,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    flexDirection: "row",
     alignItems: "center",
   },
-  secondaryText: { color: "#0C5BAA", fontWeight: "600" },
-  card: {
-    backgroundColor: "#fff",
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+  cardPressed: { backgroundColor: colors.surfaceMuted },
+  cardIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    backgroundColor: colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: spacing.md,
   },
-  cardTitle: { fontSize: 18, fontWeight: "700" },
-  cardSubtitle: { color: "#6b7280", marginTop: 4 },
-  empty: { textAlign: "center", marginTop: 20, color: "#6b7280" },
+  cardContent: { flex: 1, minWidth: 0 },
+  cardTitle: { color: colors.text, fontSize: 16, fontWeight: "700" },
+  codeRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginTop: spacing.xs },
+  cardSubtitle: { color: colors.textMuted, fontSize: 13, fontWeight: "600" },
+  emptyList: { flexGrow: 1 },
 });
 
 export default ObrasListScreen;

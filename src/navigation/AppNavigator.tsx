@@ -15,8 +15,9 @@ import TermsAcceptanceScreen from "@screens/TermsAcceptanceScreen";
 import ReportContentScreen from "@screens/ReportContentScreen";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import React from "react";
-import { ActivityIndicator, View } from "react-native";
 import { Papel } from "@models/models";
+import ScreenState from "@components/ScreenState";
+import { colors } from "@theme/index";
 
 export type RootStackParamList = {
   Login: undefined;
@@ -45,15 +46,19 @@ const AppNavigator = () => {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator />
-      </View>
-    );
+    return <ScreenState loading title="Preparando o Obradocs" />;
   }
 
   return (
-    <Stack.Navigator>
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: colors.surface },
+        headerTintColor: colors.text,
+        headerTitleStyle: { fontWeight: "700" },
+        headerShadowVisible: false,
+        contentStyle: { backgroundColor: colors.background },
+      }}
+    >
       {!user ? (
         <>
           <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
@@ -76,7 +81,7 @@ const AppNavigator = () => {
         />
       ) : (
         <>
-          <Stack.Screen name="ObrasList" component={ObrasListScreen} options={{ title: "Obras" }} />
+          <Stack.Screen name="ObrasList" component={ObrasListScreen} options={{ title: "Minhas obras" }} />
           <Stack.Screen name="Account" component={AccountScreen} options={{ title: "Minha conta" }} />
           <Stack.Screen
             name="ReportContent"

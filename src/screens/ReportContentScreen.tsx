@@ -1,100 +1,114 @@
 import React, { useState } from "react";
-import {
-  ActivityIndicator,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from "react-native";
+import { ShieldAlert } from "lucide-react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "@navigation/AppNavigator";
 import { reportContent } from "@services/reportsService";
 import { toastError, toastSuccess } from "@utils/toast";
+import AppButton from "@components/AppButton";
+import AppInput from "@components/AppInput";
+import { colors, layout, radius, spacing, typography } from "@theme/index";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ReportContent">;
 
 const ReportContentScreen = ({ route, navigation }: Props) => {
   const { targetType, targetId, title } = route.params;
   const [reason, setReason] = useState("");
+  const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const submit = async () => {
     if (reason.trim().length < 10) {
-      toastError("Descreva o problema", "Use pelo menos 10 caracteres para ajudar na análise.");
+      setError("Descreva o problema usando pelo menos 10 caracteres.");
       return;
     }
     setSubmitting(true);
+    setError("");
     try {
-      await reportContent(targetType, targetId, reason);
+      await reportContent(targetType, targetId, reason.trim());
       toastSuccess("Denúncia enviada", "Obrigado. O conteúdo será analisado.");
       navigation.goBack();
-    } catch (error) {
-      toastError("Não foi possível enviar a denúncia", (error as Error).message);
+    } catch (requestError) {
+      toastError("Não foi possível enviar a denúncia", (requestError as Error).message);
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Denunciar conteúdo</Text>
-      <Text style={styles.target} numberOfLines={2}>
-        {title}
-      </Text>
-      <Text style={styles.description}>
-        Explique por que este conteúdo é inadequado, ilegal ou viola seus direitos.
-      </Text>
-      <TextInput
-        style={styles.input}
-        value={reason}
-        onChangeText={setReason}
-        placeholder="Descreva o problema"
-        multiline
-        maxLength={1000}
-        textAlignVertical="top"
-        editable={!submitting}
-      />
-      <Text style={styles.counter}>{reason.length}/1000</Text>
-      <TouchableOpacity
-        style={[styles.button, submitting && styles.disabled]}
-        onPress={submit}
-        disabled={submitting}
-      >
-        {submitting ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>Enviar denúncia</Text>
-        )}
-      </TouchableOpacity>
-    </View>
+    <KeyboardAvoidingView
+      style={styles.screen}
+      behavior={Platform.select({ ios: "padding", android: undefined })}
+    >
+      <View style={styles.content}>
+        <View style={styles.intro}>
+          <View style={styles.icon}>
+            <ShieldAlert size={25} color={colors.warning} />
+          </View>
+          <View style={styles.introText}>
+            <Text style={styles.title}>Conteúdo denunciado</Text>
+            <Text style={styles.target} numberOfLines={2}>{title}</Text>
+          </View>
+        </View>
+        <Text style={styles.description}>
+          Explique por que este conteúdo é inadequado, ilegal ou viola seus direitos. A denúncia
+          será analisada de forma confidencial.
+        </Text>
+        <AppInput
+          label="Descrição do problema"
+          value={reason}
+          onChangeText={(value) => {
+            setReason(value);
+            if (error) setError("");
+          }}
+          placeholder="Conte o que aconteceu"
+          multiline
+          maxLength={1000}
+          error={error}
+          editable={!submitting}
+          helper={`${reason.length}/1000 caracteres`}
+        />
+        <AppButton
+          label="Enviar denúncia"
+          onPress={submit}
+          loading={submitting}
+          disabled={reason.trim().length < 10}
+          style={styles.button}
+        />
+      </View>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: "#f7f8fa" },
-  title: { fontSize: 24, fontWeight: "800", color: "#0f172a" },
-  target: { fontSize: 16, fontWeight: "700", color: "#334155", marginTop: 8 },
-  description: { color: "#64748b", lineHeight: 22, marginTop: 12, marginBottom: 16 },
-  input: {
-    minHeight: 160,
-    borderWidth: 1,
-    borderColor: "#cbd5e1",
-    borderRadius: 8,
-    padding: 14,
-    backgroundColor: "#fff",
-    fontSize: 16,
+  screen: { flex: 1, backgroundColor: colors.background },
+  content: {
+    width: "100%",
+    maxWidth: layout.maxContentWidth,
+    alignSelf: "center",
+    padding: spacing.xl,
   },
-  counter: { color: "#64748b", textAlign: "right", marginTop: 6, marginBottom: 14 },
-  button: {
-    minHeight: 50,
-    borderRadius: 8,
-    backgroundColor: "#0C5BAA",
+  intro: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.warningSoft,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  icon: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
+    marginRight: spacing.md,
   },
-  buttonText: { color: "#fff", fontWeight: "700", fontSize: 16 },
-  disabled: { opacity: 0.6 },
+  introText: { flex: 1, minWidth: 0 },
+  title: { ...typography.sectionTitle },
+  target: { color: colors.textMuted, fontSize: 13, marginTop: spacing.xs },
+  description: { color: colors.textMuted, lineHeight: 22, marginVertical: spacing.xl },
+  button: { marginTop: spacing.xl },
 });
 
 export default ReportContentScreen;

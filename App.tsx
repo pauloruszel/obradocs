@@ -1,29 +1,41 @@
 import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import AppNavigator from './src/navigation/AppNavigator';
 import { AuthProvider } from './src/context/AuthContext';
 import FlashMessage from "react-native-flash-message";
+import { colors } from "./src/theme";
 
 const linking = {
-  prefixes: ["obradocs://"],      // deep link do app
+  prefixes: ["obradocs://"],
   config: {
     screens: {
-      // mapeia o path "reset" para a tela ResetPassword
       ResetPassword: "reset",
       Login: "login",
-      // se quiser, pode mapear otras telas depois
     },
+  },
+};
+
+const navigationTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    primary: colors.primary,
+    background: colors.background,
+    card: colors.surface,
+    text: colors.text,
+    border: colors.border,
+    notification: colors.danger,
   },
 };
 
 export default function App() {
   return (
     <AuthProvider>
-      <NavigationContainer linking={linking}>
+      <NavigationContainer linking={linking} theme={navigationTheme}>
         <StatusBar style="dark" />
         <AppNavigator />
-        <FlashMessage position="top" />
+        <FlashMessage position="top" floating />
       </NavigationContainer>
     </AuthProvider>
   );

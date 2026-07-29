@@ -1,247 +1,362 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useLayoutEffect, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  FlatList,
-  ActivityIndicator,
-  RefreshControl,
   Alert,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useFocusEffect } from "@react-navigation/native";
+import {
+  Camera,
+  FileText,
+  History,
+  MoreVertical,
+  Pencil,
+  ReceiptText,
+  ShieldAlert,
+  Trash2,
+  Upload,
+  Users,
+} from "lucide-react-native";
 import { RootStackParamList } from "@navigation/AppNavigator";
 import { Arquivo, ArquivoTipo } from "@models/models";
 import { listarArquivos } from "@services/arquivosService";
 import { listarPermissoes } from "@services/permissoesService";
 import { useAuth } from "@context/AuthContext";
-import { useFocusEffect } from "@react-navigation/native";
 import { toastError, toastSuccess } from "@utils/toast";
 import { arquivoTipoLabel, formatDateTime, formatFileName, papelLabel } from "@utils/display";
 import { renomearObra, excluirObra } from "@services/obrasService";
 import RenameObraModal from "@components/RenameObraModal";
-import { showMessage } from "react-native-flash-message";
+import ActionMenu, { ActionMenuItem } from "@components/ActionMenu";
+import AppButton from "@components/AppButton";
+import ScreenState from "@components/ScreenState";
+import { colors, layout, radius, spacing } from "@theme/index";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ObraDetail">;
 
 const categorias: ArquivoTipo[] = ["ORCAMENTO", "NOTA_FISCAL", "PROJETO", "FOTO"];
 
+const categoryIcon: Record<ArquivoTipo, React.ElementType> = {
+  ORCAMENTO: ReceiptText,
+  NOTA_FISCAL: FileText,
+  PROJETO: FileText,
+  FOTO: Camera,
+};
+
 const ObraDetailScreen = ({ route, navigation }: Props) => {
   const { obraId, nome } = route.params;
   const { user } = useAuth();
   const [selected, setSelected] = useState<ArquivoTipo>("FOTO");
-  const [arquivos, setArquivos] = useState<Arquivo[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [filesByCategory, setFilesByCategory] = useState<Partial<Record<ArquivoTipo, Arquivo[]>>>({});
+  const [loadingCategory, setLoadingCategory] = useState<ArquivoTipo | null>("FOTO");
   const [refreshing, setRefreshing] = useState(false);
   const [papel, setPapel] = useState<"OWNER" | "EDITOR" | "VIEWER">("VIEWER");
   const [obraNome, setObraNome] = useState(nome);
   const [renameVisible, setRenameVisible] = useState(false);
   const [renameLoading, setRenameLoading] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
 
-  const loadPermissao = async () => {
+  const canEdit = papel === "OWNER" || papel === "EDITOR";
+  const arquivos = filesByCategory[selected] || [];
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: obraNome,
+      headerRight: () => (
+        <Pressable
+          style={styles.headerMenu}
+          onPress={() => setMenuVisible(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Abrir ações da obra"
+        >
+          <MoreVertical size={23} color={colors.primary} />
+        </Pressable>
+      ),
+    });
+  }, [navigation, obraNome]);
+
+  const loadPermission = useCallback(async () => {
     if (!user) return;
     try {
-      const permissoes = await listarPermissoes(obraId);
-      const permissao = permissoes.find((item) => item.user_id === user.id);
-      if (permissao) {
-        setPapel(permissao.papel);
-      }
+      const permissions = await listarPermissoes(obraId);
+      const current = permissions.find((item) => item.user_id === user.id);
+      if (current) setPapel(current.papel);
     } catch (error) {
-      const msg = (error as Error)?.message || "";
-      const offline = msg.toLowerCase().includes("network") || msg.toLowerCase().includes("fetch");
-      toastError(offline ? "Sem conexão" : "Não foi possível carregar a permissão", offline ? "Verifique a internet." : "Tente recarregar a obra.");
+      const offline = /network|fetch/i.test((error as Error)?.message || "");
+      toastError(
+        offline ? "Sem conexão" : "Não foi possível carregar seu acesso",
+        offline ? "Verifique sua internet." : "Tente novamente.",
+      );
     }
-  };
+  }, [obraId, user]);
 
-  const loadArquivos = async () => {
-    try {
-      const result = await listarArquivos(obraId, selected);
-      const filtered = selected ? result.filter((a) => a.tipo === selected) : result;
-      setArquivos(filtered);
-    } catch (e) {
-      console.warn(e);
-      const msg = (e as Error)?.message || "";
-      const offline = msg.toLowerCase().includes("network") || msg.toLowerCase().includes("fetch");
-      toastError(offline ? "Sem conexão" : "Não foi possível carregar os arquivos", offline ? "Verifique a internet." : "Verifique seu acesso à obra.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useFocusEffect(
-    useCallback(() => {
-      loadPermissao();
-    }, [obraId, user?.id])
+  const loadFiles = useCallback(
+    async (category: ArquivoTipo) => {
+      try {
+        const result = await listarArquivos(obraId, category);
+        setFilesByCategory((current) => ({
+          ...current,
+          [category]: result.filter((file) => file.tipo === category),
+        }));
+      } catch (error) {
+        const offline = /network|fetch/i.test((error as Error)?.message || "");
+        toastError(
+          offline ? "Sem conexão" : "Não foi possível carregar os arquivos",
+          offline ? "Verifique sua internet." : "Verifique seu acesso à obra.",
+        );
+      } finally {
+        setLoadingCategory((current) => (current === category ? null : current));
+      }
+    },
+    [obraId],
   );
 
   useFocusEffect(
     useCallback(() => {
-      loadArquivos();
-    }, [selected, obraId])
+      loadPermission();
+      loadFiles(selected);
+    }, [loadPermission, selected]),
   );
+
+  const selectCategory = (category: ArquivoTipo) => {
+    if (category === selected) return;
+    setSelected(category);
+    if (filesByCategory[category] === undefined) {
+      setLoadingCategory(category);
+      loadFiles(category);
+    }
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadArquivos();
+    await Promise.all([loadPermission(), loadFiles(selected)]);
     setRefreshing(false);
   };
 
-  const renderItem = ({ item }: { item: Arquivo }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() =>
-        navigation.navigate("ArquivoView", {
-          arquivoId: item.id,
-          obraId,
-          path: item.storage_path,
-          nome: item.nome_original,
-          tipo: item.tipo,
-          papel,
-        })
-      }
-    >
-      <Text style={styles.cardTitle}>{formatFileName(item.nome_original)}</Text>
-      <Text style={styles.cardSubtitle}>{formatDateTime(item.created_at)}</Text>
-    </TouchableOpacity>
-  );
-
-  const canEditar = papel === "OWNER" || papel === "EDITOR";
-
-  const handleRenameObra = async (novoNome: string) => {
-    const trimmed = novoNome.trim();
+  const handleRename = async (newName: string) => {
+    const trimmed = newName.trim();
     if (trimmed.length < 3) {
-      showMessage({ type: "danger", message: "Use pelo menos 3 caracteres." });
+      toastError("Nome muito curto", "Use pelo menos 3 caracteres.");
       return;
     }
     setRenameLoading(true);
     try {
-      const data = await renomearObra(obraId, trimmed);
-      setObraNome(data.nome);
-      navigation.setParams({ obraId, nome: data.nome });
-      navigation.setOptions({ title: data.nome });
-      showMessage({ type: "success", message: "Nome atualizado" });
+      const updated = await renomearObra(obraId, trimmed);
+      setObraNome(updated.nome);
+      navigation.setParams({ obraId, nome: updated.nome });
       setRenameVisible(false);
+      toastSuccess("Nome atualizado");
     } catch {
-      showMessage({
-        type: "danger",
-        message: "Não foi possível atualizar o nome agora. Tente novamente.",
-      });
+      toastError("Não foi possível atualizar o nome", "Tente novamente.");
     } finally {
       setRenameLoading(false);
     }
   };
 
-  const handleExcluirObra = () => {
+  const confirmDelete = () => {
     Alert.alert(
-      "Excluir obra",
-      "Tem certeza de que deseja excluir esta obra? Essa ação não pode ser desfeita.",
+      "Excluir obra permanentemente?",
+      "A obra e seus documentos deixarão de aparecer para todos. Esta ação não pode ser desfeita.",
       [
         { text: "Cancelar", style: "cancel" },
         {
-          text: "Excluir",
+          text: "Excluir obra",
           style: "destructive",
           onPress: async () => {
             try {
               await excluirObra(obraId);
               toastSuccess("Obra excluída");
-              navigation.navigate("ObrasList");
+              navigation.popToTop();
             } catch {
-              toastError("Erro ao excluir", "Tente novamente");
+              toastError("Não foi possível excluir a obra", "Tente novamente.");
             }
           },
         },
-      ]
+      ],
+    );
+  };
+
+  const menuItems: ActionMenuItem[] = (() => {
+    const items: ActionMenuItem[] = [];
+    if (canEdit) {
+      items.push({
+        label: "Renomear obra",
+        icon: <Pencil size={20} color={colors.text} />,
+        onPress: () => setRenameVisible(true),
+      });
+    }
+    items.push({
+      label: "Denunciar conteúdo",
+      icon: <ShieldAlert size={20} color={colors.text} />,
+      onPress: () =>
+        navigation.navigate("ReportContent", {
+          targetType: "OBRA",
+          targetId: obraId,
+          title: obraNome,
+        }),
+    });
+    if (canEdit) {
+      items.push({
+        label: "Excluir obra",
+        icon: <Trash2 size={20} color={colors.danger} />,
+        onPress: confirmDelete,
+        destructive: true,
+      });
+    }
+    return items;
+  })();
+
+  const renderFile = ({ item }: { item: Arquivo }) => {
+    const Icon = categoryIcon[item.tipo];
+    const size =
+      item.tamanho_bytes >= 1024 * 1024
+        ? `${(item.tamanho_bytes / (1024 * 1024)).toFixed(1)} MB`
+        : `${Math.max(1, Math.round(item.tamanho_bytes / 1024))} KB`;
+
+    return (
+      <Pressable
+        style={({ pressed }) => [styles.fileCard, pressed && styles.fileCardPressed]}
+        onPress={() =>
+          navigation.navigate("ArquivoView", {
+            arquivoId: item.id,
+            obraId,
+            path: item.storage_path,
+            nome: item.nome_original,
+            tipo: item.tipo,
+            papel,
+          })
+        }
+        accessibilityRole="button"
+        accessibilityLabel={`Abrir arquivo ${formatFileName(item.nome_original)}`}
+      >
+        <View style={styles.fileIcon}>
+          <Icon size={21} color={colors.primary} />
+        </View>
+        <View style={styles.fileContent}>
+          <Text style={styles.fileName} numberOfLines={2}>
+            {formatFileName(item.nome_original)}
+          </Text>
+          <Text style={styles.fileMeta}>
+            {size} · {formatDateTime(item.created_at)}
+          </Text>
+        </View>
+      </Pressable>
     );
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.headerBox}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.obraTitle}>{obraNome}</Text>
-          <Text style={styles.obraSubtitle}>{papelLabel[papel]}</Text>
+    <View style={styles.screen}>
+      <View style={styles.content}>
+        <View style={styles.summary}>
+          <View style={styles.summaryText}>
+            <Text style={styles.obraTitle} numberOfLines={2}>{obraNome}</Text>
+          </View>
+          <View style={styles.roleBadge}>
+            <Text style={styles.roleBadgeText}>{papelLabel[papel]}</Text>
+          </View>
         </View>
-        {canEditar && (
-          <TouchableOpacity style={styles.linkButton} onPress={() => setRenameVisible(true)}>
-            <Text style={styles.linkButtonText}>Renomear</Text>
-          </TouchableOpacity>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categories}
+        >
+          {categorias.map((category) => {
+            const Icon = categoryIcon[category];
+            const active = selected === category;
+            return (
+              <Pressable
+                key={category}
+                style={[styles.category, active && styles.categoryActive]}
+                onPress={() => selectCategory(category)}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: active }}
+              >
+                <Icon size={17} color={active ? colors.white : colors.textMuted} />
+                <Text style={[styles.categoryText, active && styles.categoryTextActive]}>
+                  {arquivoTipoLabel[category]}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        <View style={styles.shortcuts}>
+          <AppButton
+            label="Histórico"
+            variant="secondary"
+            icon={<History size={18} color={colors.primary} />}
+            onPress={() => navigation.navigate("Historico", { obraId })}
+            style={styles.shortcut}
+          />
+          <AppButton
+            label="Permissões"
+            variant="secondary"
+            icon={<Users size={18} color={colors.primary} />}
+            onPress={() =>
+              navigation.navigate("Permissoes", { obraId, isOwner: papel === "OWNER" })
+            }
+            style={styles.shortcut}
+          />
+        </View>
+
+        {loadingCategory === selected && filesByCategory[selected] === undefined ? (
+          <ScreenState loading title={`Carregando ${arquivoTipoLabel[selected].toLowerCase()}s`} />
+        ) : (
+          <FlatList
+            data={arquivos}
+            keyExtractor={(item) => item.id}
+            renderItem={renderFile}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={arquivos.length === 0 ? styles.emptyList : styles.list}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                colors={[colors.primary]}
+                tintColor={colors.primary}
+              />
+            }
+            ListEmptyComponent={
+              <ScreenState
+                icon={<FileText size={42} color={colors.textMuted} />}
+                title="Nenhum arquivo nesta categoria"
+                description={
+                  canEdit
+                    ? "Envie o primeiro documento para começar a organizar esta obra."
+                    : "Quando um documento for enviado, ele aparecerá aqui."
+                }
+              />
+            }
+          />
         )}
       </View>
 
-      {canEditar && (
-        <TouchableOpacity style={styles.dangerButton} onPress={handleExcluirObra}>
-          <Text style={styles.dangerText}>Excluir obra</Text>
-        </TouchableOpacity>
-      )}
-
-      <View style={styles.tabRow}>
-        {categorias.map((categoria) => (
-          <TouchableOpacity
-            key={categoria}
-            style={[styles.tab, selected === categoria && styles.tabActive]}
-            onPress={() => {
-              if (categoria !== selected) {
-                setArquivos([]);
-                setLoading(true);
-                setSelected(categoria);
-              }
-            }}
-          >
-            <Text style={[styles.tabText, selected === categoria && styles.tabTextActive]}>
-              {arquivoTipoLabel[categoria]}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      <View style={styles.actions}>
-        <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate("Historico", { obraId })}>
-          <Text style={styles.secondaryText}>Histórico</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={() => navigation.navigate("Permissoes", { obraId, isOwner: papel === "OWNER" })}
-        >
-          <Text style={styles.secondaryText}>Permissões</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={() =>
-            navigation.navigate("ReportContent", {
-              targetType: "OBRA",
-              targetId: obraId,
-              title: obraNome,
-            })
-          }
-        >
-          <Text style={styles.secondaryText}>Denunciar</Text>
-        </TouchableOpacity>
-      </View>
-      {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator />
-        </View>
-      ) : (
-        <FlatList
-          data={arquivos}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          ListEmptyComponent={<Text style={styles.empty}>Nenhum arquivo nesta categoria.</Text>}
+      {canEdit && (
+        <AppButton
+          label="Enviar arquivo"
+          icon={<Upload size={19} color={colors.white} />}
+          onPress={() => navigation.navigate("UploadArquivo", { obraId })}
+          style={styles.floatingAction}
         />
       )}
-      {(papel === "OWNER" || papel === "EDITOR") && (
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => navigation.navigate("UploadArquivo", { obraId })}
-        >
-          <Text style={styles.fabText}>+</Text>
-        </TouchableOpacity>
-      )}
+
+      <ActionMenu
+        visible={menuVisible}
+        title="Ações da obra"
+        items={menuItems}
+        onClose={() => setMenuVisible(false)}
+      />
       <RenameObraModal
         visible={renameVisible}
         currentName={obraNome}
         onCancel={() => setRenameVisible(false)}
-        onSave={handleRenameObra}
+        onSave={handleRename}
         loading={renameLoading}
       />
     </View>
@@ -249,87 +364,89 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f7f8fa", padding: 12 },
-  headerBox: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
+  screen: { flex: 1, backgroundColor: colors.background, alignItems: "center" },
+  content: {
+    flex: 1,
+    width: "100%",
+    maxWidth: layout.maxContentWidth,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+  },
+  headerMenu: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
+  summary: {
+    minHeight: 72,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
-    padding: 12,
-    marginBottom: 10,
+    borderColor: colors.border,
+    padding: spacing.md,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    marginBottom: spacing.md,
   },
-  obraTitle: { fontSize: 18, fontWeight: "800", color: "#0f172a" },
-  obraSubtitle: { color: "#6b7280", marginTop: 2 },
-  linkButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#0C5BAA",
+  summaryText: { flex: 1, minWidth: 0 },
+  obraTitle: { color: colors.text, fontSize: 18, fontWeight: "800" },
+  roleBadge: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
-  linkButtonText: { color: "#0C5BAA", fontWeight: "700" },
-  dangerButton: {
-    backgroundColor: "#fee2e2",
-    borderColor: "#ef4444",
-    borderWidth: 1,
-    padding: 10,
-    borderRadius: 10,
+  roleBadgeText: { color: colors.primary, fontSize: 12, fontWeight: "700" },
+  categories: { gap: spacing.sm, paddingBottom: spacing.md },
+  category: {
+    minHeight: 48,
+    flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
-  },
-  dangerText: { color: "#b91c1c", fontWeight: "700" },
-  tabRow: { flexDirection: "row", gap: 8, marginBottom: 12, flexWrap: "wrap" },
-  tab: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: "#d0d4d9",
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surface,
   },
-  tabActive: {
-    backgroundColor: "#0C5BAA",
-    borderColor: "#0C5BAA",
-  },
-  tabText: { color: "#4b5563", fontWeight: "600" },
-  tabTextActive: { color: "#fff" },
-  actions: { flexDirection: "row", gap: 8, marginBottom: 8 },
-  secondaryButton: {
-    flex: 1,
+  categoryActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  categoryText: { color: colors.textMuted, fontWeight: "700" },
+  categoryTextActive: { color: colors.white },
+  shortcuts: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
+  shortcut: { flex: 1 },
+  list: { paddingBottom: 92 },
+  emptyList: { flexGrow: 1, paddingBottom: 92 },
+  fileCard: {
+    minHeight: 72,
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: "#0C5BAA",
-    padding: 10,
-    borderRadius: 10,
+    borderColor: colors.border,
+    padding: spacing.md,
+    flexDirection: "row",
     alignItems: "center",
+    marginBottom: spacing.sm,
   },
-  secondaryText: { color: "#0C5BAA", fontWeight: "600" },
-  card: {
-    backgroundColor: "#fff",
-    padding: 14,
-    borderRadius: 10,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-  },
-  cardTitle: { fontWeight: "700" },
-  cardSubtitle: { color: "#6b7280", marginTop: 4 },
-  centered: { flex: 1, alignItems: "center", justifyContent: "center" },
-  empty: { textAlign: "center", color: "#6b7280", marginTop: 12 },
-  fab: {
-    position: "absolute",
-    right: 20,
-    bottom: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#0C5BAA",
+  fileCardPressed: { backgroundColor: colors.surfaceMuted },
+  fileIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: radius.md,
+    backgroundColor: colors.primarySoft,
     alignItems: "center",
     justifyContent: "center",
-    elevation: 4,
+    marginRight: spacing.md,
   },
-  fabText: { color: "#fff", fontSize: 28, fontWeight: "700" },
+  fileContent: { flex: 1, minWidth: 0 },
+  fileName: { color: colors.text, fontWeight: "700" },
+  fileMeta: { color: colors.textMuted, fontSize: 13, marginTop: spacing.xs },
+  floatingAction: {
+    position: "absolute",
+    right: spacing.lg,
+    bottom: spacing.lg,
+    minWidth: 154,
+    shadowColor: "#00254D",
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
+  },
 });
 
 export default ObraDetailScreen;

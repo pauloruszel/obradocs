@@ -1,17 +1,11 @@
 import React, { useState } from "react";
-import {
-  ActivityIndicator,
-  Linking,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Linking, Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
+import { Check, ChevronRight, FileText, ShieldCheck } from "lucide-react-native";
 import { useAuth } from "@context/AuthContext";
 import { publicApiUrl } from "@services/apiClient";
 import { toastError } from "@utils/toast";
-
-const PRIMARY = "#0C5BAA";
+import AppButton from "@components/AppButton";
+import { colors, radius, spacing } from "@theme/index";
 
 const TermsAcceptanceScreen = () => {
   const { acceptTerms, signOut } = useAuth();
@@ -30,77 +24,141 @@ const TermsAcceptanceScreen = () => {
     }
   };
 
+  const documents = [
+    {
+      label: "Termos de Uso",
+      description: "Regras para utilizar o Obradocs",
+      icon: FileText,
+      path: "/terms.html",
+    },
+    {
+      label: "Política de Privacidade",
+      description: "Como seus dados são tratados",
+      icon: ShieldCheck,
+      path: "/privacy.html",
+    },
+  ];
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.brand}>Obradocs</Text>
-      <Text style={styles.title}>Antes de continuar</Text>
-      <Text style={styles.description}>
-        Revise os documentos que explicam o uso do serviço e o tratamento dos seus dados.
-      </Text>
-      <TouchableOpacity onPress={() => Linking.openURL(publicApiUrl("/terms.html"))}>
-        <Text style={styles.link}>Ler os Termos de Uso</Text>
-      </TouchableOpacity>
-      <TouchableOpacity onPress={() => Linking.openURL(publicApiUrl("/privacy.html"))}>
-        <Text style={styles.link}>Ler a Política de Privacidade</Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.acceptRow}
-        onPress={() => setAccepted((current) => !current)}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: accepted }}
-      >
-        <View style={[styles.checkbox, accepted && styles.checkboxChecked]}>
-          {accepted && <Text style={styles.checkmark}>✓</Text>}
-        </View>
-        <Text style={styles.acceptText}>
-          Li e aceito os Termos de Uso e a Política de Privacidade.
+    <SafeAreaView style={styles.screen}>
+      <View style={styles.content}>
+        <Text style={styles.brand}>Obradocs</Text>
+        <Text style={styles.title}>Antes de continuar</Text>
+        <Text style={styles.description}>
+          Revise os documentos sobre o uso do serviço e o tratamento dos seus dados.
         </Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={[styles.button, (!accepted || submitting) && styles.disabled]}
-        disabled={!accepted || submitting}
-        onPress={confirm}
-      >
-        {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Continuar</Text>}
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.exit} onPress={signOut}>
-        <Text style={styles.exitText}>Sair da conta</Text>
-      </TouchableOpacity>
-    </View>
+
+        <View style={styles.documents}>
+          {documents.map(({ label, description, icon: Icon, path }, index) => (
+            <Pressable
+              key={label}
+              style={({ pressed }) => [
+                styles.document,
+                index === 0 && styles.documentBorder,
+                pressed && styles.pressed,
+              ]}
+              onPress={() => Linking.openURL(publicApiUrl(path))}
+              accessibilityRole="link"
+            >
+              <View style={styles.documentIcon}>
+                <Icon size={21} color={colors.primary} />
+              </View>
+              <View style={styles.documentText}>
+                <Text style={styles.documentTitle}>{label}</Text>
+                <Text style={styles.documentDescription}>{description}</Text>
+              </View>
+              <ChevronRight size={20} color={colors.textMuted} />
+            </Pressable>
+          ))}
+        </View>
+
+        <Pressable
+          style={styles.acceptRow}
+          onPress={() => setAccepted((current) => !current)}
+          accessibilityRole="checkbox"
+          accessibilityState={{ checked: accepted }}
+        >
+          <View style={[styles.checkbox, accepted && styles.checkboxChecked]}>
+            {accepted && <Check size={18} color={colors.white} strokeWidth={3} />}
+          </View>
+          <Text style={styles.acceptText}>
+            Li e aceito os Termos de Uso e a Política de Privacidade.
+          </Text>
+        </Pressable>
+
+        <AppButton
+          label="Aceitar e continuar"
+          onPress={confirm}
+          loading={submitting}
+          disabled={!accepted}
+        />
+        <AppButton
+          label="Sair da conta"
+          onPress={signOut}
+          variant="ghost"
+          disabled={submitting}
+          style={styles.exit}
+        />
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff", padding: 28, justifyContent: "center" },
-  brand: { color: PRIMARY, fontWeight: "800", fontSize: 18, marginBottom: 24 },
-  title: { color: "#0f172a", fontWeight: "800", fontSize: 28, marginBottom: 10 },
-  description: { color: "#475569", fontSize: 16, lineHeight: 24, marginBottom: 20 },
-  link: { color: PRIMARY, fontWeight: "700", fontSize: 16, paddingVertical: 10 },
-  acceptRow: { flexDirection: "row", alignItems: "center", marginVertical: 20, minHeight: 48 },
-  checkbox: {
-    width: 26,
-    height: 26,
+  screen: { flex: 1, backgroundColor: colors.background },
+  content: {
+    flex: 1,
+    width: "100%",
+    maxWidth: 520,
+    alignSelf: "center",
+    padding: spacing.xl,
+    justifyContent: "center",
+  },
+  brand: { color: colors.primary, fontWeight: "800", fontSize: 18, marginBottom: spacing.xl },
+  title: { color: colors.text, fontWeight: "800", fontSize: 28 },
+  description: { color: colors.textMuted, fontSize: 16, lineHeight: 24, marginTop: spacing.sm },
+  documents: {
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "#94a3b8",
-    borderRadius: 4,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    overflow: "hidden",
+    marginTop: spacing.xl,
+  },
+  document: {
+    minHeight: 70,
+    flexDirection: "row",
+    alignItems: "center",
+    padding: spacing.md,
+  },
+  documentBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  pressed: { backgroundColor: colors.surfaceMuted },
+  documentIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: radius.md,
+    backgroundColor: colors.primarySoft,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
+    marginRight: spacing.md,
   },
-  checkboxChecked: { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  checkmark: { color: "#fff", fontWeight: "800" },
-  acceptText: { flex: 1, color: "#334155", lineHeight: 21 },
-  button: {
-    minHeight: 50,
-    backgroundColor: PRIMARY,
-    borderRadius: 8,
+  documentText: { flex: 1 },
+  documentTitle: { color: colors.text, fontWeight: "700" },
+  documentDescription: { color: colors.textMuted, fontSize: 13, marginTop: spacing.xs },
+  acceptRow: { flexDirection: "row", alignItems: "center", marginVertical: spacing.xl, minHeight: 48 },
+  checkbox: {
+    width: 28,
+    height: 28,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    borderRadius: radius.sm,
     alignItems: "center",
     justifyContent: "center",
+    marginRight: spacing.md,
   },
-  buttonText: { color: "#fff", fontWeight: "700", fontSize: 16 },
-  disabled: { opacity: 0.5 },
-  exit: { alignItems: "center", padding: 16, marginTop: 8 },
-  exitText: { color: "#64748b", fontWeight: "600" },
+  checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
+  acceptText: { flex: 1, color: colors.text, lineHeight: 21 },
+  exit: { marginTop: spacing.sm },
 });
 
 export default TermsAcceptanceScreen;
