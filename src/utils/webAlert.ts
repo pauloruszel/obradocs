@@ -57,7 +57,7 @@ export const executeWebAlert = (
 let installed = false;
 
 export const installWebAlertPolyfill = (
-  alertApi: AlertApi,
+  alertApi: object,
   isWeb: boolean,
   browser: BrowserGlobal = globalThis as BrowserGlobal,
 ) => {
@@ -71,7 +71,8 @@ export const installWebAlertPolyfill = (
   }
 
   installed = true;
-  alertApi.alert = (title, message, buttons) =>
+  const mutableAlertApi = alertApi as AlertApi;
+  mutableAlertApi.alert = (title, message, buttons) =>
     executeWebAlert(title, message, buttons, {
       alert: (text) => browser.alert?.(text),
       confirm: (text) => browser.confirm?.(text) ?? false,
