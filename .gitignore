@@ -10,6 +10,7 @@ coverage
 android
 ios
 .env
+migration-data/
 *.local
 *.tsbuildinfo
 .DS_Store

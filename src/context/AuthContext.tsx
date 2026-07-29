@@ -1,98 +1,90 @@
-import { Profile } from "@models/models";
-import { supabase } from "@services/supabase";
-import { Session, User } from "@supabase/supabase-js";
+import { AuthUser, Profile, Session } from "@models/models";
+import {
+  acceptTerms as confirmTerms,
+  deleteAccount as removeAccount,
+  restoreSession,
+  signIn as login,
+  signOut as logout,
+  signUp as register,
+} from "@services/authService";
+import { setUnauthorizedHandler } from "@services/apiClient";
 import { toastError, toastInfo } from "@utils/toast";
 import React, { createContext, useContext, useEffect, useState } from "react";
 
 type AuthContextValue = {
   session: Session | null;
-  user: User | null;
+  user: AuthUser | null;
   profile: Profile | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (name: string, email: string, password: string) => Promise<void>;
+  signUp: (
+    name: string,
+    email: string,
+    password: string,
+    acceptedTerms: boolean,
+  ) => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: (password: string) => Promise<void>;
+  acceptTerms: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const init = async () => {
-      try {
-        const {
-          data: { session: activeSession },
-        } = await supabase.auth.getSession();
-        setSession(activeSession);
-        if (activeSession?.user) {
-          await loadProfile(activeSession.user.id);
-        }
-      } catch (err) {
-        console.warn("Falha ao iniciar auth", (err as Error)?.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    init();
-
-    const { data: subscription } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      setSession(newSession);
-      if (event === "SIGNED_OUT") {
-        setProfile(null);
-        toastInfo("Sessao encerrada", "Faca login novamente para continuar.");
-      }
-      if (newSession?.user) {
-        await loadProfile(newSession.user.id);
-      }
+    setUnauthorizedHandler(() => {
+      setSession(null);
+      toastInfo("Sessao encerrada", "Faca login novamente para continuar.");
     });
 
-    return () => subscription.subscription.unsubscribe();
+    restoreSession()
+      .then(setSession)
+      .catch((error) => console.warn("Falha ao restaurar sessao", error))
+      .finally(() => setLoading(false));
+
+    return () => setUnauthorizedHandler(null);
   }, []);
 
-  const loadProfile = async (userId: string) => {
-    const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single();
-    if (error) {
-      console.warn("Erro carregando perfil", error.message);
-      return;
-    }
-    setProfile(data as Profile);
-  };
-
   const signIn = async (email: string, password: string) => {
-    setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      toastError("Falha no login", error.message);
+    try {
+      setSession(await login(email, password));
+    } catch (error) {
+      toastError("Falha no login", (error as Error).message);
     }
-    setLoading(false);
   };
 
-  const signUp = async (name: string, email: string, password: string) => {
-    setLoading(true);
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { nome: name || email } },
-    });
-    if (error) {
-      setLoading(false);
-      toastError("Erro ao criar conta", error.message ?? "Tente novamente");
-      return;
+  const signUp = async (
+    name: string,
+    email: string,
+    password: string,
+    acceptedTerms: boolean,
+  ) => {
+    try {
+      setSession(await register(name, email, password, acceptedTerms));
+    } catch (error) {
+      toastError("Erro ao criar conta", (error as Error).message || "Tente novamente");
     }
-    const userId = data.user?.id;
-    if (data.session && userId) {
-      await loadProfile(userId);
-    }
-    setLoading(false);
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setProfile(null);
+    try {
+      await logout();
+    } finally {
+      setSession(null);
+    }
+  };
+
+  const deleteAccount = async (password: string) => {
+    await removeAccount(password);
+    setSession(null);
+  };
+
+  const acceptTerms = async () => {
+    const user = await confirmTerms();
+    setSession((current) => (current ? { ...current, user } : current));
   };
 
   return (
@@ -100,11 +92,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       value={{
         session,
         user: session?.user ?? null,
-        profile,
+        profile: session?.user ?? null,
         loading,
         signIn,
         signUp,
         signOut,
+        deleteAccount,
+        acceptTerms,
       }}
     >
       {children}
@@ -113,9 +107,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 };
 
 export const useAuth = () => {
-  const ctx = useContext(AuthContext);
-  if (!ctx) {
+  const context = useContext(AuthContext);
+  if (!context) {
     throw new Error("useAuth deve ser usado dentro de AuthProvider");
   }
-  return ctx;
+  return context;
 };

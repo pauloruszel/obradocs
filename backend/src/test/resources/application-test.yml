@@ -1,0 +1,11 @@
+app:
+  brevo:
+    api-key: test-api-key
+  storage:
+    endpoint: http://localhost:9000
+    access-key-id: minioadmin
+    secret-access-key: minioadmin
+    bucket: obradocs-test
+    region: us-east-1
+    url-style: path
+    download-url-ttl: 1h

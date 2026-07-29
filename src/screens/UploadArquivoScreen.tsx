@@ -1,252 +1,338 @@
-import React, { useState, useRef } from "react";
+import React, { useRef, useState } from "react";
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  TextInput,
   Image,
-  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
+import {
+  Camera,
+  FileCheck2,
+  FileText,
+  ImageIcon,
+  ReceiptText,
+  Trash2,
+  Upload,
+} from "lucide-react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "@navigation/AppNavigator";
 import { ArquivoTipo } from "@models/models";
 import { uploadArquivo } from "@services/arquivosService";
+import { ApiError } from "@services/apiClient";
 import { useAuth } from "@context/AuthContext";
-import { toastError, toastSuccess, toastInfo } from "@utils/toast";
+import { toastError, toastSuccess } from "@utils/toast";
+import { arquivoTipoLabel, formatFileName } from "@utils/display";
+import AppButton from "@components/AppButton";
+import { colors, layout, radius, spacing, typography } from "@theme/index";
 
 type Props = NativeStackScreenProps<RootStackParamList, "UploadArquivo">;
 
 const tipos: ArquivoTipo[] = ["ORCAMENTO", "NOTA_FISCAL", "PROJETO", "FOTO"];
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+const typeIcon: Record<ArquivoTipo, React.ElementType> = {
+  ORCAMENTO: ReceiptText,
+  NOTA_FISCAL: FileText,
+  PROJETO: FileText,
+  FOTO: ImageIcon,
+};
 
 const UploadArquivoScreen = ({ route, navigation }: Props) => {
   const { obraId } = route.params;
   const { user } = useAuth();
   const [tipo, setTipo] = useState<ArquivoTipo>("FOTO");
-  const [file, setFile] = useState<{ uri: string; name: string; mime?: string } | null>(
-    null
-  );
+  const [file, setFile] = useState<{
+    uri: string;
+    name: string;
+    mime?: string;
+    size?: number;
+  } | null>(null);
   const [uploading, setUploading] = useState(false);
-
-  // 🔒 trava de reentrância (não dispara o upload 2x)
   const uploadLockRef = useRef(false);
+
+  const validateSize = (size?: number) => {
+    if (typeof size === "number" && size > MAX_FILE_SIZE) {
+      setFile(null);
+      toastError("Arquivo muito grande", "O limite para envio é de 10 MB.");
+      return false;
+    }
+    return true;
+  };
 
   const pickDocument = async () => {
     const result = await DocumentPicker.getDocumentAsync({
       type: ["application/pdf", "image/jpeg"],
       copyToCacheDirectory: true,
     });
+    if (result.canceled) return;
 
-    if ("canceled" in result && result.canceled) {
-      return;
-    }
-
-    const doc: any = (result as any).assets?.[0] ?? result;
-
-    if ((doc && doc.uri) || (result as any).type === "success") {
-      setFile({
-        uri: doc.uri,
-        name: doc.name ?? "arquivo.pdf",
-        mime: doc.mimeType ?? undefined,
-      });
-    } else {
-      toastError("Falha ao selecionar", "Nao foi possivel obter o arquivo selecionado.");
-    }
+    const asset = result.assets[0];
+    if (!asset?.uri || !validateSize(asset.size)) return;
+    setFile({
+      uri: asset.uri,
+      name: formatFileName(asset.name || "arquivo.pdf"),
+      mime: asset.mimeType || undefined,
+      size: asset.size || undefined,
+    });
   };
 
   const takePhoto = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      toastError("Permissao negada", "Autorize o acesso a camera nas configuracoes.");
+      toastError("Acesso à câmera necessário", "Autorize o acesso nas configurações do aparelho.");
       return;
     }
-    const photo = await ImagePicker.launchCameraAsync({
-      quality: 0.5,
-      allowsEditing: false,
+    const photo = await ImagePicker.launchCameraAsync({ quality: 0.7, allowsEditing: false });
+    const asset = photo.assets?.[0];
+    if (!asset) return;
+    setFile({
+      uri: asset.uri,
+      name: `foto-${Date.now()}.jpg`,
+      mime: "image/jpeg",
+      size: asset.fileSize,
     });
-    if (photo.assets && photo.assets.length > 0) {
-      const asset = photo.assets[0];
-      setFile({
-        uri: asset.uri,
-        name: `foto-${Date.now()}.jpg`,
-        mime: "image/jpeg",
-      });
-    }
+    setTipo("FOTO");
   };
 
   const handleUpload = async () => {
-    console.log("handleUpload chamado. uploading =", uploading, "lock =", uploadLockRef.current);
-
-    // 🔒 evita reentrância sincrona
-    if (uploadLockRef.current) {
-      console.log("Clique ignorado: upload já em andamento (lock).");
-      return;
-    }
-
+    if (uploadLockRef.current || !user || !file) return;
     uploadLockRef.current = true;
-    console.log("Iniciando uploadArquivo...");
-
+    setUploading(true);
     try {
-      if (!user || !file) {
-        toastInfo("Selecione um arquivo");
-        return;
-      }
-
-      const isPdf =
-        file.name.toLowerCase().endsWith(".pdf") || file.mime === "application/pdf";
+      if (!validateSize(file.size)) return;
+      const lowerName = file.name.toLowerCase();
+      const isPdf = lowerName.endsWith(".pdf") || file.mime === "application/pdf";
       const isJpeg =
-        file.name.toLowerCase().endsWith(".jpg") ||
-        file.name.toLowerCase().endsWith(".jpeg");
-
+        lowerName.endsWith(".jpg") ||
+        lowerName.endsWith(".jpeg") ||
+        file.mime === "image/jpeg";
       if (!isPdf && !isJpeg) {
-        toastError("Formato invalido", "Use PDF ou JPEG.");
+        toastError("Formato não aceito", "Selecione um arquivo PDF ou JPEG.");
         return;
       }
-
-      setUploading(true);
 
       await uploadArquivo({
         obraId,
         tipo,
         uri: file.uri,
         nomeOriginal: file.name,
-        userId: user.id,
+        contentType: isPdf ? "application/pdf" : "image/jpeg",
       });
-
-      toastSuccess("Sucesso", "Arquivo enviado.");
+      toastSuccess("Arquivo enviado", "O documento já está disponível na obra.");
       navigation.goBack();
-    } catch (e: any) {
-      const msg = e?.message || "";
-      const offline =
-        msg.toLowerCase().includes("network") || msg.toLowerCase().includes("fetch");
-      toastError(
-        offline ? "Sem conexao" : "Erro",
-        offline
-          ? "Verifique a internet e tente novamente."
-          : msg || "Nao foi possivel enviar."
-      );
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 413) {
+        toastError("Arquivo muito grande", "O limite para envio é de 10 MB.");
+      } else {
+        const message = (error as Error)?.message || "";
+        const timedOut = error instanceof Error && error.name === "AbortError";
+        if (timedOut) {
+          toastError(
+            "Envio demorou demais",
+            "A foto continua selecionada. Verifique a conexão e tente novamente.",
+          );
+          return;
+        }
+        const networkError = /network|fetch/i.test(message);
+        toastError(
+          networkError ? "Sem conexão" : "Não foi possível enviar",
+          networkError ? "Verifique sua internet." : message || "Tente novamente.",
+        );
+      }
     } finally {
       setUploading(false);
       uploadLockRef.current = false;
-      console.log("Finalizando upload, liberando lock.");
     }
   };
 
+  const fileSize =
+    typeof file?.size === "number"
+      ? file.size >= 1024 * 1024
+        ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+        : `${Math.max(1, Math.round(file.size / 1024))} KB`
+      : null;
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.label}>Tipo</Text>
-      <View style={styles.row}>
-        {tipos.map((t) => (
-          <TouchableOpacity
-            key={t}
-            style={[styles.chip, tipo === t && styles.chipActive]}
-            onPress={() => setTipo(t)}
-            disabled={uploading}
-          >
-            <Text style={[styles.chipText, tipo === t && styles.chipTextActive]}>{t}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <Text style={styles.label}>Arquivo</Text>
-      {file ? (
-        <View style={styles.preview}>
-          <Text>{file.name}</Text>
-          {file.mime === "image/jpeg" && (
-            <Image source={{ uri: file.uri }} style={{ width: 160, height: 120 }} />
-          )}
+    <View style={styles.screen}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.sectionTitle}>Categoria</Text>
+        <Text style={styles.helper}>Escolha onde o arquivo será organizado.</Text>
+        <View style={styles.categoryGrid}>
+          {tipos.map((itemTipo) => {
+            const Icon = typeIcon[itemTipo];
+            const active = tipo === itemTipo;
+            return (
+              <Pressable
+                key={itemTipo}
+                style={({ pressed }) => [
+                  styles.category,
+                  active && styles.categoryActive,
+                  pressed && styles.pressed,
+                ]}
+                onPress={() => setTipo(itemTipo)}
+                disabled={uploading}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: active, disabled: uploading }}
+              >
+                <Icon size={21} color={active ? colors.white : colors.primary} />
+                <Text style={[styles.categoryText, active && styles.categoryTextActive]}>
+                  {arquivoTipoLabel[itemTipo]}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
-      ) : (
-        <Text style={{ color: "#6b7280", marginBottom: 8 }}>
-          Selecione um PDF ou JPEG.
-        </Text>
-      )}
 
-      <TouchableOpacity
-        style={styles.secondaryButton}
-        onPress={pickDocument}
-        disabled={uploading}
-      >
-        <Text style={styles.secondaryText}>Selecionar arquivo</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.secondaryButton}
-        onPress={takePhoto}
-        disabled={uploading}
-      >
-        <Text style={styles.secondaryText}>Tirar foto</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.primaryButton}
-        onPress={handleUpload}
-        disabled={uploading}
-      >
-        {uploading ? (
-          <ActivityIndicator color="#fff" />
+        <Text style={styles.sectionTitle}>Arquivo</Text>
+        <Text style={styles.helper}>Formatos aceitos: PDF ou JPEG, até 10 MB.</Text>
+        {file ? (
+          <View style={styles.preview}>
+            {file.mime === "image/jpeg" ? (
+              <Image source={{ uri: file.uri }} style={styles.previewImage} />
+            ) : (
+              <View style={styles.fileIcon}>
+                <FileCheck2 size={25} color={colors.primary} />
+              </View>
+            )}
+            <View style={styles.previewInfo}>
+              <Text style={styles.fileName} numberOfLines={2}>{file.name}</Text>
+              <Text style={styles.fileMeta}>
+                {[file.mime === "application/pdf" ? "PDF" : "JPEG", fileSize]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => setFile(null)}
+              disabled={uploading}
+              style={styles.removeFile}
+              accessibilityRole="button"
+              accessibilityLabel="Remover arquivo selecionado"
+            >
+              <Trash2 size={21} color={colors.danger} />
+            </Pressable>
+          </View>
         ) : (
-          <Text style={styles.primaryText}>Enviar</Text>
+          <View style={styles.emptyFile}>
+            <Upload size={34} color={colors.primary} />
+            <Text style={styles.emptyFileTitle}>Selecione um arquivo</Text>
+            <Text style={styles.emptyFileText}>Escolha um documento ou tire uma foto agora.</Text>
+          </View>
         )}
-      </TouchableOpacity>
 
-      <TextInput
-        editable={false}
-        style={styles.note}
-        value="A conversao para PDF e opcional; fotos sao enviadas como JPEG."
-      />
+        <View style={styles.sourceActions}>
+          <AppButton
+            label={file ? "Substituir" : "Selecionar arquivo"}
+            variant="secondary"
+            icon={<FileText size={18} color={colors.primary} />}
+            onPress={pickDocument}
+            disabled={uploading}
+            style={styles.sourceButton}
+          />
+          <AppButton
+            label="Tirar foto"
+            variant="secondary"
+            icon={<Camera size={18} color={colors.primary} />}
+            onPress={takePhoto}
+            disabled={uploading}
+            style={styles.sourceButton}
+          />
+        </View>
+      </ScrollView>
+
+      <View style={styles.footer}>
+        <AppButton
+          label="Enviar arquivo"
+          icon={<Upload size={19} color={colors.white} />}
+          onPress={handleUpload}
+          loading={uploading}
+          disabled={!file}
+        />
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f7f8fa", padding: 16 },
-  label: { fontWeight: "600", marginTop: 8, marginBottom: 6 },
-  row: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
+  screen: { flex: 1, backgroundColor: colors.background },
+  content: {
+    width: "100%",
+    maxWidth: layout.maxContentWidth,
+    alignSelf: "center",
+    padding: spacing.lg,
+    paddingBottom: spacing.xl,
+  },
+  sectionTitle: { ...typography.sectionTitle, marginTop: spacing.xs },
+  helper: { color: colors.textMuted, marginTop: spacing.xs, marginBottom: spacing.md },
+  categoryGrid: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginBottom: spacing.xl },
+  category: {
+    flexBasis: "48%",
+    flexGrow: 1,
+    minHeight: 54,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: "#d0d4d9",
-    marginBottom: 8,
-  },
-  chipActive: { backgroundColor: "#0C5BAA", borderColor: "#0C5BAA" },
-  chipText: { color: "#374151", fontWeight: "600" },
-  chipTextActive: { color: "#fff" },
-  primaryButton: {
-    backgroundColor: "#0C5BAA",
-    padding: 14,
-    borderRadius: 10,
+    borderColor: colors.borderStrong,
     alignItems: "center",
-    marginTop: 12,
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
   },
-  primaryText: { color: "#fff", fontWeight: "700" },
-  secondaryButton: {
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: "#0C5BAA",
-    padding: 12,
-    borderRadius: 10,
-    alignItems: "center",
-  },
-  secondaryText: { color: "#0C5BAA", fontWeight: "600" },
+  categoryActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  categoryText: { color: colors.text, fontWeight: "700" },
+  categoryTextActive: { color: colors.white },
+  pressed: { opacity: 0.78 },
   preview: {
-    backgroundColor: "#fff",
-    padding: 12,
-    borderRadius: 10,
+    minHeight: 76,
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
+    borderColor: colors.border,
+    flexDirection: "row",
+    alignItems: "center",
   },
-  note: {
+  previewImage: { width: 52, height: 52, borderRadius: radius.sm, resizeMode: "cover", marginRight: spacing.md },
+  fileIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: radius.sm,
+    backgroundColor: colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: spacing.md,
+  },
+  previewInfo: { flex: 1, minWidth: 0 },
+  fileName: { color: colors.text, fontWeight: "700" },
+  fileMeta: { color: colors.textMuted, fontSize: 13, marginTop: spacing.xs },
+  removeFile: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
+  emptyFile: {
     borderWidth: 1,
-    borderColor: "#e5e7eb",
-    padding: 10,
-    borderRadius: 10,
-    marginTop: 12,
-    backgroundColor: "#fff",
+    borderStyle: "dashed",
+    borderColor: colors.borderStrong,
+    padding: spacing.xl,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+  },
+  emptyFileTitle: { color: colors.text, fontWeight: "700", marginTop: spacing.md },
+  emptyFileText: { color: colors.textMuted, marginTop: spacing.xs, textAlign: "center" },
+  sourceActions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
+  sourceButton: { flex: 1 },
+  footer: {
+    backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    padding: spacing.lg,
+    paddingBottom: spacing.lg,
   },
 });
 

@@ -1,118 +1,89 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState } from "react";
 import {
-  ActivityIndicator,
   Image,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
-  TouchableOpacity,
   View,
 } from "react-native";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useNavigation } from "@react-navigation/native";
-import { showMessage } from "react-native-flash-message";
-import { supabase } from "@services/supabase";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { Check, CheckCircle2, Eye, EyeOff } from "lucide-react-native";
+import { redefinirSenha } from "@services/authService";
 import { RootStackParamList } from "@navigation/AppNavigator";
+import { useAuth } from "@context/AuthContext";
 import logo from "../../assets/logo-obradocs.png";
+import { validateNewPassword } from "@utils/validation";
+import AppButton from "@components/AppButton";
+import AppInput from "@components/AppInput";
+import { colors, radius, spacing } from "@theme/index";
+import { toastError } from "@utils/toast";
 
-const PRIMARY_COLOR = "#0C5BAA";
+type Props = NativeStackScreenProps<RootStackParamList, "ResetPassword">;
 
-const ResetPasswordScreen = () => {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+const ResetPasswordScreen = ({ route, navigation }: Props) => {
+  const { signOut } = useAuth();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [updated, setUpdated] = useState(false);
 
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
-
-  const validatePassword = (value: string) => {
-    if (value.length < 8) {
-      return "Use pelo menos 8 caracteres.";
-    }
-    if (!/[a-z]/.test(value) || !/[A-Z]/.test(value) || !/[0-9]/.test(value)) {
-      return "Inclua maiuscula, minuscula e numero.";
-    }
-    return "";
-  };
-
-  const handleChangePassword = (value: string) => {
-    setPassword(value);
-    const validation = validatePassword(value);
-    const mismatch = confirmPassword && value !== confirmPassword ? "Senhas diferentes." : "";
-    setError(validation || mismatch);
-  };
-
-  const handleChangeConfirm = (value: string) => {
-    setConfirmPassword(value);
-    if (password) {
-      setError(value === password ? "" : "Senhas diferentes.");
-    }
-  };
+  const requirements = [
+    { label: "Pelo menos 8 caracteres", valid: password.length >= 8 },
+    { label: "Uma letra maiúscula", valid: /[A-Z]/.test(password) },
+    { label: "Uma letra minúscula", valid: /[a-z]/.test(password) },
+    { label: "Um número", valid: /\d/.test(password) },
+  ];
 
   const handleUpdatePassword = async () => {
-    const validation = validatePassword(password);
+    const validation = validateNewPassword(password);
     if (validation) {
       setError(validation);
-      showMessage({ type: "danger", message: validation });
       return;
     }
     if (password !== confirmPassword) {
-      const mismatch = "Senhas diferentes.";
-      setError(mismatch);
-      showMessage({ type: "danger", message: mismatch });
+      setError("As senhas não coincidem.");
+      return;
+    }
+
+    const token = route.params?.token;
+    if (!token) {
+      toastError("Link inválido", "Solicite um novo link de redefinição.");
+      navigation.replace("ForgotPassword");
       return;
     }
 
     setLoading(true);
     setError("");
     try {
-      const { data, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !data.session) {
-        showMessage({
-          type: "danger",
-          message: "Sessao de redefinicao expirada. Solicite um novo link.",
-        });
-        navigation.navigate("ForgotPassword");
-        return;
-      }
-
-      const { error: updateError } = await supabase.auth.updateUser({ password });
-      if (updateError) {
-        showMessage({
-          type: "danger",
-          message: "Nao foi possivel atualizar a senha agora.",
-        });
-        return;
-      }
-
-      showMessage({ type: "success", message: "Senha redefinida com sucesso!" });
-      timeoutRef.current = setTimeout(async () => {
-        await supabase.auth.signOut();
-        navigation.navigate("Login");
-      }, 1200);
-    } catch {
-      showMessage({
-        type: "danger",
-        message: "Falha de rede ao atualizar a senha.",
-      });
+      await redefinirSenha(token, password);
+      setUpdated(true);
+    } catch (requestError) {
+      setError((requestError as Error).message || "Não foi possível atualizar a senha.");
     } finally {
       setLoading(false);
     }
   };
 
-  const goBack = () => navigation.goBack();
+  const accessory = (
+    <Pressable
+      style={styles.inputAction}
+      onPress={() => setShowPassword((current) => !current)}
+      accessibilityRole="button"
+      accessibilityLabel={showPassword ? "Ocultar senhas" : "Mostrar senhas"}
+    >
+      {showPassword ? (
+        <EyeOff size={20} color={colors.textMuted} />
+      ) : (
+        <Eye size={20} color={colors.textMuted} />
+      )}
+    </Pressable>
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -125,82 +96,81 @@ const ResetPasswordScreen = () => {
           keyboardShouldPersistTaps="handled"
           bounces={false}
         >
-          <View style={styles.header}>
-            <View style={styles.logoWrapper}>
-              {/* Ajuste para logo circular */}
-              <Image
-                source={logo}
-                style={styles.logo}
-                accessibilityIgnoresInvertColors
-              />
-            </View>
-            <Text style={styles.title}>Definir nova senha</Text>
-            <Text style={styles.subtitle}>
-              Crie uma senha forte com pelo menos 8 caracteres, maiusculas, minusculas e numeros.
-            </Text>
+          <View style={styles.brand}>
+            <Image source={logo} style={styles.logo} accessibilityIgnoresInvertColors />
+            <Text style={styles.brandName}>Obradocs</Text>
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.label}>Nova senha</Text>
-            <TextInput
-              style={[styles.input, !!error && styles.inputError]}
-              placeholder="********"
-              placeholderTextColor="#7a869a"
-              secureTextEntry
-              value={password}
-              onChangeText={handleChangePassword}
-              editable={!loading}
-              returnKeyType="next"
-              autoFocus
-              accessible
-              accessibilityLabel="Informe a nova senha"
-            />
-
-            <Text style={[styles.label, { marginTop: 14 }]}>Confirmar senha</Text>
-            <TextInput
-              style={[styles.input, !!error && styles.inputError]}
-              placeholder="Repita a nova senha"
-              placeholderTextColor="#7a869a"
-              secureTextEntry
-              value={confirmPassword}
-              onChangeText={handleChangeConfirm}
-              editable={!loading}
-              returnKeyType="done"
-              onSubmitEditing={handleUpdatePassword}
-              accessible
-              accessibilityLabel="Confirme a nova senha"
-            />
-
-            {!!error && <Text style={styles.errorText}>{error}</Text>}
-
-            <TouchableOpacity
-              style={[styles.primaryButton, loading && styles.disabledButton]}
-              onPress={handleUpdatePassword}
-              disabled={loading}
-              activeOpacity={0.9}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              accessibilityRole="button"
-              accessibilityLabel="Atualizar senha"
-              accessible
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.primaryText}>Atualizar senha</Text>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={goBack}
-              activeOpacity={0.85}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              accessibilityRole="button"
-              accessibilityLabel="Voltar para a tela anterior"
-              accessible
-            >
-              <Text style={styles.secondaryText}>Voltar</Text>
-            </TouchableOpacity>
+            {updated ? (
+              <View style={styles.success}>
+                <CheckCircle2 size={58} color={colors.success} />
+                <Text style={styles.title}>Senha atualizada</Text>
+                <Text style={styles.subtitle}>
+                  Sua nova senha já está ativa. Entre novamente para acessar suas obras.
+                </Text>
+                <AppButton
+                  label="Ir para o login"
+            onPress={() => signOut()}
+                  style={styles.successAction}
+                />
+              </View>
+            ) : (
+              <>
+                <Text style={styles.title}>Definir nova senha</Text>
+                <Text style={styles.subtitle}>Crie uma senha segura para proteger seus documentos.</Text>
+                <View style={styles.form}>
+                  <AppInput
+                    label="Nova senha"
+                    placeholder="Crie uma senha"
+                    secureTextEntry={!showPassword}
+                    value={password}
+                    onChangeText={(value) => {
+                      setPassword(value);
+                      if (error) setError("");
+                    }}
+                    autoComplete="new-password"
+                    rightAccessory={accessory}
+                    editable={!loading}
+                  />
+                  <View style={styles.requirements}>
+                    {requirements.map((item) => (
+                      <View key={item.label} style={styles.requirement}>
+                        <Check
+                          size={15}
+                          color={item.valid ? colors.success : colors.textMuted}
+                          opacity={item.valid ? 1 : 0.45}
+                        />
+                        <Text style={[styles.requirementText, item.valid && styles.requirementValid]}>
+                          {item.label}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                  <AppInput
+                    label="Confirmar senha"
+                    placeholder="Repita a nova senha"
+                    secureTextEntry={!showPassword}
+                    value={confirmPassword}
+                    onChangeText={(value) => {
+                      setConfirmPassword(value);
+                      if (error) setError("");
+                    }}
+                    autoComplete="new-password"
+                    rightAccessory={accessory}
+                    error={error}
+                    editable={!loading}
+                    returnKeyType="done"
+                    onSubmitEditing={handleUpdatePassword}
+                  />
+                  <AppButton
+                    label="Atualizar senha"
+                    onPress={handleUpdatePassword}
+                    loading={loading}
+                  />
+                </View>
+              </>
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -209,81 +179,42 @@ const ResetPasswordScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#fff" },
-  container: { flex: 1, backgroundColor: "#fff" },
+  safeArea: { flex: 1, backgroundColor: colors.background },
+  container: { flex: 1 },
   content: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 32,
+    padding: spacing.xl,
     alignItems: "center",
     justifyContent: "center",
   },
-  header: { alignItems: "center", marginBottom: 28 },
-  logoWrapper: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: "rgba(12,91,170,0.08)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: "rgba(12,91,170,0.12)",
-    overflow: "hidden",
-  },
-  logo: { width: 60, height: 60, resizeMode: "contain", borderRadius: 30 },
-  title: { fontSize: 24, fontWeight: "800", color: "#0f172a", marginBottom: 6 },
-  subtitle: {
-    fontSize: 15,
-    color: "#475569",
-    textAlign: "center",
-    lineHeight: 22,
-    maxWidth: 320,
-  },
+  brand: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginBottom: spacing.xl },
+  logo: { width: 42, height: 42, borderRadius: 21 },
+  brandName: { color: colors.text, fontSize: 20, fontWeight: "800" },
   card: {
     width: "100%",
     maxWidth: 440,
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 6,
-  },
-  label: { fontSize: 14, fontWeight: "600", color: "#111827", marginBottom: 8 },
-  input: {
-    width: "100%",
+    backgroundColor: colors.surface,
+    borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: "#d8dee9",
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    borderColor: colors.border,
+    padding: spacing.xl,
+  },
+  title: { color: colors.text, fontSize: 26, fontWeight: "800", textAlign: "center" },
+  subtitle: {
+    color: colors.textMuted,
     fontSize: 15,
-    color: "#0f172a",
-    backgroundColor: "#f9fafb",
+    lineHeight: 22,
+    textAlign: "center",
+    marginTop: spacing.sm,
   },
-  inputError: { borderColor: "#ef4444", backgroundColor: "#fff1f2" },
-  errorText: { color: "#b91c1c", marginTop: 10, fontSize: 13 },
-  primaryButton: {
-    marginTop: 18,
-    width: "100%",
-    backgroundColor: PRIMARY_COLOR,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: "center",
-    minHeight: 48,
-  },
-  primaryText: { color: "#fff", fontWeight: "700", fontSize: 16 },
-  disabledButton: { opacity: 0.8 },
-  secondaryButton: {
-    marginTop: 14,
-    alignItems: "center",
-    paddingVertical: 12,
-    minHeight: 44,
-  },
-  secondaryText: { color: PRIMARY_COLOR, fontWeight: "700", fontSize: 15 },
+  form: { gap: spacing.lg, marginTop: spacing.xl },
+  inputAction: { width: 48, minHeight: 48, alignItems: "center", justifyContent: "center" },
+  requirements: { gap: spacing.sm, marginTop: -spacing.sm },
+  requirement: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  requirementText: { color: colors.textMuted, fontSize: 13 },
+  requirementValid: { color: colors.success },
+  success: { alignItems: "center", paddingVertical: spacing.md },
+  successAction: { alignSelf: "stretch", marginTop: spacing.xl },
 });
 
 export default ResetPasswordScreen;

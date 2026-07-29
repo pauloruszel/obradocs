@@ -1,170 +1,233 @@
+import React, { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import {
+  Image,
+  Linking,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
+import WebView from "react-native-webview";
+import { FileText, MoreVertical, Pencil, ShieldAlert } from "lucide-react-native";
+import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Arquivo } from "@models/models";
 import { RootStackParamList } from "@navigation/AppNavigator";
-import { gerarUrlTemporaria, renomearArquivo } from "@services/arquivosService";
-import { supabase } from "@services/supabase";
+import {
+  buscarArquivo,
+  gerarUrlTemporaria,
+  renomearArquivo,
+} from "@services/arquivosService";
 import { toastError, toastSuccess } from "@utils/toast";
-import { NativeStackScreenProps } from "@react-navigation/native-stack";
-import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import WebView from "react-native-webview";
+import { arquivoTipoLabel, formatDateTime, formatFileName } from "@utils/display";
+import ActionMenu, { ActionMenuItem } from "@components/ActionMenu";
+import AppButton from "@components/AppButton";
+import RenameObraModal from "@components/RenameObraModal";
+import ScreenState from "@components/ScreenState";
+import { colors, radius, spacing } from "@theme/index";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ArquivoView">;
 
 const ArquivoViewScreen = ({ route, navigation }: Props) => {
-  const { path, tipo, arquivoId, papel = "VIEWER" } = route.params;
+  const { arquivoId, papel = "VIEWER" } = route.params;
   const [url, setUrl] = useState<string | null>(null);
   const [meta, setMeta] = useState<Arquivo | null>(null);
-  const [renomeando, setRenomeando] = useState(false);
-  const [novoNome, setNovoNome] = useState(route.params.nome || "");
-  const [salvando, setSalvando] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [renameVisible, setRenameVisible] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const signed = await gerarUrlTemporaria(path);
-        if (!signed) {
-          throw new Error("Nao foi possivel gerar link temporario para o arquivo.");
-        }
-        setUrl(signed);
-        const { data, error } = await supabase.from("arquivos").select("*").eq("id", arquivoId).single();
-        if (error) {
-          throw error;
-        }
-        setMeta(data as Arquivo);
-      } catch (e: any) {
-        toastError("Erro", e?.message || "Nao foi possivel abrir o arquivo.");
-        navigation.goBack();
-      }
-    };
-    load();
-  }, [path, arquivoId, navigation]);
+  const displayName = formatFileName(meta?.nome_original || route.params.nome || "");
+  const canEdit = papel === "OWNER" || papel === "EDITOR";
 
-  useEffect(() => {
-    if (meta?.nome_original) {
-      setNovoNome(meta.nome_original);
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      title: "Arquivo",
+      headerRight: () => (
+        <Pressable
+          style={styles.headerMenu}
+          onPress={() => setMenuVisible(true)}
+          accessibilityRole="button"
+          accessibilityLabel="Abrir ações do arquivo"
+        >
+          <MoreVertical size={23} color={colors.primary} />
+        </Pressable>
+      ),
+    });
+  }, [navigation]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const [signedUrl, file] = await Promise.all([
+        gerarUrlTemporaria(arquivoId),
+        buscarArquivo(arquivoId),
+      ]);
+      setUrl(signedUrl);
+      setMeta(file);
+    } catch (error) {
+      setLoadError((error as Error)?.message || "Não foi possível abrir o arquivo.");
+    } finally {
+      setLoading(false);
     }
-  }, [meta]);
+  }, [arquivoId]);
 
-  if (!url) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator />
-      </View>
-    );
-  }
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  const isPdf = (meta?.nome_original || "").toLowerCase().endsWith(".pdf") || tipo === "PROJETO";
-  const canEditar = papel === "OWNER" || papel === "EDITOR";
-
-  const handleSalvarNome = async () => {
-    const trimmed = novoNome.trim();
+  const saveName = async (newName: string) => {
+    const trimmed = newName.trim();
     if (!trimmed) {
-      toastError("Digite um nome valido");
+      toastError("Nome inválido", "Informe um nome para o arquivo.");
       return;
     }
-    setSalvando(true);
+    setSaving(true);
     try {
-      const atualizado = await renomearArquivo(arquivoId, trimmed);
-      setMeta(atualizado);
-      setRenomeando(false);
+      setMeta(await renomearArquivo(arquivoId, trimmed));
+      setRenameVisible(false);
       toastSuccess("Nome atualizado");
-    } catch (e: any) {
-      toastError("Erro ao renomear", e?.message || "Tente novamente");
+    } catch (error) {
+      toastError("Não foi possível renomear", (error as Error).message || "Tente novamente.");
     } finally {
-      setSalvando(false);
+      setSaving(false);
     }
   };
 
+  const menuItems: ActionMenuItem[] = [
+    ...(canEdit
+      ? [
+          {
+            label: "Renomear arquivo",
+            icon: <Pencil size={20} color={colors.text} />,
+            onPress: () => setRenameVisible(true),
+          },
+        ]
+      : []),
+    {
+      label: "Denunciar conteúdo",
+      icon: <ShieldAlert size={20} color={colors.text} />,
+      onPress: () =>
+        navigation.navigate("ReportContent", {
+          targetType: "ARQUIVO",
+          targetId: arquivoId,
+          title: displayName,
+        }),
+    },
+  ];
+
+  if (loading) return <ScreenState loading title="Carregando arquivo" />;
+  if (loadError || !url || !meta) {
+    return (
+      <ScreenState
+        icon={<FileText size={44} color={colors.textMuted} />}
+        title="Não foi possível abrir o arquivo"
+        description={loadError || "Tente novamente."}
+        actionLabel="Tentar novamente"
+        onAction={load}
+      />
+    );
+  }
+
+  const isPdf =
+    meta.content_type === "application/pdf" || displayName.toLowerCase().endsWith(".pdf");
+  const fileSize =
+    meta.tamanho_bytes >= 1024 * 1024
+      ? `${(meta.tamanho_bytes / (1024 * 1024)).toFixed(1)} MB`
+      : `${Math.max(1, Math.round(meta.tamanho_bytes / 1024))} KB`;
+
   return (
     <View style={styles.container}>
-      <View style={styles.titleRow}>
-        <Text style={styles.title}>{meta?.nome_original}</Text>
-        {canEditar && !renomeando && (
-          <TouchableOpacity style={styles.linkButton} onPress={() => setRenomeando(true)}>
-            <Text style={styles.linkText}>Renomear</Text>
-          </TouchableOpacity>
+      <View style={styles.metadata}>
+        <Text style={styles.title} numberOfLines={2}>{displayName}</Text>
+        <Text style={styles.subtitle}>
+          {[arquivoTipoLabel[meta.tipo], fileSize, formatDateTime(meta.created_at)]
+            .filter(Boolean)
+            .join(" · ")}
+        </Text>
+      </View>
+
+      <View style={styles.viewer}>
+        {isPdf && (Platform.OS === "android" || Platform.OS === "web") ? (
+          <View style={styles.pdfFallback}>
+            <View style={styles.pdfIcon}>
+              <FileText size={34} color={colors.primary} />
+            </View>
+            <Text style={styles.pdfTitle}>Documento PDF</Text>
+            <Text style={styles.pdfDescription}>
+              Abra o documento no visualizador do seu dispositivo.
+            </Text>
+            <AppButton
+              label="Abrir PDF"
+              onPress={() =>
+                Linking.openURL(url).catch(() =>
+                  toastError("Não foi possível abrir o PDF", "Tente novamente."),
+                )
+              }
+              style={styles.openButton}
+            />
+          </View>
+        ) : isPdf ? (
+          <WebView source={{ uri: url }} style={styles.webView} />
+        ) : (
+          <Image source={{ uri: url }} style={styles.image} />
         )}
       </View>
-      {canEditar && renomeando && (
-        <View style={styles.renameBox}>
-          <TextInput
-            style={styles.input}
-            value={novoNome}
-            onChangeText={setNovoNome}
-            placeholder="Novo nome do arquivo"
-          />
-          <View style={styles.renameActions}>
-            <TouchableOpacity style={styles.secondaryButton} onPress={() => { setRenomeando(false); setNovoNome(meta?.nome_original || ""); }}>
-              <Text style={styles.secondaryText}>Cancelar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.primaryButton, salvando && { opacity: 0.7 }]}
-              onPress={handleSalvarNome}
-              disabled={salvando}
-            >
-              <Text style={styles.primaryText}>{salvando ? "Salvando..." : "Salvar"}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-      <Text style={styles.subtitle}>{meta?.created_at ? new Date(meta.created_at).toLocaleString() : ""}</Text>
-      {isPdf ? (
-        <WebView source={{ uri: url }} style={{ flex: 1 }} />
-      ) : (
-        <Image source={{ uri: url }} style={{ width: "100%", height: 400, resizeMode: "contain" }} />
-      )}
+
+      <ActionMenu
+        visible={menuVisible}
+        title="Ações do arquivo"
+        items={menuItems}
+        onClose={() => setMenuVisible(false)}
+      />
+      <RenameObraModal
+        visible={renameVisible}
+        currentName={displayName}
+        title="Renomear arquivo"
+        label="Novo nome do arquivo"
+        helper="Mantenha a extensão para identificar corretamente o formato."
+        onCancel={() => setRenameVisible(false)}
+        onSave={saveName}
+        loading={saving}
+      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 12, backgroundColor: "#fff" },
-  titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 },
-  title: { fontSize: 18, fontWeight: "700", flex: 1, marginRight: 12 },
-  subtitle: { color: "#6b7280", marginBottom: 12 },
-  centered: { flex: 1, alignItems: "center", justifyContent: "center" },
-  linkButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#0C5BAA",
+  container: { flex: 1, backgroundColor: colors.surface },
+  headerMenu: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
+  metadata: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  linkText: { color: "#0C5BAA", fontWeight: "700" },
-  renameBox: {
-    backgroundColor: "#f8fafc",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    padding: 10,
-    marginBottom: 12,
-    gap: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#d0d4d9",
-    padding: 12,
-    borderRadius: 10,
-    backgroundColor: "#fff",
-  },
-  renameActions: { flexDirection: "row", gap: 8 },
-  secondaryButton: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#0C5BAA",
-    padding: 12,
-    borderRadius: 10,
+  title: { color: colors.text, fontSize: 17, fontWeight: "700" },
+  subtitle: { color: colors.textMuted, marginTop: spacing.xs, fontSize: 13 },
+  viewer: { flex: 1, backgroundColor: "#EEF2F6" },
+  webView: { flex: 1, backgroundColor: "#EEF2F6" },
+  image: { flex: 1, width: "100%", resizeMode: "contain" },
+  pdfFallback: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl },
+  pdfIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: radius.md,
+    backgroundColor: colors.primarySoft,
     alignItems: "center",
+    justifyContent: "center",
   },
-  secondaryText: { color: "#0C5BAA", fontWeight: "700" },
-  primaryButton: {
-    flex: 1,
-    backgroundColor: "#0C5BAA",
-    padding: 12,
-    borderRadius: 10,
-    alignItems: "center",
+  pdfTitle: { fontSize: 20, fontWeight: "700", color: colors.text, marginTop: spacing.lg },
+  pdfDescription: {
+    color: colors.textMuted,
+    textAlign: "center",
+    lineHeight: 21,
+    marginTop: spacing.sm,
+    marginBottom: spacing.lg,
   },
-  primaryText: { color: "#fff", fontWeight: "700" },
+  openButton: { minWidth: 180 },
 });
 
 export default ArquivoViewScreen;

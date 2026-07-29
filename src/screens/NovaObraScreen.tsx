@@ -1,93 +1,174 @@
 import React, { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from "react-native";
-import { useAuth } from "@context/AuthContext";
+import { Share, StyleSheet, Text, View } from "react-native";
+import * as Clipboard from "expo-clipboard";
+import { CheckCircle2, Copy, ExternalLink, Share2 } from "lucide-react-native";
 import { criarObra } from "@services/obrasService";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "@navigation/AppNavigator";
-import { toastError, toastInfo, toastSuccess } from "@utils/toast";
+import { toastError, toastSuccess } from "@utils/toast";
+import AppButton from "@components/AppButton";
+import AppInput from "@components/AppInput";
+import { colors, layout, radius, spacing, typography } from "@theme/index";
 
 type Props = NativeStackScreenProps<RootStackParamList, "NovaObra">;
 
+type CreatedObra = { id: string; nome: string; codigo_compartilhamento: string };
+
 const NovaObraScreen = ({ navigation }: Props) => {
-  const { user } = useAuth();
   const [nome, setNome] = useState("");
-  const [codigo, setCodigo] = useState<string | null>(null);
+  const [created, setCreated] = useState<CreatedObra | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   const handleCreate = async () => {
-    if (!user) return;
-    if (!nome) {
-      toastInfo("Informe um nome");
+    const trimmed = nome.trim();
+    if (trimmed.length < 3) {
+      setError("Use pelo menos 3 caracteres.");
       return;
     }
+    setSubmitting(true);
+    setError("");
     try {
-      const obra = await criarObra(nome, user.id);
-      setCodigo(obra.codigo_compartilhamento);
-      toastSuccess("Obra criada", `Codigo: ${obra.codigo_compartilhamento}`);
-    } catch (e: any) {
-      toastError("Erro ao criar obra", e.message);
+      setCreated(await criarObra(trimmed));
+    } catch (requestError) {
+      toastError("Não foi possível criar a obra", (requestError as Error).message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  return (
-    <View style={styles.container}>
-      <Text style={styles.label}>Nome da obra</Text>
-      <TextInput style={styles.input} value={nome} onChangeText={setNome} placeholder="Ex: Reforma Casa" />
-      <TouchableOpacity style={styles.primaryButton} onPress={handleCreate}>
-        <Text style={styles.primaryText}>Salvar</Text>
-      </TouchableOpacity>
-      {codigo && (
-        <View style={styles.codeBox}>
-          <Text style={styles.codeLabel}>Codigo de compartilhamento</Text>
-          <Text style={styles.code}>{codigo}</Text>
-          <TouchableOpacity
-            style={styles.secondaryButton}
+  const copyCode = async () => {
+    if (!created) return;
+    await Clipboard.setStringAsync(created.codigo_compartilhamento);
+    toastSuccess("Código copiado");
+  };
+
+  const shareCode = async () => {
+    if (!created) return;
+    await Share.share({
+      message: `Acesse a obra "${created.nome}" no Obradocs com o código ${created.codigo_compartilhamento}.`,
+    });
+  };
+
+  if (created) {
+    return (
+      <View style={styles.screen}>
+        <View style={[styles.content, styles.successContent]}>
+          <CheckCircle2 size={58} color={colors.success} />
+          <Text style={styles.successTitle}>Obra criada</Text>
+          <Text style={styles.successDescription}>
+            Compartilhe este código com quem precisa acessar {created.nome}.
+          </Text>
+          <View style={styles.codeCard}>
+            <Text style={styles.codeLabel}>Código da obra</Text>
+            <Text style={styles.code}>{created.codigo_compartilhamento}</Text>
+            <AppButton
+              label="Copiar código"
+              variant="secondary"
+              icon={<Copy size={18} color={colors.primary} />}
+              onPress={copyCode}
+            />
+            <AppButton
+              label="Compartilhar código"
+              variant="ghost"
+              icon={<Share2 size={18} color={colors.primary} />}
+              onPress={shareCode}
+            />
+          </View>
+          <AppButton
+            label="Abrir obra"
+            icon={<ExternalLink size={18} color={colors.white} />}
+            onPress={() =>
+              navigation.replace("ObraDetail", { obraId: created.id, nome: created.nome })
+            }
+            style={styles.fullButton}
+          />
+          <AppButton
+            label="Voltar para minhas obras"
+            variant="ghost"
             onPress={() => navigation.navigate("ObrasList")}
-          >
-            <Text style={styles.secondaryText}>Voltar para lista</Text>
-          </TouchableOpacity>
+            style={styles.fullButton}
+          />
         </View>
-      )}
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.screen}>
+      <View style={styles.content}>
+        <Text style={styles.title}>Dê um nome à obra</Text>
+        <Text style={styles.description}>
+          Use um nome fácil de reconhecer, como o endereço ou o tipo do serviço.
+        </Text>
+        <View style={styles.form}>
+          <AppInput
+            label="Nome da obra"
+            value={nome}
+            onChangeText={(value) => {
+              setNome(value);
+              if (error) setError("");
+            }}
+            placeholder="Ex.: Reforma da casa"
+            error={error}
+            maxLength={200}
+            editable={!submitting}
+            returnKeyType="done"
+            onSubmitEditing={handleCreate}
+            autoFocus
+          />
+          <AppButton
+            label="Criar obra"
+            onPress={handleCreate}
+            loading={submitting}
+            disabled={nome.trim().length < 3}
+          />
+        </View>
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f7f8fa", padding: 16 },
-  label: { fontWeight: "600", marginBottom: 6 },
-  input: {
+  screen: { flex: 1, backgroundColor: colors.background, alignItems: "center" },
+  content: {
+    width: "100%",
+    maxWidth: layout.maxContentWidth,
+    padding: spacing.xl,
+  },
+  title: { ...typography.screenTitle },
+  description: { color: colors.textMuted, fontSize: 15, lineHeight: 22, marginTop: spacing.sm },
+  form: { gap: spacing.xl, marginTop: spacing.xl },
+  successContent: { flex: 1, alignItems: "center", justifyContent: "center" },
+  successTitle: { ...typography.screenTitle, marginTop: spacing.lg },
+  successDescription: {
+    color: colors.textMuted,
+    fontSize: 15,
+    lineHeight: 22,
+    textAlign: "center",
+    marginTop: spacing.sm,
+    maxWidth: 380,
+  },
+  codeCard: {
+    width: "100%",
+    maxWidth: 420,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "#d0d4d9",
-    padding: 12,
-    borderRadius: 10,
-    backgroundColor: "#fff",
-    marginBottom: 12,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.xl,
+    marginVertical: spacing.xl,
+    gap: spacing.md,
   },
-  primaryButton: {
-    backgroundColor: "#0C5BAA",
-    padding: 14,
-    borderRadius: 10,
-    alignItems: "center",
-    marginBottom: 16,
+  codeLabel: { color: colors.textMuted, fontSize: 13, fontWeight: "700", textAlign: "center" },
+  code: {
+    color: colors.primary,
+    fontSize: 30,
+    fontWeight: "800",
+    textAlign: "center",
+    letterSpacing: 2,
   },
-  primaryText: { color: "#fff", fontWeight: "700" },
-  codeBox: {
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#d0d4d9",
-  },
-  codeLabel: { fontWeight: "600", marginBottom: 4 },
-  code: { fontSize: 20, fontWeight: "700", color: "#0C5BAA" },
-  secondaryButton: {
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: "#0C5BAA",
-    padding: 12,
-    borderRadius: 10,
-    alignItems: "center",
-  },
-  secondaryText: { color: "#0C5BAA", fontWeight: "600" },
+  fullButton: { width: "100%", maxWidth: 420, marginBottom: spacing.sm },
 });
 
 export default NovaObraScreen;

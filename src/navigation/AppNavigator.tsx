@@ -10,15 +10,19 @@ import ObrasListScreen from "@screens/ObrasListScreen";
 import PermissoesScreen from "@screens/PermissoesScreen";
 import ResetPasswordScreen from "@screens/ResetPasswordScreen";
 import UploadArquivoScreen from "@screens/UploadArquivoScreen";
+import AccountScreen from "@screens/AccountScreen";
+import TermsAcceptanceScreen from "@screens/TermsAcceptanceScreen";
+import ReportContentScreen from "@screens/ReportContentScreen";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import React from "react";
-import { ActivityIndicator, View } from "react-native";
 import { Papel } from "@models/models";
+import ScreenState from "@components/ScreenState";
+import { colors } from "@theme/index";
 
 export type RootStackParamList = {
   Login: undefined;
   ForgotPassword: undefined;
-  ResetPassword: undefined;
+  ResetPassword: { token?: string } | undefined;
   ObrasList: undefined;
   NovaObra: undefined;
   EntrarObra: undefined;
@@ -27,6 +31,13 @@ export type RootStackParamList = {
   ArquivoView: { arquivoId: string; obraId: string; path: string; nome: string; tipo: string; papel?: Papel };
   Historico: { obraId: string };
   Permissoes: { obraId: string; isOwner: boolean };
+  Account: undefined;
+  TermsAcceptance: undefined;
+  ReportContent: {
+    targetType: "OBRA" | "ARQUIVO";
+    targetId: string;
+    title: string;
+  };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -35,15 +46,19 @@ const AppNavigator = () => {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator />
-      </View>
-    );
+    return <ScreenState loading title="Preparando o Obradocs" />;
   }
 
   return (
-    <Stack.Navigator>
+    <Stack.Navigator
+      screenOptions={{
+        headerStyle: { backgroundColor: colors.surface },
+        headerTintColor: colors.text,
+        headerTitleStyle: { fontWeight: "700" },
+        headerShadowVisible: false,
+        contentStyle: { backgroundColor: colors.background },
+      }}
+    >
       {!user ? (
         <>
           <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
@@ -58,14 +73,26 @@ const AppNavigator = () => {
             options={{ headerShown: false }}
           />
         </>
+      ) : !user.terms_accepted ? (
+        <Stack.Screen
+          name="TermsAcceptance"
+          component={TermsAcceptanceScreen}
+          options={{ headerShown: false }}
+        />
       ) : (
         <>
-          <Stack.Screen name="ObrasList" component={ObrasListScreen} options={{ title: "Obras" }} />
-          <Stack.Screen name="NovaObra" component={NovaObraScreen} options={{ title: "Nova Obra" }} />
+          <Stack.Screen name="ObrasList" component={ObrasListScreen} options={{ title: "Minhas obras" }} />
+          <Stack.Screen name="Account" component={AccountScreen} options={{ title: "Minha conta" }} />
+          <Stack.Screen
+            name="ReportContent"
+            component={ReportContentScreen}
+            options={{ title: "Denunciar conteúdo" }}
+          />
+          <Stack.Screen name="NovaObra" component={NovaObraScreen} options={{ title: "Nova obra" }} />
           <Stack.Screen
             name="EntrarObra"
             component={EntrarObraScreen}
-            options={{ title: "Entrar pela Obra" }}
+            options={{ title: "Entrar em uma obra" }}
           />
           <Stack.Screen
             name="ObraDetail"
@@ -75,11 +102,11 @@ const AppNavigator = () => {
           <Stack.Screen
             name="UploadArquivo"
             component={UploadArquivoScreen}
-            options={{ title: "Enviar Arquivo" }}
+            options={{ title: "Enviar arquivo" }}
           />
           <Stack.Screen name="ArquivoView" component={ArquivoViewScreen} options={{ title: "Arquivo" }} />
-          <Stack.Screen name="Historico" component={HistoricoScreen} options={{ title: "Historico" }} />
-          <Stack.Screen name="Permissoes" component={PermissoesScreen} options={{ title: "Permissoes" }} />
+          <Stack.Screen name="Historico" component={HistoricoScreen} options={{ title: "Histórico" }} />
+          <Stack.Screen name="Permissoes" component={PermissoesScreen} options={{ title: "Permissões" }} />
           <Stack.Screen
             name="ResetPassword"
             component={ResetPasswordScreen}

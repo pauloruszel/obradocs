@@ -1,0 +1,64 @@
+server:
+  port: ${PORT:8080}
+  forward-headers-strategy: framework
+  compression:
+    enabled: true
+    mime-types: application/json,text/html,text/css,application/javascript
+  error:
+    include-message: never
+    include-stacktrace: never
+
+spring:
+  application:
+    name: obradocs-api
+  datasource:
+    url: jdbc:postgresql://${PGHOST:localhost}:${PGPORT:5432}/${PGDATABASE:obradocs}
+    username: ${PGUSER:obradocs}
+    password: ${PGPASSWORD:obradocs}
+    hikari:
+      maximum-pool-size: ${DB_MAX_POOL_SIZE:5}
+      minimum-idle: ${DB_MIN_IDLE:1}
+  flyway:
+    enabled: true
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
+
+management:
+  endpoint:
+    health:
+      show-details: never
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:8081,http://localhost:19006}
+  jwt:
+    secret: ${JWT_SECRET}
+    access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:15m}
+    refresh-token-ttl: ${JWT_REFRESH_TOKEN_TTL:30d}
+  password-reset:
+    url: ${PASSWORD_RESET_URL:http://localhost:8080/reset-password.html}
+    token-ttl: ${PASSWORD_RESET_TOKEN_TTL:30m}
+    from: ${PASSWORD_RESET_FROM:nao-responda@obradocs.app}
+  brevo:
+    api-url: ${BREVO_API_URL:https://api.brevo.com/v3/smtp/email}
+    api-key: ${BREVO_API_KEY}
+  storage:
+    endpoint: ${AWS_ENDPOINT_URL}
+    access-key-id: ${AWS_ACCESS_KEY_ID}
+    secret-access-key: ${AWS_SECRET_ACCESS_KEY}
+    bucket: ${AWS_S3_BUCKET_NAME}
+    region: ${AWS_DEFAULT_REGION:auto}
+    url-style: ${AWS_S3_URL_STYLE:virtual}
+    download-url-ttl: ${STORAGE_DOWNLOAD_URL_TTL:1h}
