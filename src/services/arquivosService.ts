@@ -27,7 +27,6 @@ export const uploadArquivo = async ({
   contentType: string;
 }): Promise<Arquivo> => {
   const form = new FormData();
-  form.append("tipo", tipo);
   if (Platform.OS === "web") {
     const blob = await fetch(uri).then((response) => response.blob());
     const appendFile = form.append.bind(form) as (
@@ -46,11 +45,14 @@ export const uploadArquivo = async ({
       } as unknown as Blob,
     );
   }
-  return apiRequest(`/v1/obras/${obraId}/arquivos`, {
-    method: "POST",
-    body: form,
-    timeoutMs: 120_000,
-  });
+  return apiRequest(
+    `/v1/obras/${obraId}/arquivos?tipo=${encodeURIComponent(tipo)}`,
+    {
+      method: "POST",
+      body: form,
+      timeoutMs: 120_000,
+    },
+  );
 };
 
 export const gerarUrlTemporaria = async (arquivoId: string): Promise<string> => {

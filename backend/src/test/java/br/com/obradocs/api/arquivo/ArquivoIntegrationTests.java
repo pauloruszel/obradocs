@@ -227,15 +227,13 @@ class ArquivoIntegrationTests {
 		String boundary = "----obradocs-" + UUID.randomUUID();
 		ByteArrayOutputStream body = new ByteArrayOutputStream();
 		body.write(("--" + boundary + "\r\n"
-				+ "Content-Disposition: form-data; name=\"tipo\"\r\n\r\n"
-				+ tipo + "\r\n"
-				+ "--" + boundary + "\r\n"
 				+ "Content-Disposition: form-data; name=\"arquivo\"; filename=\"" + nome + "\"\r\n"
 				+ "Content-Type: " + contentType + "\r\n\r\n").getBytes(StandardCharsets.UTF_8));
 		body.write(conteudo);
 		body.write(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
 
-		HttpRequest request = HttpRequest.newBuilder(uri("/v1/obras/" + obraId + "/arquivos"))
+		HttpRequest request = HttpRequest.newBuilder(uri(
+						"/v1/obras/" + obraId + "/arquivos?tipo=" + tipo))
 				.header("Authorization", "Bearer " + token)
 				.header("Content-Type", "multipart/form-data; boundary=" + boundary)
 				.POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray()))

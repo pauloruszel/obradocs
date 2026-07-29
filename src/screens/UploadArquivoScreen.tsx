@@ -129,9 +129,18 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
         toastError("Arquivo muito grande", "O limite para envio é de 10 MB.");
       } else {
         const message = (error as Error)?.message || "";
+        const timedOut = error instanceof Error && error.name === "AbortError";
+        if (timedOut) {
+          toastError(
+            "Envio demorou demais",
+            "A foto continua selecionada. Verifique a conexão e tente novamente.",
+          );
+          return;
+        }
+        const networkError = /network|fetch/i.test(message);
         toastError(
-          /network|fetch/i.test(message) ? "Sem conexão" : "Não foi possível enviar",
-          /network|fetch/i.test(message) ? "Verifique sua internet." : message || "Tente novamente.",
+          networkError ? "Sem conexão" : "Não foi possível enviar",
+          networkError ? "Verifique sua internet." : message || "Tente novamente.",
         );
       }
     } finally {
