@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.stereotype.Component;
+import org.springframework.web.util.HtmlUtils;
 
 import br.com.obradocs.api.config.SecurityConfig.BrevoProperties;
 import br.com.obradocs.api.config.SecurityConfig.PasswordResetProperties;
@@ -27,10 +28,18 @@ class BrevoEmailSender {
 			.build();
 
 	void enviarRedefinicao(Usuario usuario, String link) {
+		String safeName = HtmlUtils.htmlEscape(usuario.getNome());
+		String safeLink = HtmlUtils.htmlEscape(link);
 		Map<String, Object> email = Map.of(
 				"sender", Map.of("email", passwordResetProperties.from(), "name", "Obradocs"),
 				"to", List.of(Map.of("email", usuario.getEmail(), "name", usuario.getNome())),
 				"subject", "Redefinicao de senha do Obradocs",
+				"htmlContent", """
+						<p>Ola, %s.</p>
+						<p>Use o botao abaixo para definir uma nova senha:</p>
+						<p><a href="%s" style="background:#0C5BAA;color:#fff;padding:12px 18px;text-decoration:none;border-radius:6px">Redefinir senha</a></p>
+						<p>Se voce nao solicitou a redefinicao, ignore esta mensagem.</p>
+						""".formatted(safeName, safeLink),
 				"textContent", """
 						Ola, %s.
 

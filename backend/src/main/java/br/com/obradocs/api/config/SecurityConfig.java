@@ -58,6 +58,7 @@ public class SecurityConfig {
 								"/auth/forgot-password",
 								"/auth/reset-password")
 						.permitAll()
+						.requestMatchers(HttpMethod.GET, "/reset-password.html").permitAll()
 						.requestMatchers("/actuator/health").permitAll()
 						.anyRequest().authenticated())
 				.oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))

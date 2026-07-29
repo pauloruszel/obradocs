@@ -221,6 +221,14 @@ class AuthIntegrationTests {
 				.contains("http://localhost:8081");
 	}
 
+	@Test
+	void abrePaginaPublicaDeRedefinicaoDeSenha() throws Exception {
+		HttpResponse<String> response = get("/reset-password.html", null);
+
+		assertThat(response.statusCode()).isEqualTo(200);
+		assertThat(response.body()).contains("Definir nova senha");
+	}
+
 	private HttpResponse<String> post(String path, String body) throws Exception {
 		HttpRequest request = HttpRequest.newBuilder(uri(path))
 				.header("Content-Type", "application/json")

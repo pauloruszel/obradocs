@@ -38,7 +38,7 @@ app:
     access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:15m}
     refresh-token-ttl: ${JWT_REFRESH_TOKEN_TTL:30d}
   password-reset:
-    url: ${PASSWORD_RESET_URL:obradocs://reset}
+    url: ${PASSWORD_RESET_URL:http://localhost:8080/reset-password.html}
     token-ttl: ${PASSWORD_RESET_TOKEN_TTL:30m}
     from: ${PASSWORD_RESET_FROM:nao-responda@obradocs.app}
   brevo:
