@@ -50,7 +50,7 @@ class ObraService {
 	@Transactional
 	Obra entrarPorCodigo(String codigo, UUID usuarioId) {
 		Obra obra = obras.findByCodigoCompartilhamentoAndDeletedAtIsNull(normalizarCodigo(codigo))
-				.orElseThrow(() -> new NoSuchElementException("Obra nao encontrada"));
+				.orElseThrow(() -> new NoSuchElementException("Obra não encontrada"));
 
 		if (permissoes.findByObraIdAndUserId(obra.getId(), usuarioId).isEmpty()) {
 			permissoes.save(new Permissao(obra.getId(), usuarioId, Papel.EDITOR));
@@ -97,7 +97,7 @@ class ObraService {
 		buscarAtiva(obraId);
 		authorization.exigirOwner(obraId, usuarioId);
 		UUID convidadoId = permissoes.buscarUsuarioIdPorEmail(email.trim().toLowerCase(Locale.ROOT))
-				.orElseThrow(() -> new NoSuchElementException("Usuario nao encontrado"));
+				.orElseThrow(() -> new NoSuchElementException("Usuário não encontrado"));
 
 		Permissao permissao = permissoes.findByObraIdAndUserId(obraId, convidadoId)
 				.map(existente -> alterarPapel(existente, papel))
@@ -143,12 +143,12 @@ class ObraService {
 
 	private Obra buscarAtiva(UUID obraId) {
 		return obras.findByIdAndDeletedAtIsNull(obraId)
-				.orElseThrow(() -> new NoSuchElementException("Obra nao encontrada"));
+				.orElseThrow(() -> new NoSuchElementException("Obra não encontrada"));
 	}
 
 	private Permissao buscarPermissao(UUID obraId, UUID permissaoId) {
 		return permissoes.findByIdAndObraId(permissaoId, obraId)
-				.orElseThrow(() -> new NoSuchElementException("Permissao nao encontrada"));
+				.orElseThrow(() -> new NoSuchElementException("Permissão não encontrada"));
 	}
 
 	private Permissao alterarPapel(Permissao permissao, Papel papel) {
@@ -161,7 +161,7 @@ class ObraService {
 		if (permissao.getPapel() == Papel.OWNER
 				&& novoPapel != Papel.OWNER
 				&& permissoes.countByObraIdAndPapel(obraId, Papel.OWNER) == 1) {
-			throw new IllegalArgumentException("A obra deve manter ao menos um proprietario");
+			throw new IllegalArgumentException("A obra deve manter ao menos um proprietário");
 		}
 	}
 
@@ -169,7 +169,7 @@ class ObraService {
 		return new PermissaoDetalhada(
 				permissao,
 				permissoes.buscarUsuario(permissao.getUserId())
-						.orElseThrow(() -> new NoSuchElementException("Usuario nao encontrado")));
+						.orElseThrow(() -> new NoSuchElementException("Usuário não encontrado")));
 	}
 
 	private String gerarCodigoUnico() {
@@ -186,13 +186,13 @@ class ObraService {
 				return valor;
 			}
 		}
-		throw new IllegalStateException("Nao foi possivel gerar codigo de compartilhamento");
+		throw new IllegalStateException("Não foi possível gerar código de compartilhamento");
 	}
 
 	private String normalizarCodigo(String codigo) {
 		String limpo = codigo.replaceAll("[^A-Za-z0-9]", "").toUpperCase(Locale.ROOT);
 		if (limpo.length() != 8) {
-			throw new IllegalArgumentException("Codigo de compartilhamento invalido");
+			throw new IllegalArgumentException("Código de compartilhamento inválido");
 		}
 		return limpo.substring(0, 4) + "-" + limpo.substring(4);
 	}

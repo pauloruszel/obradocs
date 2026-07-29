@@ -49,6 +49,7 @@ export const uploadArquivo = async ({
   return apiRequest(`/v1/obras/${obraId}/arquivos`, {
     method: "POST",
     body: form,
+    timeoutMs: 120_000,
   });
 };
 

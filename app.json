@@ -16,7 +16,7 @@
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.pauloruszel.obradocs",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
@@ -27,11 +27,6 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
       },
-      "permissions": [
-        "CAMERA",
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
-      ],
       "package": "com.pauloruszel.obradocs"
     },
     "web": {
@@ -41,9 +36,11 @@
     },
     "plugins": [
       [
-        "expo-camera",
+        "expo-image-picker",
         {
-          "cameraPermission": "Autorize o Obradocs a usar a camera para enviar fotos da obra."
+          "photosPermission": "Autorize o Obradocs a selecionar fotos e documentos da obra.",
+          "cameraPermission": "Autorize o Obradocs a usar a câmera para registrar fotos da obra.",
+          "microphonePermission": false
         }
       ],
       "expo-secure-store"

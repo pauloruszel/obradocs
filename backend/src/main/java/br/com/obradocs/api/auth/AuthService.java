@@ -16,6 +16,8 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import br.com.obradocs.api.config.SecurityConfig.JwtProperties;
 import br.com.obradocs.api.config.SecurityConfig.PasswordResetProperties;
@@ -37,10 +39,12 @@ class AuthService {
 	private final JwtProperties jwtProperties;
 	private final PasswordResetProperties passwordResetProperties;
 	private final BrevoEmailSender emailSender;
+	private final AccountDeletionService accountDeletionService;
 	private final Clock clock = Clock.systemUTC();
 
 	@Transactional
 	AuthResult cadastrar(String nome, String email, String senha) {
+		validarNovaSenha(senha);
 		String normalizedEmail = normalizeEmail(email);
 		if (usuarios.existsByEmail(normalizedEmail)) {
 			throw new EmailJaCadastradoException();
@@ -55,16 +59,16 @@ class AuthService {
 		}
 	}
 
-	@Transactional(readOnly = true)
+	@Transactional
 	AuthResult autenticar(String email, String senha) {
 		Usuario usuario = usuarios.findByEmail(normalizeEmail(email))
 				.filter(Usuario::isAtivo)
-				.orElseThrow(() -> new BadCredentialsException("E-mail ou senha invalidos"));
+				.orElseThrow(() -> new BadCredentialsException("E-mail ou senha inválidos"));
 		if (usuario.isPasswordChangeRequired()) {
 			throw new PasswordChangeRequiredException();
 		}
 		if (!passwordEncoder.matches(senha, usuario.getSenhaHash())) {
-			throw new BadCredentialsException("E-mail ou senha invalidos");
+			throw new BadCredentialsException("E-mail ou senha inválidos");
 		}
 		return criarSessao(usuario);
 	}
@@ -73,7 +77,7 @@ class AuthService {
 	Usuario buscar(UUID id) {
 		return usuarios.findById(id)
 				.filter(Usuario::isAtivo)
-				.orElseThrow(() -> new BadCredentialsException("Usuario nao encontrado"));
+				.orElseThrow(() -> new BadCredentialsException("Usuário não encontrado"));
 	}
 
 	@Transactional
@@ -81,7 +85,7 @@ class AuthService {
 		Instant now = clock.instant();
 		RefreshToken atual = refreshTokens.findByTokenHashAndRevokedAtIsNull(hash(refreshToken))
 				.filter(token -> !token.expirado(now))
-				.orElseThrow(() -> new BadCredentialsException("Sessao invalida ou expirada"));
+				.orElseThrow(() -> new BadCredentialsException("Sessão inválida ou expirada"));
 		Usuario usuario = buscar(atual.getUsuarioId());
 		atual.revogar(now);
 		return criarSessao(usuario);
@@ -102,19 +106,36 @@ class AuthService {
 
 	@Transactional
 	void redefinirSenha(String token, String senha) {
+		validarNovaSenha(senha);
 		Instant now = clock.instant();
 		PasswordResetToken resetToken =
 				passwordResetTokens.findByTokenHashAndUsedAtIsNull(hash(token))
 						.filter(item -> !item.expirado(now))
-						.orElseThrow(() -> new IllegalArgumentException("Token invalido ou expirado"));
+						.orElseThrow(() -> new IllegalArgumentException("Token inválido ou expirado"));
 		Usuario usuario = usuarios.findById(resetToken.getUsuarioId())
 				.filter(Usuario::isAtivo)
-				.orElseThrow(() -> new IllegalArgumentException("Token invalido ou expirado"));
+				.orElseThrow(() -> new IllegalArgumentException("Token inválido ou expirado"));
 
 		usuario.alterarSenha(passwordEncoder.encode(senha));
 		resetToken.usar(now);
 		refreshTokens.findAllByUsuarioIdAndRevokedAtIsNull(usuario.getId())
 				.forEach(item -> item.revogar(now));
+	}
+
+	@Transactional
+	void excluirConta(UUID usuarioId, String senha) {
+		Usuario usuario = buscar(usuarioId);
+		if (!passwordEncoder.matches(senha, usuario.getSenhaHash())) {
+			throw new BadCredentialsException("Senha atual incorreta");
+		}
+		accountDeletionService.delete(usuarioId);
+	}
+
+	@Transactional
+	Usuario aceitarTermos(UUID usuarioId) {
+		Usuario usuario = buscar(usuarioId);
+		usuario.aceitarTermos();
+		return usuario;
 	}
 
 	private AuthResult criarSessao(Usuario usuario) {
@@ -136,7 +157,12 @@ class AuthService {
 				usuario.getId(),
 				hash(token),
 				now.plus(passwordResetProperties.tokenTtl())));
-		enviarEmailRedefinicao(usuario, token);
+		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+			@Override
+			public void afterCommit() {
+				enviarEmailRedefinicao(usuario, token);
+			}
+		});
 	}
 
 	private void enviarEmailRedefinicao(Usuario usuario, String token) {
@@ -148,7 +174,7 @@ class AuthService {
 		try {
 			emailSender.enviarRedefinicao(usuario, link);
 		} catch (BrevoEmailSender.EmailDeliveryException exception) {
-			log.error("Falha ao enviar redefinicao de senha para usuario {}", usuario.getId(), exception);
+			log.error("Falha ao enviar redefinição de senha para usuário {}", usuario.getId(), exception);
 		}
 	}
 
@@ -160,14 +186,14 @@ class AuthService {
 
 	private String hash(String token) {
 		if (token == null || token.isBlank()) {
-			throw new BadCredentialsException("Token obrigatorio");
+			throw new BadCredentialsException("Token obrigatório");
 		}
 		try {
 			byte[] digest = MessageDigest.getInstance("SHA-256")
 					.digest(token.getBytes(StandardCharsets.UTF_8));
 			return java.util.HexFormat.of().formatHex(digest);
 		} catch (NoSuchAlgorithmException exception) {
-			throw new IllegalStateException("SHA-256 indisponivel", exception);
+			throw new IllegalStateException("SHA-256 indisponível", exception);
 		}
 	}
 
@@ -175,18 +201,30 @@ class AuthService {
 		return email.trim().toLowerCase(Locale.ROOT);
 	}
 
+	private void validarNovaSenha(String senha) {
+		if (senha == null
+				|| senha.length() < 8
+				|| senha.length() > 72
+				|| senha.chars().noneMatch(Character::isUpperCase)
+				|| senha.chars().noneMatch(Character::isLowerCase)
+				|| senha.chars().noneMatch(Character::isDigit)) {
+			throw new IllegalArgumentException(
+					"A senha deve ter entre 8 e 72 caracteres, com letra maiúscula, minúscula e número");
+		}
+	}
+
 	record AuthResult(Usuario usuario, JwtService.Token token, String refreshToken) {
 	}
 
 	static class EmailJaCadastradoException extends RuntimeException {
 		EmailJaCadastradoException() {
-			super("E-mail ja cadastrado");
+			super("E-mail já cadastrado");
 		}
 	}
 
 	static class PasswordChangeRequiredException extends RuntimeException {
 		PasswordChangeRequiredException() {
-			super("Redefinicao de senha obrigatoria. Use Esqueci minha senha.");
+			super("Redefinição de senha obrigatória. Use Esqueci minha senha.");
 		}
 	}
 }

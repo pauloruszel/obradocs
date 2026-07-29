@@ -12,7 +12,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList, "ObrasList">;
 
 const ObrasListScreen = () => {
   const navigation = useNavigation<Nav>();
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const [obras, setObras] = useState<Obra[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -69,8 +69,12 @@ const ObrasListScreen = () => {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Minhas obras</Text>
-        <TouchableOpacity onPress={signOut}>
-          <Text style={styles.link}>Sair</Text>
+        <TouchableOpacity
+          onPress={() => navigation.navigate("Account")}
+          accessibilityRole="button"
+          accessibilityLabel="Abrir minha conta"
+        >
+          <Text style={styles.link}>Minha conta</Text>
         </TouchableOpacity>
       </View>
       <View style={styles.actions}>
@@ -97,7 +101,7 @@ const styles = StyleSheet.create({
   centered: { flex: 1, alignItems: "center", justifyContent: "center" },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
   title: { fontSize: 22, fontWeight: "700", color: "#0C5BAA" },
-  link: { color: "#e63946", fontWeight: "600" },
+  link: { color: "#0C5BAA", fontWeight: "600" },
   actions: { flexDirection: "row", gap: 8, marginBottom: 12 },
   primaryButton: { flex: 1, backgroundColor: "#0C5BAA", padding: 12, borderRadius: 10, alignItems: "center" },
   primaryText: { color: "#fff", fontWeight: "600" },

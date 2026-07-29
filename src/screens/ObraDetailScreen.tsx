@@ -71,6 +71,11 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
   useFocusEffect(
     useCallback(() => {
       loadPermissao();
+    }, [obraId, user?.id])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
       loadArquivos();
     }, [selected, obraId])
   );
@@ -197,6 +202,18 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
           onPress={() => navigation.navigate("Permissoes", { obraId, isOwner: papel === "OWNER" })}
         >
           <Text style={styles.secondaryText}>Permissões</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={() =>
+            navigation.navigate("ReportContent", {
+              targetType: "OBRA",
+              targetId: obraId,
+              title: obraNome,
+            })
+          }
+        >
+          <Text style={styles.secondaryText}>Denunciar</Text>
         </TouchableOpacity>
       </View>
       {loading ? (

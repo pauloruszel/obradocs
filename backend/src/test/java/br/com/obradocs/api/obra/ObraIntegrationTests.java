@@ -14,6 +14,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
@@ -21,6 +22,7 @@ import org.testcontainers.utility.DockerImageName;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import br.com.obradocs.api.auth.AuthRateLimiter;
 
 @Testcontainers
 @ActiveProfiles("test")
@@ -45,6 +47,9 @@ class ObraIntegrationTests {
 
 	@Autowired
 	HistoricoRepository historicos;
+
+	@MockitoBean
+	AuthRateLimiter rateLimiter;
 
 	private final HttpClient http = HttpClient.newHttpClient();
 
@@ -171,6 +176,18 @@ class ObraIntegrationTests {
 				.anySatisfy(item -> assertThat(item.getAcao()).isEqualTo("EXCLUIR_OBRA"));
 	}
 
+	@Test
+	void registraDenunciaDeObraAcessivel() throws Exception {
+		UsuarioAutenticado owner = registrar("Owner Denuncia", "owner-denuncia@example.com");
+		JsonNode obra = criarObra(owner, "Obra denunciada");
+
+		HttpResponse<String> response = post("/v1/reports", """
+				{"target_type":"OBRA","target_id":"%s","reason":"Conteudo inadequado para esta obra"}
+				""".formatted(obra.path("id").stringValue()), owner.token());
+
+		assertThat(response.statusCode()).isEqualTo(201);
+	}
+
 	private JsonNode criarObra(UsuarioAutenticado usuario, String nome) throws Exception {
 		return json(post("/v1/obras", """
 				{"nome":"%s"}
@@ -179,7 +196,7 @@ class ObraIntegrationTests {
 
 	private UsuarioAutenticado registrar(String nome, String email) throws Exception {
 		JsonNode response = json(post("/auth/register", """
-				{"nome":"%s","email":"%s","senha":"senha123"}
+				{"nome":"%s","email":"%s","senha":"Senha123","aceitou_termos":true}
 				""".formatted(nome, email), null));
 		return new UsuarioAutenticado(
 				UUID.fromString(response.path("user").path("id").stringValue()),

@@ -18,6 +18,7 @@ import { redefinirSenha } from "@services/authService";
 import { RootStackParamList } from "@navigation/AppNavigator";
 import { useAuth } from "@context/AuthContext";
 import logo from "../../assets/logo-obradocs.png";
+import { validateNewPassword } from "@utils/validation";
 
 const PRIMARY_COLOR = "#0C5BAA";
 
@@ -39,19 +40,9 @@ const ResetPasswordScreen = ({ route, navigation }: Props) => {
     };
   }, []);
 
-  const validatePassword = (value: string) => {
-    if (value.length < 8) {
-      return "Use pelo menos 8 caracteres.";
-    }
-    if (!/[a-z]/.test(value) || !/[A-Z]/.test(value) || !/[0-9]/.test(value)) {
-      return "Inclua maiuscula, minuscula e numero.";
-    }
-    return "";
-  };
-
   const handleChangePassword = (value: string) => {
     setPassword(value);
-    const validation = validatePassword(value);
+    const validation = validateNewPassword(value);
     const mismatch = confirmPassword && value !== confirmPassword ? "Senhas diferentes." : "";
     setError(validation || mismatch);
   };
@@ -64,7 +55,7 @@ const ResetPasswordScreen = ({ route, navigation }: Props) => {
   };
 
   const handleUpdatePassword = async () => {
-    const validation = validatePassword(password);
+    const validation = validateNewPassword(password);
     if (validation) {
       setError(validation);
       showMessage({ type: "danger", message: validation });

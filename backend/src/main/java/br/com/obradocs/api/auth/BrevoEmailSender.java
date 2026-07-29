@@ -42,7 +42,7 @@ class BrevoEmailSender {
 				</head>
 				<body style="margin:0;padding:0;background:#f4f6f8;color:#172033;font-family:Arial,sans-serif">
 				  <div style="display:none;max-height:0;overflow:hidden;opacity:0">
-				    Recebemos uma solicitacao para redefinir sua senha no Obradocs.
+				    Recebemos uma solicita&ccedil;&atilde;o para redefinir sua senha no Obradocs.
 				  </div>
 				  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f4f6f8">
 				    <tr>
@@ -60,10 +60,10 @@ class BrevoEmailSender {
 				          </tr>
 				          <tr>
 				            <td style="padding:36px 32px 18px">
-				              <p style="margin:0 0 12px;color:#0c5baa;font-size:13px;font-weight:700;text-transform:uppercase">Seguranca da conta</p>
+				              <p style="margin:0 0 12px;color:#0c5baa;font-size:13px;font-weight:700;text-transform:uppercase">Seguran&ccedil;a da conta</p>
 				              <h1 style="margin:0 0 18px;color:#172033;font-size:26px;line-height:1.25">Defina uma nova senha</h1>
 				              <p style="margin:0 0 14px;color:#445066;font-size:16px;line-height:1.6">Ol&aacute;, {{name}}.</p>
-				              <p style="margin:0;color:#445066;font-size:16px;line-height:1.6">Recebemos uma solicitacao para redefinir a senha da sua conta. Use o botao abaixo para continuar.</p>
+				              <p style="margin:0;color:#445066;font-size:16px;line-height:1.6">Recebemos uma solicita&ccedil;&atilde;o para redefinir a senha da sua conta. Use o bot&atilde;o abaixo para continuar.</p>
 				            </td>
 				          </tr>
 				          <tr>
@@ -88,14 +88,14 @@ class BrevoEmailSender {
 				          </tr>
 				          <tr>
 				            <td style="padding:0 32px 32px;color:#637083;font-size:13px;line-height:1.55">
-				              <p style="margin:0 0 8px">Se o botao nao funcionar, copie e cole este endereco no navegador:</p>
+				              <p style="margin:0 0 8px">Se o bot&atilde;o n&atilde;o funcionar, copie e cole este endere&ccedil;o no navegador:</p>
 				              <p style="margin:0;word-break:break-all"><a href="{{link}}" style="color:#0c5baa;text-decoration:underline">{{link}}</a></p>
 				              <hr style="margin:28px 0 20px;border:0;border-top:1px solid #e3e7ec">
-				              <p style="margin:0"><strong>Nao solicitou esta alteracao?</strong><br>Ignore este e-mail. Sua senha atual permanecera a mesma.</p>
+				              <p style="margin:0"><strong>N&atilde;o solicitou esta altera&ccedil;&atilde;o?</strong><br>Ignore este e-mail. Sua senha atual permanecer&aacute; a mesma.</p>
 				            </td>
 				          </tr>
 				        </table>
-				        <p style="margin:18px 0 0;color:#7b8798;font-size:12px;line-height:1.5;text-align:center">Mensagem automatica do Obradocs. Nao responda a este e-mail.</p>
+				        <p style="margin:18px 0 0;color:#7b8798;font-size:12px;line-height:1.5;text-align:center">Mensagem autom&aacute;tica do Obradocs. N&atilde;o responda a este e-mail.</p>
 				      </td>
 				    </tr>
 				  </table>
@@ -111,12 +111,12 @@ class BrevoEmailSender {
 				"subject", "Redefina sua senha | Obradocs",
 				"htmlContent", htmlContent,
 				"textContent", """
-						Ola, %s.
+						Olá, %s.
 
 						Use o link abaixo para definir uma nova senha. Ele expira em %s:
 						%s
 
-						Se voce nao solicitou a redefinicao, ignore esta mensagem.
+						Se você não solicitou a redefinição, ignore esta mensagem.
 						""".formatted(usuario.getNome(), expiration, link));
 		try {
 			HttpRequest request = HttpRequest.newBuilder(properties.apiUrl())

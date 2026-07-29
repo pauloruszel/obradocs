@@ -50,6 +50,9 @@ class AuthIntegrationTests {
 	@MockitoBean
 	BrevoEmailSender emailSender;
 
+	@MockitoBean
+	AuthRateLimiter rateLimiter;
+
 	@Autowired
 	JdbcTemplate jdbc;
 
@@ -58,7 +61,7 @@ class AuthIntegrationTests {
 	@Test
 	void cadastraEConsultaUsuarioComJwt() throws Exception {
 		HttpResponse<String> register = post("/auth/register", """
-				{"nome":"Paulo Ruszel","email":"PAULO@example.com","senha":"senha123"}
+				{"nome":"Paulo Ruszel","email":"PAULO@example.com","senha":"Senha123","aceitou_termos":true}
 				""");
 
 		assertThat(register.statusCode()).isEqualTo(201);
@@ -68,7 +71,7 @@ class AuthIntegrationTests {
 		assertThat(auth.path("user").path("email").stringValue()).isEqualTo("paulo@example.com");
 
 		HttpResponse<String> login = post("/auth/login", """
-				{"email":"paulo@example.com","senha":"senha123"}
+				{"email":"paulo@example.com","senha":"Senha123"}
 				""");
 		assertThat(login.statusCode()).isEqualTo(200);
 		String loginToken = objectMapper.readTree(login.body()).path("access_token").stringValue();
@@ -85,7 +88,7 @@ class AuthIntegrationTests {
 	void rejeitaCredenciaisInvalidasEEndpointSemToken() throws Exception {
 		String email = "login@example.com";
 		post("/auth/register", """
-				{"nome":"Usuario Login","email":"%s","senha":"senha123"}
+				{"nome":"Usuario Login","email":"%s","senha":"Senha123","aceitou_termos":true}
 				""".formatted(email));
 
 		HttpResponse<String> login = post("/auth/login", """
@@ -100,7 +103,7 @@ class AuthIntegrationTests {
 	@Test
 	void rejeitaEmailDuplicado() throws Exception {
 		String body = """
-				{"nome":"Usuario Duplicado","email":"duplicado@example.com","senha":"senha123"}
+				{"nome":"Usuario Duplicado","email":"duplicado@example.com","senha":"Senha123","aceitou_termos":true}
 				""";
 
 		assertThat(post("/auth/register", body).statusCode()).isEqualTo(201);
@@ -108,9 +111,45 @@ class AuthIntegrationTests {
 	}
 
 	@Test
+	void excluiContaComSenhaAtualERevogaAcesso() throws Exception {
+		JsonNode registration = objectMapper.readTree(post("/auth/register", """
+				{"nome":"Usuario Exclusao","email":"excluir@example.com","senha":"Senha123","aceitou_termos":true}
+				""").body());
+		String accessToken = registration.path("access_token").stringValue();
+
+		HttpRequest deletion = HttpRequest.newBuilder(uri("/auth/account"))
+				.header("Authorization", "Bearer " + accessToken)
+				.header("Content-Type", "application/json")
+				.method("DELETE", HttpRequest.BodyPublishers.ofString("""
+						{"senha":"Senha123"}
+						"""))
+				.build();
+
+		assertThat(http.send(deletion, HttpResponse.BodyHandlers.ofString()).statusCode())
+				.isEqualTo(204);
+		assertThat(post("/auth/login", """
+				{"email":"excluir@example.com","senha":"Senha123"}
+				""").statusCode()).isEqualTo(401);
+		assertThat(jdbc.queryForObject(
+				"select count(*) from usuarios where email = 'excluir@example.com'",
+				Integer.class)).isZero();
+	}
+
+	@Test
+	void rejeitaSenhaFracaNoCadastro() throws Exception {
+		HttpResponse<String> response = post("/auth/register", """
+				{"nome":"Usuario Fraco","email":"fraco@example.com","senha":"senha123","aceitou_termos":true}
+				""");
+
+		assertThat(response.statusCode()).isEqualTo(400);
+		assertThat(objectMapper.readTree(response.body()).path("detail").stringValue())
+				.contains("letra maiúscula");
+	}
+
+	@Test
 	void rotacionaRefreshTokenERevogaNoLogout() throws Exception {
 		JsonNode register = objectMapper.readTree(post("/auth/register", """
-				{"nome":"Usuario Refresh","email":"refresh@example.com","senha":"senha123"}
+				{"nome":"Usuario Refresh","email":"refresh@example.com","senha":"Senha123","aceitou_termos":true}
 				""").body());
 		String firstRefresh = register.path("refresh_token").stringValue();
 
@@ -137,7 +176,7 @@ class AuthIntegrationTests {
 	void redefineSenhaComTokenRecebidoPorEmailUmaUnicaVez() throws Exception {
 		String email = "reset@example.com";
 		post("/auth/register", """
-				{"nome":"Usuario Reset","email":"%s","senha":"senha123"}
+				{"nome":"Usuario Reset","email":"%s","senha":"Senha123","aceitou_termos":true}
 				""".formatted(email));
 		clearInvocations(emailSender);
 
@@ -155,7 +194,7 @@ class AuthIntegrationTests {
 				{"token":"%s","senha":"NovaSenha123"}
 				""".formatted(token)).statusCode()).isEqualTo(204);
 		assertThat(post("/auth/login", """
-				{"email":"%s","senha":"senha123"}
+				{"email":"%s","senha":"Senha123"}
 				""".formatted(email)).statusCode()).isEqualTo(401);
 		assertThat(post("/auth/login", """
 				{"email":"%s","senha":"NovaSenha123"}
@@ -182,7 +221,7 @@ class AuthIntegrationTests {
 
 		assertThat(login.statusCode()).isEqualTo(403);
 		assertThat(objectMapper.readTree(login.body()).path("detail").stringValue())
-				.contains("Redefinicao de senha obrigatoria");
+				.contains("Redefinição de senha obrigatória");
 
 		clearInvocations(emailSender);
 		assertThat(post("/auth/forgot-password", """
@@ -230,10 +269,18 @@ class AuthIntegrationTests {
 	}
 
 	@Test
+	void abrePaginasPublicasDePrivacidadeESuporte() throws Exception {
+		assertThat(get("/privacy.html", null).statusCode()).isEqualTo(200);
+		assertThat(get("/terms.html", null).statusCode()).isEqualTo(200);
+		assertThat(get("/support.html", null).statusCode()).isEqualTo(200);
+		assertThat(get("/delete-account.html", null).statusCode()).isEqualTo(200);
+	}
+
+	@Test
 	void redefineSenhaPelaPaginaHttpsAtravesDoProxy() throws Exception {
 		String email = "reset-proxy@example.com";
 		post("/auth/register", """
-				{"nome":"Usuario Proxy","email":"%s","senha":"senha123"}
+				{"nome":"Usuario Proxy","email":"%s","senha":"Senha123","aceitou_termos":true}
 				""".formatted(email));
 		clearInvocations(emailSender);
 		post("/auth/forgot-password", """

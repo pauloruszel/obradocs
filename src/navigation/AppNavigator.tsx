@@ -10,6 +10,9 @@ import ObrasListScreen from "@screens/ObrasListScreen";
 import PermissoesScreen from "@screens/PermissoesScreen";
 import ResetPasswordScreen from "@screens/ResetPasswordScreen";
 import UploadArquivoScreen from "@screens/UploadArquivoScreen";
+import AccountScreen from "@screens/AccountScreen";
+import TermsAcceptanceScreen from "@screens/TermsAcceptanceScreen";
+import ReportContentScreen from "@screens/ReportContentScreen";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import React from "react";
 import { ActivityIndicator, View } from "react-native";
@@ -27,6 +30,13 @@ export type RootStackParamList = {
   ArquivoView: { arquivoId: string; obraId: string; path: string; nome: string; tipo: string; papel?: Papel };
   Historico: { obraId: string };
   Permissoes: { obraId: string; isOwner: boolean };
+  Account: undefined;
+  TermsAcceptance: undefined;
+  ReportContent: {
+    targetType: "OBRA" | "ARQUIVO";
+    targetId: string;
+    title: string;
+  };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -58,9 +68,21 @@ const AppNavigator = () => {
             options={{ headerShown: false }}
           />
         </>
+      ) : !user.terms_accepted ? (
+        <Stack.Screen
+          name="TermsAcceptance"
+          component={TermsAcceptanceScreen}
+          options={{ headerShown: false }}
+        />
       ) : (
         <>
           <Stack.Screen name="ObrasList" component={ObrasListScreen} options={{ title: "Obras" }} />
+          <Stack.Screen name="Account" component={AccountScreen} options={{ title: "Minha conta" }} />
+          <Stack.Screen
+            name="ReportContent"
+            component={ReportContentScreen}
+            options={{ title: "Denunciar conteúdo" }}
+          />
           <Stack.Screen name="NovaObra" component={NovaObraScreen} options={{ title: "Nova obra" }} />
           <Stack.Screen
             name="EntrarObra"

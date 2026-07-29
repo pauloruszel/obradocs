@@ -22,6 +22,7 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
@@ -35,6 +36,7 @@ import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import br.com.obradocs.api.auth.AuthRateLimiter;
 
 @Testcontainers
 @ActiveProfiles("test")
@@ -46,6 +48,9 @@ class ArquivoIntegrationTests {
 	private static final String BUCKET = "obradocs-test";
 	private static final String ACCESS_KEY = "minioadmin";
 	private static final String SECRET_KEY = "minioadmin";
+
+	@MockitoBean
+	AuthRateLimiter rateLimiter;
 
 	@Container
 	@ServiceConnection
@@ -246,7 +251,7 @@ class ArquivoIntegrationTests {
 
 	private UsuarioAutenticado registrar(String nome, String email) throws Exception {
 		JsonNode response = json(post("/auth/register", """
-				{"nome":"%s","email":"%s","senha":"senha123"}
+				{"nome":"%s","email":"%s","senha":"Senha123","aceitou_termos":true}
 				""".formatted(nome, email), null));
 		return new UsuarioAutenticado(email, response.path("access_token").stringValue());
 	}

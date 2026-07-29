@@ -12,6 +12,7 @@ export type Profile = {
 export type AuthUser = Profile & {
   email: string;
   ativo: boolean;
+  terms_accepted: boolean;
 };
 
 export type Session = {

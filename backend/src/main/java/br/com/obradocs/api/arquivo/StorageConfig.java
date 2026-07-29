@@ -27,7 +27,12 @@ class StorageConfig {
 				.region(Region.of(properties.region()))
 				.credentialsProvider(properties.credentials())
 				.serviceConfiguration(properties.s3Configuration())
-				.httpClientBuilder(UrlConnectionHttpClient.builder())
+				.httpClientBuilder(UrlConnectionHttpClient.builder()
+						.connectionTimeout(Duration.ofSeconds(10))
+						.socketTimeout(Duration.ofSeconds(30)))
+				.overrideConfiguration(config -> config
+						.apiCallAttemptTimeout(Duration.ofSeconds(30))
+						.apiCallTimeout(Duration.ofSeconds(45)))
 				.build();
 	}
 
@@ -57,7 +62,7 @@ class StorageConfig {
 					|| isBlank(secretAccessKey)
 					|| isBlank(bucket)
 					|| isBlank(region)) {
-				throw new IllegalStateException("Configuracao do storage S3 incompleta");
+				throw new IllegalStateException("Configuração do storage S3 incompleta");
 			}
 			if (!"virtual".equalsIgnoreCase(urlStyle) && !"path".equalsIgnoreCase(urlStyle)) {
 				throw new IllegalStateException("AWS_S3_URL_STYLE deve ser virtual ou path");

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Excluir conta | Obradocs</title>
+  <link rel="stylesheet" href="/legal.css">
+  <script src="/delete-account.js" defer></script>
+</head>
+<body>
+<main>
+  <header>
+    <div class="brand">Obradocs</div>
+    <h1>Excluir sua conta</h1>
+    <p>Use esta página quando não tiver acesso ao aplicativo.</p>
+  </header>
+  <div class="notice">Obras sem outro proprietário e todos os arquivos delas serão excluídos permanentemente. Nas demais obras, apenas seu acesso será removido.</div>
+  <form id="delete-form">
+    <label for="email">E-mail</label>
+    <input id="email" name="email" type="email" autocomplete="email" required>
+    <label for="password">Senha atual</label>
+    <input id="password" name="password" type="password" autocomplete="current-password" minlength="6" maxlength="72" required>
+    <button id="submit" type="submit">Excluir minha conta</button>
+  </form>
+  <p id="message" role="status" aria-live="polite"></p>
+  <p class="muted">Se você não consegue entrar, solicite ajuda em <a href="/support.html">Suporte</a>.</p>
+  <nav><a href="/privacy.html">Política de Privacidade</a><a href="/terms.html">Termos de Uso</a></nav>
+</main>
+</body>
+</html>

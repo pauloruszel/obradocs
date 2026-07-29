@@ -67,13 +67,17 @@ class S3Storage {
 
 	void excluirSilenciosamente(String path) {
 		try {
-			client.deleteObject(DeleteObjectRequest.builder()
-					.bucket(properties.bucket())
-					.key(path)
-					.build());
+			excluir(path);
 		} catch (SdkException ignored) {
-			// A falha de compensacao nao deve esconder o erro original da transacao.
+			// A falha de compensação não deve esconder o erro original da transação.
 		}
+	}
+
+	void excluir(String path) {
+		client.deleteObject(DeleteObjectRequest.builder()
+				.bucket(properties.bucket())
+				.key(path)
+				.build());
 	}
 
 	record DownloadTemporario(URI url, Instant expiresAt) {

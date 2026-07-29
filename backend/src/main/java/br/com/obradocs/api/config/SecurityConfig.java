@@ -27,6 +27,8 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
+import org.springframework.security.web.header.writers.StaticHeadersWriter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -46,6 +48,20 @@ public class SecurityConfig {
 			CorsConfigurationSource corsConfigurationSource) throws Exception {
 		return http
 				.csrf(csrf -> csrf.disable())
+				.headers(headers -> headers
+						.contentSecurityPolicy(csp -> csp.policyDirectives(
+								"default-src 'self'; "
+										+ "img-src 'self' data:; "
+										+ "style-src 'self' 'unsafe-inline'; "
+										+ "script-src 'self' 'unsafe-inline'; "
+										+ "connect-src 'self'; "
+										+ "frame-ancestors 'none'; "
+										+ "base-uri 'none'; "
+										+ "form-action 'self'"))
+						.referrerPolicy(referrer -> referrer.policy(ReferrerPolicy.NO_REFERRER))
+						.addHeaderWriter(new StaticHeadersWriter(
+								"Permissions-Policy",
+								"camera=(), microphone=(), geolocation=()")))
 				.cors(cors -> cors.configurationSource(corsConfigurationSource))
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				.authorizeHttpRequests(auth -> auth
@@ -58,7 +74,16 @@ public class SecurityConfig {
 								"/auth/forgot-password",
 								"/auth/reset-password")
 						.permitAll()
-						.requestMatchers(HttpMethod.GET, "/reset-password.html").permitAll()
+						.requestMatchers(
+								HttpMethod.GET,
+								"/reset-password.html",
+								"/privacy.html",
+								"/terms.html",
+								"/support.html",
+								"/delete-account.html",
+								"/legal.css",
+								"/delete-account.js")
+						.permitAll()
 						.requestMatchers("/actuator/health").permitAll()
 						.anyRequest().authenticated())
 				.oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))

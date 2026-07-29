@@ -9,7 +9,17 @@ import { toastError, toastSuccess } from "@utils/toast";
 import { arquivoTipoLabel, formatDateTime, formatFileName } from "@utils/display";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  Image,
+  Linking,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import WebView from "react-native-webview";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ArquivoView">;
@@ -108,11 +118,25 @@ const ArquivoViewScreen = ({ route, navigation }: Props) => {
       <View style={styles.header}>
         <View style={styles.titleRow}>
           <Text style={styles.title} numberOfLines={2}>{displayName}</Text>
-          {canEditar && !renomeando && (
-            <TouchableOpacity style={styles.linkButton} onPress={() => setRenomeando(true)}>
-              <Text style={styles.linkText}>Renomear</Text>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={styles.reportButton}
+              onPress={() =>
+                navigation.navigate("ReportContent", {
+                  targetType: "ARQUIVO",
+                  targetId: arquivoId,
+                  title: displayName,
+                })
+              }
+            >
+              <Text style={styles.reportText}>Denunciar</Text>
             </TouchableOpacity>
-          )}
+            {canEditar && !renomeando && (
+              <TouchableOpacity style={styles.linkButton} onPress={() => setRenomeando(true)}>
+                <Text style={styles.linkText}>Renomear</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
         <Text style={styles.subtitle}>
           {[arquivoTipoLabel[meta.tipo], fileSize, formatDateTime(meta.created_at)].filter(Boolean).join(" · ")}
@@ -149,7 +173,24 @@ const ArquivoViewScreen = ({ route, navigation }: Props) => {
         )}
       </View>
       <View style={styles.viewer}>
-        {isPdf ? (
+        {isPdf && Platform.OS === "android" ? (
+          <View style={styles.pdfFallback}>
+            <Text style={styles.pdfTitle}>Documento PDF</Text>
+            <Text style={styles.pdfDescription}>
+              Abra o documento no visualizador instalado no seu dispositivo.
+            </Text>
+            <TouchableOpacity
+              style={styles.openPdfButton}
+              onPress={() =>
+                Linking.openURL(url).catch(() =>
+                  toastError("Não foi possível abrir o PDF", "Tente novamente."),
+                )
+              }
+            >
+              <Text style={styles.primaryText}>Abrir PDF</Text>
+            </TouchableOpacity>
+          </View>
+        ) : isPdf ? (
           <WebView source={{ uri: url }} style={styles.webView} />
         ) : (
           <Image source={{ uri: url }} style={styles.image} />
@@ -195,6 +236,24 @@ const styles = StyleSheet.create({
   viewer: { flex: 1, backgroundColor: "#eef2f6" },
   webView: { flex: 1, backgroundColor: "#eef2f6" },
   image: { flex: 1, width: "100%", resizeMode: "contain" },
+  pdfFallback: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
+  pdfTitle: { fontSize: 20, fontWeight: "700", color: "#0f172a" },
+  pdfDescription: {
+    color: "#64748b",
+    textAlign: "center",
+    lineHeight: 21,
+    marginTop: 8,
+    marginBottom: 18,
+  },
+  openPdfButton: {
+    minHeight: 48,
+    minWidth: 180,
+    backgroundColor: "#0C5BAA",
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 18,
+  },
   linkButton: {
     paddingVertical: 6,
     paddingHorizontal: 10,
@@ -203,6 +262,9 @@ const styles = StyleSheet.create({
     borderColor: "#0C5BAA",
   },
   linkText: { color: "#0C5BAA", fontWeight: "700" },
+  headerActions: { flexDirection: "row", gap: 6, alignItems: "center" },
+  reportButton: { minHeight: 36, justifyContent: "center", paddingHorizontal: 6 },
+  reportText: { color: "#64748b", fontWeight: "600", fontSize: 13 },
   renameBox: {
     backgroundColor: "#f8fafc",
     borderRadius: 8,

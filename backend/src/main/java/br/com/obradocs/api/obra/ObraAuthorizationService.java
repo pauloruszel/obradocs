@@ -18,26 +18,26 @@ public class ObraAuthorizationService {
 
 	public void exigirLeitura(UUID obraId, UUID usuarioId) {
 		if (obras.findByIdAndDeletedAtIsNull(obraId).isEmpty()) {
-			throw new NoSuchElementException("Obra nao encontrada");
+			throw new NoSuchElementException("Obra não encontrada");
 		}
 		buscarPermissao(obraId, usuarioId);
 	}
 
 	public void exigirEdicao(UUID obraId, UUID usuarioId) {
 		if (buscarPermissaoAtiva(obraId, usuarioId).getPapel() == Papel.VIEWER) {
-			throw new AccessDeniedException("Usuario sem permissao de edicao");
+			throw new AccessDeniedException("Usuário sem permissão de edição");
 		}
 	}
 
 	void exigirOwner(UUID obraId, UUID usuarioId) {
 		if (buscarPermissaoAtiva(obraId, usuarioId).getPapel() != Papel.OWNER) {
-			throw new AccessDeniedException("Somente o proprietario pode executar esta acao");
+			throw new AccessDeniedException("Somente o proprietário pode executar esta ação");
 		}
 	}
 
 	private Permissao buscarPermissaoAtiva(UUID obraId, UUID usuarioId) {
 		if (obras.findByIdAndDeletedAtIsNull(obraId).isEmpty()) {
-			throw new NoSuchElementException("Obra nao encontrada");
+			throw new NoSuchElementException("Obra não encontrada");
 		}
 		return buscarPermissao(obraId, usuarioId);
 	}

@@ -30,7 +30,7 @@ class Obra {
 	@Column(name = "codigo_compartilhamento", nullable = false, unique = true, length = 9)
 	private String codigoCompartilhamento;
 
-	@Column(name = "created_by", nullable = false, updatable = false)
+	@Column(name = "created_by", updatable = false)
 	private UUID createdBy;
 
 	@Column(name = "deleted_at")

@@ -9,8 +9,10 @@ const API_URL = apiUrl?.replace(/\/+$/, "");
 type ApiOptions = RequestInit & {
   authenticated?: boolean;
   retried?: boolean;
+  timeoutMs?: number;
 };
 
+const DEFAULT_TIMEOUT_MS = 20_000;
 let refreshPromise: Promise<Session> | null = null;
 let unauthorizedHandler: (() => void) | null = null;
 
@@ -35,6 +37,8 @@ const endpoint = (path: string) => {
   return `${API_URL}${path}`;
 };
 
+export const publicApiUrl = (path: string) => endpoint(path);
+
 const readError = async (response: Response) => {
   try {
     const body = await response.json();
@@ -42,6 +46,19 @@ const readError = async (response: Response) => {
   } catch {
     return `Erro HTTP ${response.status}`;
   }
+};
+
+const fetchWithTimeout = (
+  input: RequestInfo,
+  init: RequestInit,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+) => {
+  if (init.signal) {
+    return fetch(input, init);
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(input, { ...init, signal: controller.signal }).finally(() => clearTimeout(timeout));
 };
 
 const refreshSession = async (): Promise<Session> => {
@@ -55,7 +72,7 @@ const refreshSession = async (): Promise<Session> => {
       throw new ApiError("Sessao expirada", 401);
     }
 
-    const response = await fetch(endpoint("/auth/refresh"), {
+    const response = await fetchWithTimeout(endpoint("/auth/refresh"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh_token: current.refresh_token }),
@@ -69,8 +86,10 @@ const refreshSession = async (): Promise<Session> => {
     return renewed;
   })()
     .catch(async (error) => {
-      await clearStoredSession();
-      unauthorizedHandler?.();
+      if (error instanceof ApiError && [401, 403].includes(error.status)) {
+        await clearStoredSession();
+        unauthorizedHandler?.();
+      }
       throw error;
     })
     .finally(() => {
@@ -81,7 +100,12 @@ const refreshSession = async (): Promise<Session> => {
 };
 
 export const apiRequest = async <T>(path: string, options: ApiOptions = {}): Promise<T> => {
-  const { authenticated = true, retried = false, ...requestOptions } = options;
+  const {
+    authenticated = true,
+    retried = false,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    ...requestOptions
+  } = options;
   const headers = new Headers(requestOptions.headers);
   const isFormData = requestOptions.body instanceof FormData;
 
@@ -95,10 +119,10 @@ export const apiRequest = async <T>(path: string, options: ApiOptions = {}): Pro
     }
   }
 
-  const response = await fetch(endpoint(path), { ...requestOptions, headers });
+  const response = await fetchWithTimeout(endpoint(path), { ...requestOptions, headers }, timeoutMs);
   if (response.status === 401 && authenticated && !retried) {
     await refreshSession();
-    return apiRequest<T>(path, { ...options, retried: true });
+    return apiRequest<T>(path, { ...options, retried: true, timeoutMs });
   }
   if (!response.ok) {
     throw new ApiError(await readError(response), response.status);

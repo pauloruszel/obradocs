@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   View,
   Image,
+  Linking,
   ScrollView,
   SafeAreaView,
 } from "react-native";
@@ -19,6 +20,8 @@ import { useAuth } from "@context/AuthContext";
 import { toastError, toastInfo } from "@utils/toast";
 import { RootStackParamList } from "@navigation/AppNavigator";
 import logo from "../../assets/logo-obradocs.png";
+import { validateEmail, validateNewPassword } from "@utils/validation";
+import { publicApiUrl } from "@services/apiClient";
 
 const PRIMARY_COLOR = "#0C5BAA";
 
@@ -29,13 +32,12 @@ const LoginScreen = () => {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [isRegister, setIsRegister] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-
-  const isValidEmail = (value: string) => /\S+@\S+\.\S+/.test(value);
 
   const handleLogin = async () => {
     const trimmedEmail = email.trim();
-    if (!isValidEmail(trimmedEmail) || password.length < 6) {
+    if (validateEmail(trimmedEmail) || password.length < 6) {
       toastError("Dados inválidos", "Informe um e-mail válido e uma senha com pelo menos 6 caracteres.");
       return;
     }
@@ -51,15 +53,22 @@ const LoginScreen = () => {
       return;
     }
     const trimmedEmail = email.trim();
-    if (!isValidEmail(trimmedEmail) || password.length < 6 || name.trim().length < 2) {
+    if (
+      validateEmail(trimmedEmail) ||
+      validateNewPassword(password) ||
+      name.trim().length < 2 ||
+      !acceptedTerms
+    ) {
       toastError(
         "Dados inválidos",
-        "Informe nome, e-mail válido e uma senha com pelo menos 6 caracteres.",
+        "Informe os dados, use uma senha forte e aceite os Termos de Uso e a Política de Privacidade.",
       );
       return;
     }
     setSubmitting(true);
-    signUp(name.trim() || trimmedEmail, trimmedEmail, password).finally(() => setSubmitting(false));
+    signUp(name.trim() || trimmedEmail, trimmedEmail, password, acceptedTerms).finally(() =>
+      setSubmitting(false),
+    );
   };
 
   const handleForgotPassword = () => navigation.navigate("ForgotPassword");
@@ -69,6 +78,7 @@ const LoginScreen = () => {
       // Garante retorno para modo login ao voltar de outras telas
       setIsRegister(false);
       setName("");
+      setAcceptedTerms(false);
     }, []),
   );
 
@@ -123,6 +133,31 @@ const LoginScreen = () => {
               onChangeText={setPassword}
               editable={!submitting}
             />
+            {isRegister && (
+              <>
+                <View style={styles.legalLinks}>
+                  <TouchableOpacity onPress={() => Linking.openURL(publicApiUrl("/terms.html"))}>
+                    <Text style={styles.legalLink}>Termos de Uso</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => Linking.openURL(publicApiUrl("/privacy.html"))}>
+                    <Text style={styles.legalLink}>Política de Privacidade</Text>
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity
+                  style={styles.termsRow}
+                  onPress={() => setAcceptedTerms((current) => !current)}
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: acceptedTerms }}
+                >
+                  <View style={[styles.checkbox, acceptedTerms && styles.checkboxChecked]}>
+                    {acceptedTerms && <Text style={styles.checkmark}>✓</Text>}
+                  </View>
+                  <Text style={styles.termsText}>
+                    Li e aceito os Termos de Uso e a Política de Privacidade.
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
             <TouchableOpacity
               style={styles.forgotButton}
               onPress={handleForgotPassword}
@@ -249,6 +284,32 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   forgotText: { color: PRIMARY_COLOR, fontSize: 13.5, fontWeight: "600" },
+  termsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    minHeight: 48,
+    marginBottom: 6,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderWidth: 1,
+    borderColor: "#94a3b8",
+    borderRadius: 4,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  checkboxChecked: { backgroundColor: PRIMARY_COLOR, borderColor: PRIMARY_COLOR },
+  checkmark: { color: "#fff", fontWeight: "800" },
+  termsText: { flex: 1, color: "#475569", fontSize: 13.5, lineHeight: 19 },
+  legalLinks: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 4,
+  },
+  legalLink: { color: PRIMARY_COLOR, fontSize: 13, fontWeight: "700", paddingVertical: 6 },
 });
 
 export default LoginScreen;

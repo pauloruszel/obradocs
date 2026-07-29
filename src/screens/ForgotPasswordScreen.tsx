@@ -18,6 +18,7 @@ import { showMessage } from "react-native-flash-message";
 import { solicitarRedefinicaoSenha } from "@services/authService";
 import { RootStackParamList } from "@navigation/AppNavigator";
 import logo from "../../assets/logo-obradocs.png";
+import { validateEmail } from "@utils/validation";
 
 const PRIMARY_COLOR = "#0C5BAA";
 
@@ -36,18 +37,6 @@ const ForgotPasswordScreen = () => {
       }
     };
   }, []);
-
-  const validateEmail = (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      return "Informe seu e-mail.";
-    }
-    const regex = /\S+@\S+\.\S+/;
-    if (!regex.test(trimmed)) {
-      return "E-mail inválido.";
-    }
-    return "";
-  };
 
   const handleChangeEmail = (value: string) => {
     setEmail(value);

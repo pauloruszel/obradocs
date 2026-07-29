@@ -40,6 +40,9 @@ class Usuario {
 	@Column(name = "password_change_required", nullable = false)
 	private boolean passwordChangeRequired;
 
+	@Column(name = "terms_accepted_at")
+	private Instant termsAcceptedAt;
+
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt;
 
@@ -51,6 +54,7 @@ class Usuario {
 		this.nome = nome;
 		this.email = email;
 		this.senhaHash = senhaHash;
+		this.termsAcceptedAt = Instant.now();
 	}
 
 	@PrePersist
@@ -68,5 +72,9 @@ class Usuario {
 	void alterarSenha(String senhaHash) {
 		this.senhaHash = senhaHash;
 		this.passwordChangeRequired = false;
+	}
+
+	void aceitarTermos() {
+		this.termsAcceptedAt = Instant.now();
 	}
 }

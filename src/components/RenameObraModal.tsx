@@ -53,7 +53,7 @@ const RenameObraModal = ({ visible, currentName, onCancel, onSave, loading }: Pr
               style={[styles.button, styles.outlineButton]}
               onPress={onCancel}
               disabled={loading}
-              accessibilityLabel="Cancelar renomeacao da obra"
+              accessibilityLabel="Cancelar renomeação da obra"
               accessibilityRole="button"
             >
               <Text style={styles.outlineText}>Cancelar</Text>

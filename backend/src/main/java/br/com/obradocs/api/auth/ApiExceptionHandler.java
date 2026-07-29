@@ -4,6 +4,7 @@ import java.util.NoSuchElementException;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -13,6 +14,7 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import br.com.obradocs.api.auth.AuthService.EmailJaCadastradoException;
 import br.com.obradocs.api.auth.AuthService.PasswordChangeRequiredException;
+import br.com.obradocs.api.auth.AuthRateLimiter.TooManyRequestsException;
 
 @RestControllerAdvice
 class ApiExceptionHandler {
@@ -34,7 +36,7 @@ class ApiExceptionHandler {
 
 	@ExceptionHandler(MethodArgumentNotValidException.class)
 	ProblemDetail dadosInvalidos() {
-		return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Dados invalidos");
+		return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Dados inválidos");
 	}
 
 	@ExceptionHandler(IllegalArgumentException.class)
@@ -57,5 +59,14 @@ class ApiExceptionHandler {
 		return ProblemDetail.forStatusAndDetail(
 				HttpStatus.CONTENT_TOO_LARGE,
 				"Arquivo muito grande; limite de 10 MB");
+	}
+
+	@ExceptionHandler(TooManyRequestsException.class)
+	ResponseEntity<ProblemDetail> muitasTentativas(TooManyRequestsException exception) {
+		ProblemDetail detail =
+				ProblemDetail.forStatusAndDetail(HttpStatus.TOO_MANY_REQUESTS, exception.getMessage());
+		return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+				.header("Retry-After", Long.toString(exception.retryAfterSeconds()))
+				.body(detail);
 	}
 }

@@ -1,5 +1,7 @@
 import { AuthUser, Profile, Session } from "@models/models";
 import {
+  acceptTerms as confirmTerms,
+  deleteAccount as removeAccount,
   restoreSession,
   signIn as login,
   signOut as logout,
@@ -15,8 +17,15 @@ type AuthContextValue = {
   profile: Profile | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (name: string, email: string, password: string) => Promise<void>;
+  signUp: (
+    name: string,
+    email: string,
+    password: string,
+    acceptedTerms: boolean,
+  ) => Promise<void>;
   signOut: () => Promise<void>;
+  deleteAccount: (password: string) => Promise<void>;
+  acceptTerms: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -47,9 +56,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const signUp = async (name: string, email: string, password: string) => {
+  const signUp = async (
+    name: string,
+    email: string,
+    password: string,
+    acceptedTerms: boolean,
+  ) => {
     try {
-      setSession(await register(name, email, password));
+      setSession(await register(name, email, password, acceptedTerms));
     } catch (error) {
       toastError("Erro ao criar conta", (error as Error).message || "Tente novamente");
     }
@@ -63,6 +77,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  const deleteAccount = async (password: string) => {
+    await removeAccount(password);
+    setSession(null);
+  };
+
+  const acceptTerms = async () => {
+    const user = await confirmTerms();
+    setSession((current) => (current ? { ...current, user } : current));
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -73,6 +97,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         signIn,
         signUp,
         signOut,
+        deleteAccount,
+        acceptTerms,
       }}
     >
       {children}

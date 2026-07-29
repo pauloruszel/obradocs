@@ -12,8 +12,7 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import br.com.obradocs.api.obra.HistoricoService;
@@ -32,6 +31,7 @@ class ArquivoService {
 	private final ObraAuthorizationService authorization;
 	private final HistoricoService historico;
 	private final S3Storage storage;
+	private final TransactionTemplate transactions;
 
 	@Transactional(readOnly = true)
 	List<Arquivo> listar(UUID obraId, ArquivoTipo tipo, UUID usuarioId) {
@@ -48,32 +48,36 @@ class ArquivoService {
 		return arquivo;
 	}
 
-	@Transactional
 	Arquivo enviar(UUID obraId, ArquivoTipo tipo, MultipartFile multipart, UUID usuarioId) {
 		authorization.exigirEdicao(obraId, usuarioId);
 		ArquivoValidado validado = validar(multipart);
 		String storagePath = obraId + "/" + UUID.randomUUID() + "-" + sanitizar(validado.nome());
 
 		storage.armazenar(storagePath, multipart, validado.contentType());
-		removerStorageSeTransacaoFalhar(storagePath);
-
-		Arquivo arquivo = arquivos.save(new Arquivo(
-				obraId,
-				tipo,
-				validado.nome(),
-				storagePath,
-				validado.contentType(),
-				multipart.getSize(),
-				usuarioId));
-		historico.registrar(
-				obraId,
-				usuarioId,
-				"UPLOAD_ARQUIVO",
-				Map.of(
-						"arquivoId", arquivo.getId(),
-						"nomeOriginal", arquivo.getNomeOriginal(),
-						"tipo", arquivo.getTipo().name()));
-		return arquivo;
+		try {
+			return transactions.execute(status -> {
+				Arquivo arquivo = arquivos.save(new Arquivo(
+						obraId,
+						tipo,
+						validado.nome(),
+						storagePath,
+						validado.contentType(),
+						multipart.getSize(),
+						usuarioId));
+				historico.registrar(
+						obraId,
+						usuarioId,
+						"UPLOAD_ARQUIVO",
+						Map.of(
+								"arquivoId", arquivo.getId(),
+								"nomeOriginal", arquivo.getNomeOriginal(),
+								"tipo", arquivo.getTipo().name()));
+				return arquivo;
+			});
+		} catch (RuntimeException exception) {
+			storage.excluirSilenciosamente(storagePath);
+			throw exception;
+		}
 	}
 
 	@Transactional(readOnly = true)
@@ -100,7 +104,7 @@ class ArquivoService {
 
 	private Arquivo buscarPorId(UUID arquivoId) {
 		return arquivos.findById(arquivoId)
-				.orElseThrow(() -> new NoSuchElementException("Arquivo nao encontrado"));
+				.orElseThrow(() -> new NoSuchElementException("Arquivo não encontrado"));
 	}
 
 	private ArquivoValidado validar(MultipartFile multipart) {
@@ -118,7 +122,7 @@ class ArquivoService {
 				&& !declarado.isBlank()
 				&& !"application/octet-stream".equalsIgnoreCase(declarado)
 				&& !detectado.equalsIgnoreCase(declarado)) {
-			throw new IllegalArgumentException("Conteudo do arquivo nao corresponde ao tipo informado");
+			throw new IllegalArgumentException("Conteúdo do arquivo não corresponde ao tipo informado");
 		}
 		validarExtensao(nome, detectado);
 		return new ArquivoValidado(nome, detectado);
@@ -135,9 +139,9 @@ class ArquivoService {
 				return "image/jpeg";
 			}
 		} catch (IOException exception) {
-			throw new IllegalArgumentException("Nao foi possivel ler o arquivo", exception);
+			throw new IllegalArgumentException("Não foi possível ler o arquivo", exception);
 		}
-		throw new IllegalArgumentException("Formato invalido; use PDF ou JPEG");
+		throw new IllegalArgumentException("Formato inválido; use PDF ou JPEG");
 	}
 
 	private String validarNome(String nomeOriginal) {
@@ -147,7 +151,7 @@ class ArquivoService {
 		String nome = nomeOriginal.replace('\\', '/');
 		nome = nome.substring(nome.lastIndexOf('/') + 1).trim();
 		if (nome.isBlank() || nome.length() > 255 || nome.chars().anyMatch(Character::isISOControl)) {
-			throw new IllegalArgumentException("Nome do arquivo invalido");
+			throw new IllegalArgumentException("Nome do arquivo inválido");
 		}
 		return nome;
 	}
@@ -158,7 +162,7 @@ class ArquivoService {
 				? lower.endsWith(".pdf")
 				: lower.endsWith(".jpg") || lower.endsWith(".jpeg");
 		if (!extensaoValida) {
-			throw new IllegalArgumentException("Extensao do arquivo nao corresponde ao conteudo");
+			throw new IllegalArgumentException("Extensão do arquivo não corresponde ao conteúdo");
 		}
 	}
 
@@ -170,17 +174,6 @@ class ArquivoService {
 				.replaceAll("-+", "-")
 				.replaceAll("^[-.]+|[-.]+$", "");
 		return seguro.isBlank() ? "arquivo" : seguro;
-	}
-
-	private void removerStorageSeTransacaoFalhar(String storagePath) {
-		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-			@Override
-			public void afterCompletion(int status) {
-				if (status != STATUS_COMMITTED) {
-					storage.excluirSilenciosamente(storagePath);
-				}
-			}
-		});
 	}
 
 	private record ArquivoValidado(String nome, String contentType) {
