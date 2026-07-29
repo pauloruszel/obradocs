@@ -6,6 +6,9 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { AuthProvider } from './src/context/AuthContext';
 import FlashMessage from "react-native-flash-message";
 import { colors } from "./src/theme";
+import { installWebAlertPolyfill } from "./src/utils/webAlert";
+
+installWebAlertPolyfill();
 
 const linking = {
   prefixes: ["obradocs://"],
