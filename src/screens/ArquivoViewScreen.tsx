@@ -150,14 +150,14 @@ const ArquivoViewScreen = ({ route, navigation }: Props) => {
       </View>
 
       <View style={styles.viewer}>
-        {isPdf && Platform.OS === "android" ? (
+        {isPdf && (Platform.OS === "android" || Platform.OS === "web") ? (
           <View style={styles.pdfFallback}>
             <View style={styles.pdfIcon}>
               <FileText size={34} color={colors.primary} />
             </View>
             <Text style={styles.pdfTitle}>Documento PDF</Text>
             <Text style={styles.pdfDescription}>
-              Abra o documento no visualizador instalado no seu aparelho.
+              Abra o documento no visualizador do seu dispositivo.
             </Text>
             <AppButton
               label="Abrir PDF"

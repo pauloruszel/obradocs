@@ -1,5 +1,6 @@
 import React from 'react';
 import { DefaultTheme, NavigationContainer } from '@react-navigation/native';
+import { Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import AppNavigator from './src/navigation/AppNavigator';
 import { AuthProvider } from './src/context/AuthContext';
@@ -32,7 +33,10 @@ const navigationTheme = {
 export default function App() {
   return (
     <AuthProvider>
-      <NavigationContainer linking={linking} theme={navigationTheme}>
+      <NavigationContainer
+        linking={Platform.OS === "web" ? undefined : linking}
+        theme={navigationTheme}
+      >
         <StatusBar style="dark" />
         <AppNavigator />
         <FlashMessage position="top" floating />

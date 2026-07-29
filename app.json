@@ -45,6 +45,9 @@
       ],
       "expo-secure-store"
     ],
+    "experiments": {
+      "baseUrl": "/obradocs"
+    },
     "extra": {
       "eas": {
         "projectId": "65dda883-c9be-41e9-9cb2-801e9813241d"

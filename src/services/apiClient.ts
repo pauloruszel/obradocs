@@ -2,8 +2,8 @@ import Constants from "expo-constants";
 import { Session } from "@models/models";
 import { clearStoredSession, getStoredSession, setStoredSession } from "./tokenStorage";
 
-const env = process.env as Record<string, string | undefined>;
-const apiUrl = env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl;
+const apiUrl =
+  process.env.EXPO_PUBLIC_API_URL || Constants.expoConfig?.extra?.apiUrl;
 const API_URL = apiUrl?.replace(/\/+$/, "");
 
 type ApiOptions = RequestInit & {
