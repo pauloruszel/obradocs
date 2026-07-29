@@ -28,8 +28,9 @@ class ArquivoController {
 	List<ArquivoResponse> listar(
 			@PathVariable UUID obraId,
 			@RequestParam(required = false) ArquivoTipo tipo,
+			@RequestParam(required = false) String busca,
 			@AuthenticationPrincipal Jwt jwt) {
-		return service.listar(obraId, tipo, usuarioId(jwt)).stream()
+		return service.listar(obraId, tipo, busca, usuarioId(jwt)).stream()
 				.map(ArquivoResponse::from)
 				.toList();
 	}
@@ -78,9 +79,11 @@ class ArquivoController {
 			String contentType,
 			long tamanhoBytes,
 			UUID enviadoPor,
+			String enviadoPorNome,
 			Instant createdAt) {
 
-		static ArquivoResponse from(Arquivo arquivo) {
+		static ArquivoResponse from(ArquivoDetalhado detalhe) {
+			Arquivo arquivo = detalhe.getArquivo();
 			return new ArquivoResponse(
 					arquivo.getId(),
 					arquivo.getObraId(),
@@ -90,6 +93,7 @@ class ArquivoController {
 					arquivo.getContentType(),
 					arquivo.getTamanhoBytes(),
 					arquivo.getEnviadoPor(),
+					detalhe.getEnviadoPorNome(),
 					arquivo.getCreatedAt());
 		}
 	}

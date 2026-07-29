@@ -51,6 +51,7 @@ export type Arquivo = {
   content_type: string;
   tamanho_bytes: number;
   enviado_por: string | null;
+  enviado_por_nome?: string | null;
   created_at?: string;
 };
 

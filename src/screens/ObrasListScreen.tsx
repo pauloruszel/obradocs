@@ -1,4 +1,4 @@
-import React, { useCallback, useLayoutEffect, useState } from "react";
+import React, { useCallback, useLayoutEffect, useMemo, useState } from "react";
 import {
   FlatList,
   Pressable,
@@ -22,6 +22,7 @@ import { Obra } from "@models/models";
 import { RootStackParamList } from "@navigation/AppNavigator";
 import { toastError } from "@utils/toast";
 import AppButton from "@components/AppButton";
+import SearchField from "@components/SearchField";
 import ScreenState from "@components/ScreenState";
 import { colors, layout, radius, spacing } from "@theme/index";
 
@@ -31,8 +32,24 @@ const ObrasListScreen = () => {
   const navigation = useNavigation<Nav>();
   const { user } = useAuth();
   const [obras, setObras] = useState<Obra[]>([]);
+  const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const filteredObras = useMemo(() => {
+    const term = query
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .trim();
+    if (!term) return obras;
+    return obras.filter((obra) =>
+      `${obra.nome} ${obra.codigo_compartilhamento}`
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .includes(term),
+    );
+  }, [obras, query]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -128,8 +145,16 @@ const ObrasListScreen = () => {
           />
         </View>
 
+        {obras.length > 0 && (
+          <SearchField
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Buscar obra por nome ou código"
+          />
+        )}
+
         <FlatList
-          data={obras}
+          data={filteredObras}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           showsVerticalScrollIndicator={false}
@@ -141,18 +166,31 @@ const ObrasListScreen = () => {
               tintColor={colors.primary}
             />
           }
-          contentContainerStyle={obras.length === 0 ? styles.emptyList : styles.list}
+          contentContainerStyle={filteredObras.length === 0 ? styles.emptyList : styles.list}
           ListHeaderComponent={
-            obras.length > 0 ? <Text style={styles.listTitle}>{obras.length} {obras.length === 1 ? "obra" : "obras"}</Text> : null
+            filteredObras.length > 0 ? (
+              <Text style={styles.listTitle}>
+                {filteredObras.length} {filteredObras.length === 1 ? "obra" : "obras"}
+              </Text>
+            ) : null
           }
           ListEmptyComponent={
-            <ScreenState
-              icon={<Building2 size={44} color={colors.primary} />}
-              title="Sua primeira obra começa aqui"
-              description="Crie uma obra para organizar documentos ou entre em uma obra existente usando um código."
-              actionLabel="Criar nova obra"
-              onAction={() => navigation.navigate("NovaObra")}
-            />
+            obras.length === 0 ? (
+              <ScreenState
+                icon={<Building2 size={44} color={colors.primary} />}
+                title="Sua primeira obra começa aqui"
+                description="Crie uma obra para organizar documentos ou entre em uma obra existente usando um código."
+                actionLabel="Criar nova obra"
+                onAction={() => navigation.navigate("NovaObra")}
+              />
+            ) : (
+              <ScreenState
+                title="Nenhuma obra encontrada"
+                description="Tente buscar por outro nome ou código."
+                actionLabel="Limpar busca"
+                onAction={() => setQuery("")}
+              />
+            )
           }
         />
       </View>
@@ -172,7 +210,7 @@ const styles = StyleSheet.create({
   },
   actions: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.xl },
   action: { flex: 1 },
-  list: { paddingBottom: spacing.xxl },
+  list: { paddingTop: spacing.md, paddingBottom: spacing.xxl },
   listTitle: {
     color: colors.textMuted,
     fontSize: 13,
@@ -204,7 +242,7 @@ const styles = StyleSheet.create({
   cardTitle: { color: colors.text, fontSize: 16, fontWeight: "700" },
   codeRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginTop: spacing.xs },
   cardSubtitle: { color: colors.textMuted, fontSize: 13, fontWeight: "600" },
-  emptyList: { flexGrow: 1 },
+  emptyList: { flexGrow: 1, paddingTop: spacing.md },
 });
 
 export default ObrasListScreen;

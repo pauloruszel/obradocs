@@ -121,10 +121,13 @@ class ArquivoIntegrationTests {
 		assertThat(arquivo.path("content_type").stringValue()).isEqualTo("application/pdf");
 		assertThat(arquivo.path("tamanho_bytes").longValue()).isEqualTo(pdf.length);
 		assertThat(arquivo.path("storage_path").stringValue()).startsWith(obraId + "/");
+		assertThat(arquivo.path("enviado_por_nome").stringValue()).isEqualTo("Owner Arquivo");
 
 		JsonNode listagem = json(get(
 				"/v1/obras/" + obraId + "/arquivos?tipo=PROJETO", owner.token()));
 		assertThat(listagem.size()).isEqualTo(1);
+		assertThat(listagem.get(0).path("enviado_por_nome").stringValue())
+				.isEqualTo("Owner Arquivo");
 		JsonNode metadados = json(get("/v1/arquivos/" + arquivoId, owner.token()));
 		assertThat(metadados.path("nome_original").stringValue()).isEqualTo("projeto.pdf");
 
@@ -151,6 +154,25 @@ class ArquivoIntegrationTests {
 				assertThat(item.path("acao").stringValue()).isEqualTo("UPLOAD_ARQUIVO"));
 		assertThat(historico).anySatisfy(item ->
 				assertThat(item.path("acao").stringValue()).isEqualTo("RENOMEAR_ARQUIVO"));
+	}
+
+	@Test
+	void pesquisaArquivosPorNomeEmTodasAsCategorias() throws Exception {
+		UsuarioAutenticado owner = registrar("Owner Pesquisa", "owner-pesquisa-arquivo@example.com");
+		String obraId = criarObra(owner, "Obra pesquisa arquivos").path("id").stringValue();
+		byte[] pdf = "%PDF-1.4\nconteudo".getBytes(StandardCharsets.UTF_8);
+		byte[] jpeg = {(byte) 0xff, (byte) 0xd8, (byte) 0xff, (byte) 0xe0, 1, 2, 3};
+
+		upload(obraId, "PROJETO", "Projeto Estrutural.pdf", "application/pdf", pdf, owner.token());
+		upload(obraId, "FOTO", "fachada.jpg", "image/jpeg", jpeg, owner.token());
+
+		JsonNode resultado = json(get(
+				"/v1/obras/" + obraId + "/arquivos?busca=estrutural", owner.token()));
+
+		assertThat(resultado.size()).isEqualTo(1);
+		assertThat(resultado.get(0).path("nome_original").stringValue())
+				.isEqualTo("Projeto Estrutural.pdf");
+		assertThat(resultado.get(0).path("tipo").stringValue()).isEqualTo("PROJETO");
 	}
 
 	@Test

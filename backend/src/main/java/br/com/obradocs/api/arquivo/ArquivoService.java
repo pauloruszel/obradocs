@@ -34,21 +34,23 @@ class ArquivoService {
 	private final TransactionTemplate transactions;
 
 	@Transactional(readOnly = true)
-	List<Arquivo> listar(UUID obraId, ArquivoTipo tipo, UUID usuarioId) {
+	List<ArquivoDetalhado> listar(UUID obraId, ArquivoTipo tipo, String busca, UUID usuarioId) {
 		authorization.exigirLeitura(obraId, usuarioId);
-		return tipo == null
-				? arquivos.findAllByObraIdOrderByCreatedAtDesc(obraId)
-				: arquivos.findAllByObraIdAndTipoOrderByCreatedAtDesc(obraId, tipo);
+		String termo = busca == null || busca.isBlank() ? null : busca.trim();
+		if (termo != null && termo.length() > 100) {
+			throw new IllegalArgumentException("Busca muito longa; limite de 100 caracteres");
+		}
+		return arquivos.pesquisar(obraId, tipo, termo);
 	}
 
 	@Transactional(readOnly = true)
-	Arquivo buscar(UUID arquivoId, UUID usuarioId) {
-		Arquivo arquivo = buscarPorId(arquivoId);
-		authorization.exigirLeitura(arquivo.getObraId(), usuarioId);
-		return arquivo;
+	ArquivoDetalhado buscar(UUID arquivoId, UUID usuarioId) {
+		ArquivoDetalhado detalhe = buscarDetalhadoPorId(arquivoId);
+		authorization.exigirLeitura(detalhe.getArquivo().getObraId(), usuarioId);
+		return detalhe;
 	}
 
-	Arquivo enviar(UUID obraId, ArquivoTipo tipo, MultipartFile multipart, UUID usuarioId) {
+	ArquivoDetalhado enviar(UUID obraId, ArquivoTipo tipo, MultipartFile multipart, UUID usuarioId) {
 		authorization.exigirEdicao(obraId, usuarioId);
 		ArquivoValidado validado = validar(multipart);
 		String storagePath = obraId + "/" + UUID.randomUUID() + "-" + sanitizar(validado.nome());
@@ -72,7 +74,7 @@ class ArquivoService {
 								"arquivoId", arquivo.getId(),
 								"nomeOriginal", arquivo.getNomeOriginal(),
 								"tipo", arquivo.getTipo().name()));
-				return arquivo;
+				return buscarDetalhadoPorId(arquivo.getId());
 			});
 		} catch (RuntimeException exception) {
 			storage.excluirSilenciosamente(storagePath);
@@ -82,14 +84,15 @@ class ArquivoService {
 
 	@Transactional(readOnly = true)
 	S3Storage.DownloadTemporario criarDownload(UUID arquivoId, UUID usuarioId) {
-		Arquivo arquivo = buscarPorId(arquivoId);
+		Arquivo arquivo = buscarDetalhadoPorId(arquivoId).getArquivo();
 		authorization.exigirLeitura(arquivo.getObraId(), usuarioId);
 		return storage.criarDownload(arquivo.getStoragePath(), arquivo.getContentType());
 	}
 
 	@Transactional
-	Arquivo renomear(UUID arquivoId, String novoNome, UUID usuarioId) {
-		Arquivo arquivo = buscarPorId(arquivoId);
+	ArquivoDetalhado renomear(UUID arquivoId, String novoNome, UUID usuarioId) {
+		ArquivoDetalhado detalhe = buscarDetalhadoPorId(arquivoId);
+		Arquivo arquivo = detalhe.getArquivo();
 		authorization.exigirEdicao(arquivo.getObraId(), usuarioId);
 		String nome = validarNome(novoNome);
 		validarExtensao(nome, arquivo.getContentType());
@@ -99,11 +102,11 @@ class ArquivoService {
 				usuarioId,
 				"RENOMEAR_ARQUIVO",
 				Map.of("arquivoId", arquivoId, "novoNome", nome));
-		return arquivo;
+		return detalhe;
 	}
 
-	private Arquivo buscarPorId(UUID arquivoId) {
-		return arquivos.findById(arquivoId)
+	private ArquivoDetalhado buscarDetalhadoPorId(UUID arquivoId) {
+		return arquivos.findDetalhadoById(arquivoId)
 				.orElseThrow(() -> new NoSuchElementException("Arquivo não encontrado"));
 	}
 

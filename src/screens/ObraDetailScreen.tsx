@@ -1,4 +1,4 @@
-import React, { useCallback, useLayoutEffect, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -34,6 +34,7 @@ import { renomearObra, excluirObra } from "@services/obrasService";
 import RenameObraModal from "@components/RenameObraModal";
 import ActionMenu, { ActionMenuItem } from "@components/ActionMenu";
 import AppButton from "@components/AppButton";
+import SearchField from "@components/SearchField";
 import ScreenState from "@components/ScreenState";
 import { colors, layout, radius, spacing } from "@theme/index";
 
@@ -54,6 +55,9 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
   const [selected, setSelected] = useState<ArquivoTipo>("FOTO");
   const [filesByCategory, setFilesByCategory] = useState<Partial<Record<ArquivoTipo, Arquivo[]>>>({});
   const [loadingCategory, setLoadingCategory] = useState<ArquivoTipo | null>("FOTO");
+  const [query, setQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Arquivo[]>([]);
+  const [searching, setSearching] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [papel, setPapel] = useState<"OWNER" | "EDITOR" | "VIEWER">("VIEWER");
   const [obraNome, setObraNome] = useState(nome);
@@ -63,6 +67,8 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
 
   const canEdit = papel === "OWNER" || papel === "EDITOR";
   const arquivos = filesByCategory[selected] || [];
+  const searchActive = query.trim().length > 0;
+  const displayedFiles = searchActive ? searchResults : arquivos;
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -120,8 +126,40 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
     useCallback(() => {
       loadPermission();
       loadFiles(selected);
-    }, [loadPermission, selected]),
+    }, [loadFiles, loadPermission, selected]),
   );
+
+  useEffect(() => {
+    const term = query.trim();
+    if (!term) {
+      setSearchResults([]);
+      setSearching(false);
+      return;
+    }
+
+    let active = true;
+    setSearching(true);
+    const timeout = setTimeout(async () => {
+      try {
+        const result = await listarArquivos(obraId, undefined, term);
+        if (active) setSearchResults(result);
+      } catch (error) {
+        if (!active) return;
+        const offline = /network|fetch/i.test((error as Error)?.message || "");
+        toastError(
+          offline ? "Sem conexão" : "Não foi possível realizar a busca",
+          offline ? "Verifique sua internet." : "Tente novamente.",
+        );
+      } finally {
+        if (active) setSearching(false);
+      }
+    }, 300);
+
+    return () => {
+      active = false;
+      clearTimeout(timeout);
+    };
+  }, [obraId, query]);
 
   const selectCategory = (category: ArquivoTipo) => {
     if (category === selected) return;
@@ -134,7 +172,19 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([loadPermission(), loadFiles(selected)]);
+    if (searchActive) {
+      try {
+        const [, result] = await Promise.all([
+          loadPermission(),
+          listarArquivos(obraId, undefined, query),
+        ]);
+        setSearchResults(result);
+      } catch {
+        toastError("Não foi possível atualizar a busca", "Tente novamente.");
+      }
+    } else {
+      await Promise.all([loadPermission(), loadFiles(selected)]);
+    }
     setRefreshing(false);
   };
 
@@ -242,8 +292,14 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
             {formatFileName(item.nome_original)}
           </Text>
           <Text style={styles.fileMeta}>
+            {searchActive ? `${arquivoTipoLabel[item.tipo]} · ` : ""}
             {size} · {formatDateTime(item.created_at)}
           </Text>
+          {!!item.enviado_por_nome && (
+            <Text style={styles.fileAuthor} numberOfLines={1}>
+              Enviado por {item.enviado_por_nome}
+            </Text>
+          )}
         </View>
       </Pressable>
     );
@@ -261,30 +317,44 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
           </View>
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categories}
-        >
-          {categorias.map((category) => {
-            const Icon = categoryIcon[category];
-            const active = selected === category;
-            return (
-              <Pressable
-                key={category}
-                style={[styles.category, active && styles.categoryActive]}
-                onPress={() => selectCategory(category)}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: active }}
-              >
-                <Icon size={17} color={active ? colors.white : colors.textMuted} />
-                <Text style={[styles.categoryText, active && styles.categoryTextActive]}>
-                  {arquivoTipoLabel[category]}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+        <SearchField
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Buscar documento nesta obra"
+        />
+
+        {searchActive ? (
+          <Text style={styles.searchCount}>
+            {searching
+              ? "Buscando documentos..."
+              : `${searchResults.length} ${searchResults.length === 1 ? "documento encontrado" : "documentos encontrados"}`}
+          </Text>
+        ) : (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categories}
+          >
+            {categorias.map((category) => {
+              const Icon = categoryIcon[category];
+              const active = selected === category;
+              return (
+                <Pressable
+                  key={category}
+                  style={[styles.category, active && styles.categoryActive]}
+                  onPress={() => selectCategory(category)}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: active }}
+                >
+                  <Icon size={17} color={active ? colors.white : colors.textMuted} />
+                  <Text style={[styles.categoryText, active && styles.categoryTextActive]}>
+                    {arquivoTipoLabel[category]}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        )}
 
         <View style={styles.shortcuts}>
           <AppButton
@@ -305,15 +375,17 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
           />
         </View>
 
-        {loadingCategory === selected && filesByCategory[selected] === undefined ? (
+        {!searchActive &&
+        loadingCategory === selected &&
+        filesByCategory[selected] === undefined ? (
           <ScreenState loading title={`Carregando ${arquivoTipoLabel[selected].toLowerCase()}s`} />
         ) : (
           <FlatList
-            data={arquivos}
+            data={displayedFiles}
             keyExtractor={(item) => item.id}
             renderItem={renderFile}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={arquivos.length === 0 ? styles.emptyList : styles.list}
+            contentContainerStyle={displayedFiles.length === 0 ? styles.emptyList : styles.list}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
@@ -323,15 +395,27 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
               />
             }
             ListEmptyComponent={
-              <ScreenState
-                icon={<FileText size={42} color={colors.textMuted} />}
-                title="Nenhum arquivo nesta categoria"
-                description={
-                  canEdit
-                    ? "Envie o primeiro documento para começar a organizar esta obra."
-                    : "Quando um documento for enviado, ele aparecerá aqui."
-                }
-              />
+              searchActive && searching ? (
+                <ScreenState loading title="Buscando documentos" />
+              ) : searchActive ? (
+                <ScreenState
+                  icon={<FileText size={42} color={colors.textMuted} />}
+                  title="Nenhum documento encontrado"
+                  description="Tente buscar por outro nome."
+                  actionLabel="Limpar busca"
+                  onAction={() => setQuery("")}
+                />
+              ) : (
+                <ScreenState
+                  icon={<FileText size={42} color={colors.textMuted} />}
+                  title="Nenhum arquivo nesta categoria"
+                  description={
+                    canEdit
+                      ? "Envie o primeiro documento para começar a organizar esta obra."
+                      : "Quando um documento for enviado, ele aparecerá aqui."
+                  }
+                />
+              )
             }
           />
         )}
@@ -393,7 +477,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   roleBadgeText: { color: colors.primary, fontSize: 12, fontWeight: "700" },
-  categories: { gap: spacing.sm, paddingBottom: spacing.md },
+  searchCount: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: "600",
+    paddingVertical: spacing.md,
+  },
+  categories: { gap: spacing.sm, paddingVertical: spacing.md },
   category: {
     minHeight: 48,
     flexDirection: "row",
@@ -436,6 +526,7 @@ const styles = StyleSheet.create({
   fileContent: { flex: 1, minWidth: 0 },
   fileName: { color: colors.text, fontWeight: "700" },
   fileMeta: { color: colors.textMuted, fontSize: 13, marginTop: spacing.xs },
+  fileAuthor: { color: colors.textMuted, fontSize: 13, marginTop: spacing.xs },
   floatingAction: {
     position: "absolute",
     right: spacing.lg,
