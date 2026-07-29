@@ -229,6 +229,37 @@ class AuthIntegrationTests {
 		assertThat(response.body()).contains("Definir nova senha");
 	}
 
+	@Test
+	void redefineSenhaPelaPaginaHttpsAtravesDoProxy() throws Exception {
+		String email = "reset-proxy@example.com";
+		post("/auth/register", """
+				{"nome":"Usuario Proxy","email":"%s","senha":"senha123"}
+				""".formatted(email));
+		clearInvocations(emailSender);
+		post("/auth/forgot-password", """
+				{"email":"%s"}
+				""".formatted(email));
+		ArgumentCaptor<String> link = ArgumentCaptor.forClass(String.class);
+		verify(emailSender).enviarRedefinicao(any(Usuario.class), link.capture());
+		Matcher tokenMatcher = Pattern.compile("[?&]token=([A-Za-z0-9_-]+)")
+				.matcher(link.getValue());
+		assertThat(tokenMatcher.find()).isTrue();
+
+		HttpRequest request = HttpRequest.newBuilder(uri("/auth/reset-password"))
+				.header("Content-Type", "application/json")
+				.header("Origin", "https://obradocs-production.up.railway.app")
+				.header("X-Forwarded-Host", "obradocs-production.up.railway.app")
+				.header("X-Forwarded-Proto", "https")
+				.header("X-Forwarded-Port", "443")
+				.POST(HttpRequest.BodyPublishers.ofString("""
+						{"token":"%s","senha":"NovaSenha123"}
+						""".formatted(tokenMatcher.group(1))))
+				.build();
+
+		assertThat(http.send(request, HttpResponse.BodyHandlers.ofString()).statusCode())
+				.isEqualTo(204);
+	}
+
 	private HttpResponse<String> post(String path, String body) throws Exception {
 		HttpRequest request = HttpRequest.newBuilder(uri(path))
 				.header("Content-Type", "application/json")
