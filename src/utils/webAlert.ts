@@ -1,11 +1,27 @@
-import { Alert, AlertButton, Platform } from "react-native";
+type AlertButtonLike = {
+  text?: string;
+  style?: "default" | "cancel" | "destructive";
+  onPress?: (value?: string) => void;
+};
+
+type AlertApi = {
+  alert: (
+    title: string,
+    message?: string,
+    buttons?: AlertButtonLike[],
+    options?: unknown,
+  ) => void;
+};
 
 type BrowserDialogs = {
   alert: (message: string) => void;
   confirm: (message: string) => boolean;
 };
 
-type BrowserGlobal = typeof globalThis & Partial<BrowserDialogs>;
+type BrowserGlobal = {
+  alert?: (message?: unknown) => void;
+  confirm?: (message?: string) => boolean;
+};
 
 const messageText = (title: string, message?: string) =>
   [title, message].filter(Boolean).join("\n\n");
@@ -13,7 +29,7 @@ const messageText = (title: string, message?: string) =>
 export const executeWebAlert = (
   title: string,
   message: string | undefined,
-  buttons: AlertButton[] | undefined,
+  buttons: AlertButtonLike[] | undefined,
   dialogs: BrowserDialogs,
 ) => {
   const actions = buttons ?? [];
@@ -40,16 +56,24 @@ export const executeWebAlert = (
 
 let installed = false;
 
-export const installWebAlertPolyfill = () => {
-  if (installed || Platform.OS !== "web") return;
-
-  const browser = globalThis as BrowserGlobal;
-  if (typeof browser.alert !== "function" || typeof browser.confirm !== "function") return;
+export const installWebAlertPolyfill = (
+  alertApi: AlertApi,
+  isWeb: boolean,
+  browser: BrowserGlobal = globalThis as BrowserGlobal,
+) => {
+  if (
+    installed ||
+    !isWeb ||
+    typeof browser.alert !== "function" ||
+    typeof browser.confirm !== "function"
+  ) {
+    return;
+  }
 
   installed = true;
-  Alert.alert = (title, message, buttons) =>
+  alertApi.alert = (title, message, buttons) =>
     executeWebAlert(title, message, buttons, {
-      alert: browser.alert!.bind(browser),
-      confirm: browser.confirm!.bind(browser),
+      alert: (text) => browser.alert?.(text),
+      confirm: (text) => browser.confirm?.(text) ?? false,
     });
 };
