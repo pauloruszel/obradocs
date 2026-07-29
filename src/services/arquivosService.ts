@@ -5,10 +5,16 @@ import { apiRequest } from "./apiClient";
 export const listarArquivos = (
   obraId: string,
   tipo?: ArquivoTipo,
-): Promise<Arquivo[]> =>
-  apiRequest(
-    `/v1/obras/${obraId}/arquivos${tipo ? `?tipo=${encodeURIComponent(tipo)}` : ""}`,
-  );
+  busca?: string,
+): Promise<Arquivo[]> => {
+  const query = [
+    tipo && `tipo=${encodeURIComponent(tipo)}`,
+    busca?.trim() && `busca=${encodeURIComponent(busca.trim())}`,
+  ]
+    .filter(Boolean)
+    .join("&");
+  return apiRequest(`/v1/obras/${obraId}/arquivos${query ? `?${query}` : ""}`);
+};
 
 export const buscarArquivo = (arquivoId: string): Promise<Arquivo> =>
   apiRequest(`/v1/arquivos/${arquivoId}`);

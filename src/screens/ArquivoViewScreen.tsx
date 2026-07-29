@@ -147,6 +147,9 @@ const ArquivoViewScreen = ({ route, navigation }: Props) => {
             .filter(Boolean)
             .join(" · ")}
         </Text>
+        {!!meta.enviado_por_nome && (
+          <Text style={styles.author}>Enviado por {meta.enviado_por_nome}</Text>
+        )}
       </View>
 
       <View style={styles.viewer}>
@@ -207,6 +210,7 @@ const styles = StyleSheet.create({
   },
   title: { color: colors.text, fontSize: 17, fontWeight: "700" },
   subtitle: { color: colors.textMuted, marginTop: spacing.xs, fontSize: 13 },
+  author: { color: colors.textMuted, marginTop: spacing.xs, fontSize: 13 },
   viewer: { flex: 1, backgroundColor: "#EEF2F6" },
   webView: { flex: 1, backgroundColor: "#EEF2F6" },
   image: { flex: 1, width: "100%", resizeMode: "contain" },
