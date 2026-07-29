@@ -40,7 +40,16 @@ class ArquivoService {
 		if (termo != null && termo.length() > 100) {
 			throw new IllegalArgumentException("Busca muito longa; limite de 100 caracteres");
 		}
-		return arquivos.pesquisar(obraId, tipo, termo);
+		if (tipo == null && termo == null) {
+			return arquivos.listarTodos(obraId);
+		}
+		if (termo == null) {
+			return arquivos.listarPorTipo(obraId, tipo);
+		}
+		if (tipo == null) {
+			return arquivos.pesquisarPorNome(obraId, termo);
+		}
+		return arquivos.pesquisarPorTipoENome(obraId, tipo, termo);
 	}
 
 	@Transactional(readOnly = true)
