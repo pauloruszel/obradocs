@@ -14,18 +14,20 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "@navigation/AppNavigator";
 import { ArquivoTipo } from "@models/models";
 import { uploadArquivo } from "@services/arquivosService";
+import { ApiError } from "@services/apiClient";
 import { useAuth } from "@context/AuthContext";
 import { toastError, toastSuccess, toastInfo } from "@utils/toast";
 
 type Props = NativeStackScreenProps<RootStackParamList, "UploadArquivo">;
 
 const tipos: ArquivoTipo[] = ["ORCAMENTO", "NOTA_FISCAL", "PROJETO", "FOTO"];
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 const UploadArquivoScreen = ({ route, navigation }: Props) => {
   const { obraId } = route.params;
   const { user } = useAuth();
   const [tipo, setTipo] = useState<ArquivoTipo>("FOTO");
-  const [file, setFile] = useState<{ uri: string; name: string; mime?: string } | null>(
+  const [file, setFile] = useState<{ uri: string; name: string; mime?: string; size?: number; } | null>(
     null
   );
   const [uploading, setUploading] = useState(false);
@@ -46,10 +48,16 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
     const doc: any = (result as any).assets?.[0] ?? result;
 
     if ((doc && doc.uri) || (result as any).type === "success") {
+      if (typeof doc.size === "number" && doc.size > MAX_FILE_SIZE) {
+        setFile(null);
+        toastError("Arquivo muito grande", "O limite para envio e de 10 MB.");
+        return;
+      }
       setFile({
         uri: doc.uri,
         name: doc.name ?? "arquivo.pdf",
         mime: doc.mimeType ?? undefined,
+        size: doc.size ?? undefined,
       });
     } else {
       toastError("Falha ao selecionar", "Nao foi possivel obter o arquivo selecionado.");
@@ -93,6 +101,10 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
         toastInfo("Selecione um arquivo");
         return;
       }
+      if (typeof file.size === "number" && file.size > MAX_FILE_SIZE) {
+        toastError("Arquivo muito grande", "O limite para envio e de 10 MB.");
+        return;
+      }
 
       const isPdf =
         file.name.toLowerCase().endsWith(".pdf") || file.mime === "application/pdf";
@@ -120,6 +132,10 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
       navigation.goBack();
     } catch (e: any) {
       const msg = e?.message || "";
+      if (e instanceof ApiError && e.status === 413) {
+        toastError("Arquivo muito grande", "O limite para envio e de 10 MB.");
+        return;
+      }
       const offline =
         msg.toLowerCase().includes("network") || msg.toLowerCase().includes("fetch");
       toastError(
