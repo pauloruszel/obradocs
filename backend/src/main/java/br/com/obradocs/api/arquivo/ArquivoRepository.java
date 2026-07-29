@@ -15,11 +15,47 @@ interface ArquivoRepository extends JpaRepository<Arquivo, UUID> {
             from Arquivo a
             left join Usuario u on u.id = a.enviadoPor
             where a.obraId = :obraId
-              and (:tipo is null or a.tipo = :tipo)
-              and (:busca is null or lower(a.nomeOriginal) like lower(concat('%', :busca, '%')))
             order by a.createdAt desc
             """)
-    List<ArquivoDetalhado> pesquisar(@Param("obraId") UUID obraId, @Param("tipo") ArquivoTipo tipo, @Param("busca") String busca);
+    List<ArquivoDetalhado> listarTodos(@Param("obraId") UUID obraId);
+
+    @Query("""
+            select a as arquivo, u.nome as enviadoPorNome
+            from Arquivo a
+            left join Usuario u on u.id = a.enviadoPor
+            where a.obraId = :obraId
+              and a.tipo = :tipo
+            order by a.createdAt desc
+            """)
+    List<ArquivoDetalhado> listarPorTipo(
+            @Param("obraId") UUID obraId,
+            @Param("tipo") ArquivoTipo tipo);
+
+    @Query("""
+            select a as arquivo, u.nome as enviadoPorNome
+            from Arquivo a
+            left join Usuario u on u.id = a.enviadoPor
+            where a.obraId = :obraId
+              and lower(a.nomeOriginal) like lower(concat('%', :busca, '%'))
+            order by a.createdAt desc
+            """)
+    List<ArquivoDetalhado> pesquisarPorNome(
+            @Param("obraId") UUID obraId,
+            @Param("busca") String busca);
+
+    @Query("""
+            select a as arquivo, u.nome as enviadoPorNome
+            from Arquivo a
+            left join Usuario u on u.id = a.enviadoPor
+            where a.obraId = :obraId
+              and a.tipo = :tipo
+              and lower(a.nomeOriginal) like lower(concat('%', :busca, '%'))
+            order by a.createdAt desc
+            """)
+    List<ArquivoDetalhado> pesquisarPorTipoENome(
+            @Param("obraId") UUID obraId,
+            @Param("tipo") ArquivoTipo tipo,
+            @Param("busca") String busca);
 
     @Query("""
             select a as arquivo, u.nome as enviadoPorNome
