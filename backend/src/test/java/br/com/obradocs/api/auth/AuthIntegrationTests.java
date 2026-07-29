@@ -8,6 +8,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -19,6 +20,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.junit.jupiter.Container;
@@ -49,6 +51,9 @@ class AuthIntegrationTests {
 
 	@MockitoBean
 	JavaMailSender mailSender;
+
+	@Autowired
+	JdbcTemplate jdbc;
 
 	private final HttpClient http = HttpClient.newHttpClient();
 
@@ -144,7 +149,7 @@ class AuthIntegrationTests {
 		ArgumentCaptor<SimpleMailMessage> message = ArgumentCaptor.forClass(SimpleMailMessage.class);
 		verify(mailSender).send(message.capture());
 		Matcher tokenMatcher = Pattern.compile("[?&]token=([A-Za-z0-9_-]+)")
-				.matcher(message.getValue().getText());
+				.matcher(Objects.requireNonNull(message.getValue().getText()));
 		assertThat(tokenMatcher.find()).isTrue();
 		String token = tokenMatcher.group(1);
 
@@ -160,6 +165,47 @@ class AuthIntegrationTests {
 		assertThat(post("/auth/reset-password", """
 				{"token":"%s","senha":"OutraSenha123"}
 				""".formatted(token)).statusCode()).isEqualTo(400);
+	}
+
+	@Test
+	void exigeRedefinicaoDeSenhaParaUsuarioMigrado() throws Exception {
+		String email = "migrado@example.com";
+		jdbc.update("""
+				insert into usuarios (
+				    id, nome, email, senha_hash, ativo, password_change_required
+				) values (
+				    gen_random_uuid(), 'Usuario Migrado', ?, '$2a$10$invalidMigrationPasswordHash000000000000000000000', true, true
+				)
+				""", email);
+
+		HttpResponse<String> login = post("/auth/login", """
+				{"email":"%s","senha":"qualquer-senha"}
+				""".formatted(email));
+
+		assertThat(login.statusCode()).isEqualTo(403);
+		assertThat(objectMapper.readTree(login.body()).path("detail").stringValue())
+				.contains("Redefinicao de senha obrigatoria");
+
+		clearInvocations(mailSender);
+		assertThat(post("/auth/forgot-password", """
+				{"email":"%s"}
+				""".formatted(email)).statusCode()).isEqualTo(204);
+		ArgumentCaptor<SimpleMailMessage> message = ArgumentCaptor.forClass(SimpleMailMessage.class);
+		verify(mailSender).send(message.capture());
+		Matcher tokenMatcher = Pattern.compile("[?&]token=([A-Za-z0-9_-]+)")
+				.matcher(message.getValue().getText());
+		assertThat(tokenMatcher.find()).isTrue();
+
+		assertThat(post("/auth/reset-password", """
+				{"token":"%s","senha":"SenhaMigrada123"}
+				""".formatted(tokenMatcher.group(1))).statusCode()).isEqualTo(204);
+		assertThat(post("/auth/login", """
+				{"email":"%s","senha":"SenhaMigrada123"}
+				""".formatted(email)).statusCode()).isEqualTo(200);
+		assertThat(jdbc.queryForObject(
+				"select password_change_required from usuarios where email = ?",
+				Boolean.class,
+				email)).isFalse();
 	}
 
 	@Test

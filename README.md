@@ -31,6 +31,12 @@ Os access e refresh tokens ficam no SecureStore no Android/iOS. No Web, a sessao
 
 Consulte [`backend/README.md`](backend/README.md) para executar a API, configurar PostgreSQL, storage e SMTP.
 
+## Migracao
+
+Consulte [`docs/migration.md`](docs/migration.md) para exportar usuarios, obras,
+permissoes, arquivos e historico do Supabase, importar no Railway e validar a
+consistencia antes de desligar o ambiente antigo.
+
 ## Regras preservadas
 
 - OWNER, EDITOR e VIEWER controlam leitura, edicao e permissoes.

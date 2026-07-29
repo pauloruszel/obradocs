@@ -37,6 +37,9 @@ class Usuario {
 	@Column(nullable = false)
 	private boolean ativo = true;
 
+	@Column(name = "password_change_required", nullable = false)
+	private boolean passwordChangeRequired;
+
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt;
 
@@ -64,5 +67,6 @@ class Usuario {
 
 	void alterarSenha(String senhaHash) {
 		this.senhaHash = senhaHash;
+		this.passwordChangeRequired = false;
 	}
 }

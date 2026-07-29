@@ -63,6 +63,9 @@ class AuthService {
 		Usuario usuario = usuarios.findByEmail(normalizeEmail(email))
 				.filter(Usuario::isAtivo)
 				.orElseThrow(() -> new BadCredentialsException("E-mail ou senha invalidos"));
+		if (usuario.isPasswordChangeRequired()) {
+			throw new PasswordChangeRequiredException();
+		}
 		if (!passwordEncoder.matches(senha, usuario.getSenhaHash())) {
 			throw new BadCredentialsException("E-mail ou senha invalidos");
 		}
@@ -193,6 +196,12 @@ class AuthService {
 	static class EmailJaCadastradoException extends RuntimeException {
 		EmailJaCadastradoException() {
 			super("E-mail ja cadastrado");
+		}
+	}
+
+	static class PasswordChangeRequiredException extends RuntimeException {
+		PasswordChangeRequiredException() {
+			super("Redefinicao de senha obrigatoria. Use Esqueci minha senha.");
 		}
 	}
 }

@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import br.com.obradocs.api.auth.AuthService.EmailJaCadastradoException;
+import br.com.obradocs.api.auth.AuthService.PasswordChangeRequiredException;
 
 @RestControllerAdvice
 class ApiExceptionHandler {
@@ -19,6 +20,11 @@ class ApiExceptionHandler {
 	@ExceptionHandler(EmailJaCadastradoException.class)
 	ProblemDetail emailJaCadastrado(EmailJaCadastradoException exception) {
 		return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, exception.getMessage());
+	}
+
+	@ExceptionHandler(PasswordChangeRequiredException.class)
+	ProblemDetail trocaDeSenhaObrigatoria(PasswordChangeRequiredException exception) {
+		return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, exception.getMessage());
 	}
 
 	@ExceptionHandler(BadCredentialsException.class)
