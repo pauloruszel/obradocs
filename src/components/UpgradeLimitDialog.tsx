@@ -12,7 +12,13 @@ type Props = {
   onUpgrade: () => void;
 };
 
-const benefits = ["Obras ilimitadas", "5 GB de armazenamento", "Colaboradores ilimitados"];
+const benefits = [
+  "Obras ilimitadas",
+  "5 GB de armazenamento",
+  "Colaboradores ilimitados",
+  "Categorias adicionais",
+  "Modelos de organização reutilizáveis",
+];
 
 const copy: Record<UpgradeLimitCode, { title: string; message: string }> = {
   PLAN_LIMIT_REACHED: {
@@ -29,6 +35,16 @@ const copy: Record<UpgradeLimitCode, { title: string; message: string }> = {
     title: "Você atingiu o limite de colaboradores",
     message:
       "Esta obra já possui o número máximo de colaboradores do plano atual. Conheça o Plano Profissional para ampliar sua equipe.",
+  },
+  CATEGORY_LIMIT_REACHED: {
+    title: "Organize a obra do seu jeito",
+    message:
+      "Seu plano inclui as quatro categorias do modelo escolhido. No Plano Profissional, você pode criar categorias adicionais para cada projeto.",
+  },
+  CUSTOM_TEMPLATE_REQUIRES_PRO: {
+    title: "Reutilize sua organização",
+    message:
+      "Salve as categorias desta obra como um modelo pessoal e comece novos projetos com a mesma estrutura no Plano Profissional.",
   },
 };
 

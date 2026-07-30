@@ -16,6 +16,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class PlanoLimiteService {
 
+    private static final int LIMITE_CATEGORIAS_PRO = 12;
+
     private final PlanoService planos;
     private final EntityManager entityManager;
 
@@ -177,6 +179,38 @@ public class PlanoLimiteService {
                 where obra_id = :obraId
                   and user_id = :usuarioId
                 """, Map.of("obraId", obraId, "usuarioId", usuarioId)) > 0;
+    }
+
+    @Transactional
+    public void validarNovaCategoria(UUID obraId) {
+        UUID proprietarioId = proprietarioDaObra(obraId);
+        bloquearUsuario(proprietarioId);
+        PlanoService.LimitesPlano limites = planos.limites(proprietarioId);
+        long usadas = numero(
+                "select count(*) from categorias_obra where obra_id = :obraId",
+                "obraId",
+                obraId);
+        int limite = limites.codigo() == PlanoCodigo.FREE ? 4 : LIMITE_CATEGORIAS_PRO;
+        if (usadas >= limite) {
+            throw new LimitePlanoException(
+                    "CATEGORY_LIMIT_REACHED",
+                    limites.codigo() == PlanoCodigo.FREE
+                            ? "Categorias adicionais estão disponíveis no Plano Profissional."
+                            : "Você atingiu o limite de categorias desta obra.",
+                    HttpStatus.CONFLICT,
+                    Map.of("used", usadas, "limit", limite, "obraId", obraId));
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public void validarRecursoProfissional(UUID usuarioId, String codigo) {
+        if (planos.limites(usuarioId).codigo() != PlanoCodigo.PRO) {
+            throw new LimitePlanoException(
+                    codigo,
+                    "Este recurso estÃ¡ disponÃ­vel no Plano Profissional.",
+                    HttpStatus.CONFLICT,
+                    Map.of());
+        }
     }
 
     private void bloquearUsuario(UUID usuarioId) {

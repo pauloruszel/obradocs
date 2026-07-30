@@ -29,6 +29,9 @@ class Documento {
 	@Column(name = "obra_id", nullable = false, updatable = false)
 	private UUID obraId;
 
+	@Column(name = "categoria_id", nullable = false, updatable = false)
+	private UUID categoriaId;
+
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, updatable = false, length = 30)
 	private ArquivoTipo tipo;
@@ -36,16 +39,21 @@ class Documento {
 	@Column(nullable = false, length = 255)
 	private String nome;
 
+	@Column(length = 80)
+	private String ambiente;
+
 	@Column(name = "revisao_atual", nullable = false)
 	private int revisaoAtual = 1;
 
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt;
 
-	Documento(UUID obraId, ArquivoTipo tipo, String nome) {
+	Documento(UUID obraId, UUID categoriaId, ArquivoTipo tipo, String nome, String ambiente) {
 		this.obraId = obraId;
+		this.categoriaId = categoriaId;
 		this.tipo = tipo;
 		this.nome = nome;
+		this.ambiente = ambiente;
 	}
 
 	@PrePersist

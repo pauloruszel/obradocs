@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   FlatList,
   Pressable,
@@ -17,14 +17,16 @@ import {
   MoreVertical,
   Pencil,
   ReceiptText,
+  Settings2,
   ShieldAlert,
   Trash2,
   Upload,
   Users,
 } from "lucide-react-native";
 import { RootStackParamList } from "@navigation/AppNavigator";
-import { Arquivo, ArquivoTipo } from "@models/models";
+import { Arquivo, ArquivoTipo, CategoriaObra } from "@models/models";
 import { listarArquivos } from "@services/arquivosService";
+import { listarCategorias } from "@services/categoriasService";
 import { listarPermissoes } from "@services/permissoesService";
 import { useAuth } from "@context/AuthContext";
 import { toastError, toastSuccess } from "@utils/toast";
@@ -41,8 +43,6 @@ import { colors, layout, radius, spacing } from "@theme/index";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ObraDetail">;
 
-const categorias: ArquivoTipo[] = ["ORCAMENTO", "NOTA_FISCAL", "PROJETO", "FOTO"];
-
 const categoryIcon: Record<ArquivoTipo, React.ElementType> = {
   ORCAMENTO: ReceiptText,
   NOTA_FISCAL: FileText,
@@ -53,10 +53,13 @@ const categoryIcon: Record<ArquivoTipo, React.ElementType> = {
 const ObraDetailScreen = ({ route, navigation }: Props) => {
   const { obraId, nome } = route.params;
   const { user } = useAuth();
-  const [selected, setSelected] = useState<ArquivoTipo>("FOTO");
-  const [filesByCategory, setFilesByCategory] = useState<Partial<Record<ArquivoTipo, Arquivo[]>>>({});
-  const [loadingCategory, setLoadingCategory] = useState<ArquivoTipo | null>("FOTO");
+  const [categorias, setCategorias] = useState<CategoriaObra[]>([]);
+  const [selected, setSelected] = useState<string | null>(null);
+  const selectedRef = useRef<string | null>(null);
+  const [filesByCategory, setFilesByCategory] = useState<Record<string, Arquivo[]>>({});
+  const [loadingCategory, setLoadingCategory] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [ambienteFiltro, setAmbienteFiltro] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<Arquivo[]>([]);
   const [searching, setSearching] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -69,9 +72,21 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const canEdit = papel === "OWNER" || papel === "EDITOR";
-  const arquivos = filesByCategory[selected] || [];
+  const selectedCategory = categorias.find((item) => item.id === selected) || null;
+  const arquivos = selected ? filesByCategory[selected] || [] : [];
   const searchActive = query.trim().length > 0;
-  const displayedFiles = searchActive ? searchResults : arquivos;
+  const ambientes = Array.from(
+    new Set(arquivos.map((item) => item.ambiente?.trim()).filter(Boolean) as string[]),
+  ).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const displayedFiles = searchActive
+    ? searchResults
+    : ambienteFiltro
+      ? arquivos.filter((item) => item.ambiente === ambienteFiltro)
+      : arquivos;
+  const categoriasPreenchidas = categorias.filter((item) => item.documentos > 0).length;
+  const completude = categorias.length
+    ? Math.round((categoriasPreenchidas / categorias.length) * 100)
+    : 0;
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -104,13 +119,31 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
     }
   }, [obraId, user]);
 
+  const loadCategories = useCallback(async () => {
+    try {
+      const result = await listarCategorias(obraId);
+      setCategorias(result);
+      const current =
+        result.find((item) => item.id === selectedRef.current)
+        || result.find((item) => item.tipo === "FOTO")
+        || result[0]
+        || null;
+      selectedRef.current = current?.id || null;
+      setSelected(current?.id || null);
+      return result;
+    } catch {
+      toastError("Não foi possível carregar as categorias", "Tente novamente.");
+      return [];
+    }
+  }, [obraId]);
+
   const loadFiles = useCallback(
-    async (category: ArquivoTipo) => {
+    async (category: CategoriaObra) => {
       try {
-        const result = await listarArquivos(obraId, category);
+        const result = await listarArquivos(obraId, undefined, undefined, category.id);
         setFilesByCategory((current) => ({
           ...current,
-          [category]: result.filter((file) => file.tipo === category),
+          [category.id]: result,
         }));
       } catch (error) {
         const offline = /network|fetch/i.test((error as Error)?.message || "");
@@ -119,7 +152,7 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
           offline ? "Verifique sua internet." : "Verifique seu acesso à obra.",
         );
       } finally {
-        setLoadingCategory((current) => (current === category ? null : current));
+        setLoadingCategory((current) => (current === category.id ? null : current));
       }
     },
     [obraId],
@@ -128,8 +161,17 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
   useFocusEffect(
     useCallback(() => {
       loadPermission();
-      loadFiles(selected);
-    }, [loadFiles, loadPermission, selected]),
+      loadCategories().then((result) => {
+        const category =
+          result.find((item) => item.id === selectedRef.current)
+          || result.find((item) => item.tipo === "FOTO")
+          || result[0];
+        if (category) {
+          setLoadingCategory(category.id);
+          loadFiles(category);
+        }
+      });
+    }, [loadCategories, loadFiles, loadPermission]),
   );
 
   useEffect(() => {
@@ -164,11 +206,13 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
     };
   }, [obraId, query]);
 
-  const selectCategory = (category: ArquivoTipo) => {
-    if (category === selected) return;
-    setSelected(category);
-    if (filesByCategory[category] === undefined) {
-      setLoadingCategory(category);
+  const selectCategory = (category: CategoriaObra) => {
+    if (category.id === selected) return;
+    setAmbienteFiltro(null);
+    selectedRef.current = category.id;
+    setSelected(category.id);
+    if (filesByCategory[category.id] === undefined) {
+      setLoadingCategory(category.id);
       loadFiles(category);
     }
   };
@@ -186,7 +230,10 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
         toastError("Não foi possível atualizar a busca", "Tente novamente.");
       }
     } else {
-      await Promise.all([loadPermission(), loadFiles(selected)]);
+      await Promise.all([
+        loadPermission(),
+        selectedCategory ? loadFiles(selectedCategory) : loadCategories(),
+      ]);
     }
     setRefreshing(false);
   };
@@ -236,6 +283,11 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
         label: "Renomear obra",
         icon: <Pencil size={20} color={colors.text} />,
         onPress: () => setRenameVisible(true),
+      });
+      items.push({
+        label: "Organizar categorias",
+        icon: <Settings2 size={20} color={colors.text} />,
+        onPress: () => navigation.navigate("CategoriasObra", { obraId }),
       });
     }
     items.push({
@@ -293,6 +345,11 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
             {searchActive ? `${arquivoTipoLabel[item.tipo]} · ` : ""}
             R{item.revisao} · {size} · {formatDateTime(item.created_at)}
           </Text>
+          {!!item.ambiente && (
+            <Text style={styles.fileAuthor} numberOfLines={1}>
+              Ambiente: {item.ambiente}
+            </Text>
+          )}
           {!!item.enviado_por_nome && (
             <Text style={styles.fileAuthor} numberOfLines={1}>
               Enviado por {item.enviado_por_nome}
@@ -335,11 +392,11 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
             contentContainerStyle={styles.categories}
           >
             {categorias.map((category) => {
-              const Icon = categoryIcon[category];
-              const active = selected === category;
+              const Icon = categoryIcon[category.tipo];
+              const active = selected === category.id;
               return (
                 <Pressable
-                  key={category}
+                  key={category.id}
                   style={[styles.category, active && styles.categoryActive]}
                   onPress={() => selectCategory(category)}
                   accessibilityRole="tab"
@@ -347,7 +404,48 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
                 >
                   <Icon size={17} color={active ? colors.white : colors.textMuted} />
                   <Text style={[styles.categoryText, active && styles.categoryTextActive]}>
-                    {arquivoTipoLabel[category]}
+                    {category.nome}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        )}
+
+        {!searchActive && categorias.length > 0 && (
+          <View style={styles.completeness}>
+            <View style={styles.completenessHeader}>
+              <Text style={styles.completenessTitle}>Documentação da obra</Text>
+              <Text style={styles.completenessValue}>{completude}%</Text>
+            </View>
+            <View style={styles.progressTrack}>
+              <View style={[styles.progressValue, { width: `${completude}%` }]} />
+            </View>
+            <Text style={styles.completenessHint}>
+              {categoriasPreenchidas} de {categorias.length} categorias com documentos
+            </Text>
+          </View>
+        )}
+
+        {!searchActive && ambientes.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.roomsScroll}
+            contentContainerStyle={styles.rooms}
+          >
+            {[null, ...ambientes].map((ambiente) => {
+              const active = ambienteFiltro === ambiente;
+              return (
+                <Pressable
+                  key={ambiente || "todos"}
+                  style={[styles.room, active && styles.roomActive]}
+                  onPress={() => setAmbienteFiltro(ambiente)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                >
+                  <Text style={[styles.roomText, active && styles.roomTextActive]}>
+                    {ambiente || "Todos os ambientes"}
                   </Text>
                 </Pressable>
               );
@@ -375,9 +473,10 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
         </View>
 
         {!searchActive &&
-        loadingCategory === selected &&
-        filesByCategory[selected] === undefined ? (
-          <ScreenState loading title={`Carregando ${arquivoTipoLabel[selected].toLowerCase()}s`} />
+        selectedCategory &&
+        loadingCategory === selectedCategory.id &&
+        filesByCategory[selectedCategory.id] === undefined ? (
+          <ScreenState loading title={`Carregando ${selectedCategory.nome.toLowerCase()}`} />
         ) : (
           <FlatList
             data={displayedFiles}
@@ -424,7 +523,14 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
         <AppButton
           label="Enviar arquivo"
           icon={<Upload size={19} color={colors.white} />}
-          onPress={() => navigation.navigate("UploadArquivo", { obraId })}
+          onPress={() =>
+            navigation.navigate("UploadArquivo", {
+              obraId,
+              categoriaId: selectedCategory?.id,
+              categoriaNome: selectedCategory?.nome,
+              tipo: selectedCategory?.tipo,
+            })
+          }
           style={styles.floatingAction}
         />
       )}
@@ -514,6 +620,40 @@ const styles = StyleSheet.create({
   categoryActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   categoryText: { color: colors.textMuted, fontWeight: "700" },
   categoryTextActive: { color: colors.white },
+  completeness: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  completenessHeader: { flexDirection: "row", justifyContent: "space-between" },
+  completenessTitle: { color: colors.text, fontSize: 13, fontWeight: "700" },
+  completenessValue: { color: colors.primary, fontSize: 13, fontWeight: "800" },
+  progressTrack: {
+    height: 6,
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.sm,
+    overflow: "hidden",
+    marginTop: spacing.sm,
+  },
+  progressValue: { height: "100%", backgroundColor: colors.primary },
+  completenessHint: { color: colors.textMuted, fontSize: 12, marginTop: spacing.sm },
+  roomsScroll: { flexGrow: 0, marginBottom: spacing.md },
+  rooms: { gap: spacing.sm },
+  room: {
+    minHeight: 36,
+    justifyContent: "center",
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surface,
+  },
+  roomActive: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
+  roomText: { color: colors.textMuted, fontSize: 13, fontWeight: "700" },
+  roomTextActive: { color: colors.primary },
   shortcuts: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
   shortcut: { flex: 1 },
   list: { paddingBottom: 92 },

@@ -12,6 +12,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import br.com.obradocs.api.arquivo.StorageDeletionQueue;
+import br.com.obradocs.api.categoria.CategoriaObraService;
+import br.com.obradocs.api.categoria.ObraTemplate;
+import br.com.obradocs.api.categoria.ModeloCategoriaService;
 import br.com.obradocs.api.plano.PlanoLimiteService;
 import lombok.RequiredArgsConstructor;
 
@@ -28,6 +31,8 @@ class ObraService {
 	private final HistoricoService historico;
 	private final ObraAuthorizationService authorization;
 	private final PlanoLimiteService limitesPlano;
+	private final CategoriaObraService categorias;
+	private final ModeloCategoriaService modelosCategoria;
 	private final StorageDeletionQueue deletionQueue;
 	private final JdbcTemplate jdbc;
 
@@ -44,13 +49,29 @@ class ObraService {
 	}
 
 	@Transactional
-	Obra criar(String nome, UUID usuarioId) {
+	Obra criar(String nome, ObraTemplate template, UUID modeloId, UUID usuarioId) {
 		limitesPlano.validarCriacaoObra(usuarioId);
 		String nomeNormalizado = nome.trim();
-		Obra obra = obras.save(new Obra(nomeNormalizado, gerarCodigoUnico(), usuarioId));
+		ObraTemplate templateEscolhido = template == null ? ObraTemplate.GERAL : template;
+		Obra obra = obras.save(new Obra(
+				nomeNormalizado, gerarCodigoUnico(), usuarioId, templateEscolhido));
 		permissoes.save(new Permissao(obra.getId(), usuarioId, Papel.OWNER));
+		if (modeloId == null) {
+			categorias.criarCategoriasIniciais(obra.getId(), templateEscolhido);
+		} else {
+			categorias.criarCategoriasIniciais(
+					obra.getId(), modelosCategoria.buscarParaUso(modeloId, usuarioId));
+		}
 		historico.registrar(
-				obra.getId(), usuarioId, "CRIACAO_OBRA", Map.of("nome", nomeNormalizado));
+				obra.getId(),
+				usuarioId,
+				"CRIACAO_OBRA",
+				modeloId == null
+						? Map.of("nome", nomeNormalizado, "template", templateEscolhido.name())
+						: Map.of(
+								"nome", nomeNormalizado,
+								"template", templateEscolhido.name(),
+								"modeloId", modeloId));
 		return obra;
 	}
 

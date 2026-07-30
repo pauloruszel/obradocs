@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   Image,
   Pressable,
@@ -20,20 +20,21 @@ import {
 } from "lucide-react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "@navigation/AppNavigator";
-import { ArquivoTipo } from "@models/models";
+import { ArquivoTipo, CategoriaObra } from "@models/models";
 import { uploadArquivo, uploadRevisao } from "@services/arquivosService";
+import { listarCategorias } from "@services/categoriasService";
 import { ApiError } from "@services/apiClient";
 import { useAuth } from "@context/AuthContext";
 import { toastError, toastSuccess } from "@utils/toast";
 import { getUpgradeLimitCode, UpgradeLimitCode } from "@utils/upgradeConversion";
 import { arquivoTipoLabel, formatFileName } from "@utils/display";
 import AppButton from "@components/AppButton";
+import AppInput from "@components/AppInput";
 import UpgradeLimitDialog from "@components/UpgradeLimitDialog";
 import { colors, layout, radius, spacing, typography } from "@theme/index";
 
 type Props = NativeStackScreenProps<RootStackParamList, "UploadArquivo">;
 
-const tipos: ArquivoTipo[] = ["ORCAMENTO", "NOTA_FISCAL", "PROJETO", "FOTO"];
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 const typeIcon: Record<ArquivoTipo, React.ElementType> = {
@@ -50,11 +51,16 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
     documentoNome,
     contentType: revisionContentType,
     tipo: tipoInicial,
+    categoriaId: categoriaIdInicial,
+    categoriaNome,
     papel,
   } = route.params;
   const isRevision = !!arquivoId;
   const { user } = useAuth();
   const [tipo, setTipo] = useState<ArquivoTipo>(tipoInicial || "FOTO");
+  const [categorias, setCategorias] = useState<CategoriaObra[]>([]);
+  const [categoriaId, setCategoriaId] = useState<string | undefined>(categoriaIdInicial);
+  const [ambiente, setAmbiente] = useState("");
   const [file, setFile] = useState<{
     uri: string;
     name: string;
@@ -68,6 +74,30 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
   useLayoutEffect(() => {
     navigation.setOptions({ title: isRevision ? "Enviar nova revisão" : "Enviar arquivo" });
   }, [isRevision, navigation]);
+
+  useEffect(() => {
+    if (isRevision) return;
+    let active = true;
+    listarCategorias(obraId)
+      .then((result) => {
+        if (!active) return;
+        setCategorias(result);
+        const current =
+          result.find((item) => item.id === categoriaIdInicial)
+          || result.find((item) => item.tipo === (tipoInicial || "FOTO"))
+          || result[0];
+        if (current) {
+          setCategoriaId(current.id);
+          setTipo(current.tipo);
+        }
+      })
+      .catch(() => {
+        if (active) toastError("Não foi possível carregar as categorias", "Tente novamente.");
+      });
+    return () => {
+      active = false;
+    };
+  }, [categoriaIdInicial, isRevision, obraId, tipoInicial]);
 
   const validateSize = (size?: number) => {
     if (typeof size === "number" && size > MAX_FILE_SIZE) {
@@ -110,7 +140,17 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
       mime: "image/jpeg",
       size: asset.fileSize,
     });
-    if (!isRevision) setTipo("FOTO");
+    if (!isRevision) {
+      const selectedCategory = categorias.find((item) => item.id === categoriaId);
+      const photoCategory =
+        selectedCategory?.tipo === "FOTO"
+          ? selectedCategory
+          : categorias.find((item) => item.tipo === "FOTO");
+      if (photoCategory) {
+        setCategoriaId(photoCategory.id);
+        setTipo(photoCategory.tipo);
+      }
+    }
   };
 
   const handleUpload = async () => {
@@ -151,10 +191,12 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
       } else {
         await uploadArquivo({
           obraId,
+          categoriaId,
           tipo,
           uri: file.uri,
           nomeOriginal: file.name,
           contentType,
+          ambiente,
         });
         toastSuccess("Arquivo enviado", "O documento já está disponível na obra.");
       }
@@ -206,37 +248,49 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
             <Text style={styles.revisionName} numberOfLines={2}>
               {formatFileName(documentoNome || "Documento")}
             </Text>
-            <Text style={styles.helper}>{arquivoTipoLabel[tipo]}</Text>
+            <Text style={styles.helper}>{categoriaNome || arquivoTipoLabel[tipo]}</Text>
           </View>
         ) : (
           <>
             <Text style={styles.sectionTitle}>Categoria</Text>
             <Text style={styles.helper}>Escolha onde o arquivo será organizado.</Text>
             <View style={styles.categoryGrid}>
-              {tipos.map((itemTipo) => {
-                const Icon = typeIcon[itemTipo];
-                const active = tipo === itemTipo;
+              {categorias.map((categoria) => {
+                const Icon = typeIcon[categoria.tipo];
+                const active = categoriaId === categoria.id;
                 return (
                   <Pressable
-                    key={itemTipo}
+                    key={categoria.id}
                     style={({ pressed }) => [
                       styles.category,
                       active && styles.categoryActive,
                       pressed && styles.pressed,
                     ]}
-                    onPress={() => setTipo(itemTipo)}
+                    onPress={() => {
+                      setCategoriaId(categoria.id);
+                      setTipo(categoria.tipo);
+                    }}
                     disabled={uploading}
                     accessibilityRole="radio"
                     accessibilityState={{ selected: active, disabled: uploading }}
                   >
                     <Icon size={21} color={active ? colors.white : colors.primary} />
                     <Text style={[styles.categoryText, active && styles.categoryTextActive]}>
-                      {arquivoTipoLabel[itemTipo]}
+                      {categoria.nome}
                     </Text>
                   </Pressable>
                 );
               })}
             </View>
+            <AppInput
+              label="Ambiente (opcional)"
+              value={ambiente}
+              onChangeText={setAmbiente}
+              placeholder="Ex.: Cozinha, suíte ou recepção"
+              maxLength={80}
+              editable={!uploading}
+              autoCapitalize="words"
+            />
           </>
         )}
 

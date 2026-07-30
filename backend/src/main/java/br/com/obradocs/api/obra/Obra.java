@@ -3,6 +3,7 @@ package br.com.obradocs.api.obra;
 import java.time.Instant;
 import java.util.UUID;
 
+import br.com.obradocs.api.categoria.ObraTemplate;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -42,10 +43,15 @@ class Obra {
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt;
 
-	Obra(String nome, String codigoCompartilhamento, UUID createdBy) {
+	@jakarta.persistence.Enumerated(jakarta.persistence.EnumType.STRING)
+	@Column(name = "template_codigo", nullable = false, updatable = false, length = 30)
+	private ObraTemplate templateCodigo;
+
+	Obra(String nome, String codigoCompartilhamento, UUID createdBy, ObraTemplate templateCodigo) {
 		this.nome = nome;
 		this.codigoCompartilhamento = codigoCompartilhamento;
 		this.createdBy = createdBy;
+		this.templateCodigo = templateCodigo;
 	}
 
 	@PrePersist

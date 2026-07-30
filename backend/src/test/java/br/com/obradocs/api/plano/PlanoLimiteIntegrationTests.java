@@ -100,20 +100,43 @@ class PlanoLimiteIntegrationTests {
     }
 
     @Test
+    void liberaCategoriaAdicionalSomenteNoPlanoPro() throws Exception {
+        UsuarioAutenticado owner = registrar("Owner Categoria", "owner-categoria@example.com");
+        JsonNode obra = json(post("/v1/obras", "{\"nome\":\"Obra categorizada\"}", owner.token()));
+        String path = "/v1/obras/" + obra.path("id").stringValue() + "/categorias";
+
+        HttpResponse<String> bloqueada = post(
+                path,
+                "{\"nome\":\"Contratos\",\"tipo\":\"PROJETO\"}",
+                owner.token());
+        assertThat(bloqueada.statusCode()).isEqualTo(409);
+        assertThat(objectMapper.readTree(bloqueada.body()).path("code").stringValue())
+                .isEqualTo("CATEGORY_LIMIT_REACHED");
+
+        tornarPro(owner.id());
+        assertThat(post(
+                path,
+                "{\"nome\":\"Contratos\",\"tipo\":\"PROJETO\"}",
+                owner.token()).statusCode()).isEqualTo(201);
+    }
+
+    @Test
     void bloqueiaUploadQuandoArmazenamentoAcumuladoAtingiu500Mb() throws Exception {
         UsuarioAutenticado owner = registrar("Owner Limite Storage", "owner-limite-storage@example.com");
         JsonNode obra = json(post("/v1/obras", "{\"nome\":\"Obra com arquivos\"}", owner.token()));
         UUID obraId = UUID.fromString(obra.path("id").stringValue());
 
         jdbc.update("""
-                insert into documentos (id, obra_id, tipo, nome)
+                insert into documentos (id, obra_id, tipo, nome, categoria_id)
                 select
                     gen_random_uuid(),
                     ?,
                     'PROJETO',
-                    'limite-' || serie || '.pdf'
+                    'limite-' || serie || '.pdf',
+                    (select id from categorias_obra where obra_id = ? and tipo = 'PROJETO' limit 1)
                 from generate_series(1, 50) as serie
                 """,
+                obraId,
                 obraId);
         jdbc.update("""
                 insert into arquivos (
@@ -220,6 +243,16 @@ class PlanoLimiteIntegrationTests {
         } catch (LimitePlanoException exception) {
             return exception.getCode();
         }
+    }
+
+    private void tornarPro(UUID usuarioId) {
+        jdbc.update("""
+                update assinaturas
+                set plano_id = '10000000-0000-0000-0000-000000000002',
+                    preco_centavos_contratado = 2490,
+                    updated_at = now()
+                where usuario_id = ? and status in ('ACTIVE', 'TRIALING')
+                """, usuarioId);
     }
 
     private UsuarioAutenticado registrar(String nome, String email) throws Exception {

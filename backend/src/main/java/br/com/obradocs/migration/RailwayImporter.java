@@ -85,6 +85,7 @@ final class RailwayImporter implements AutoCloseable {
         try {
             insertUsers(connection, bundle.users());
             insertObras(connection, bundle.obras());
+            insertCategoriasPadrao(connection);
             insertPermissoes(connection, bundle.permissoes());
             insertDocumentos(connection, bundle.arquivos());
             insertArquivos(connection, bundle.arquivos());
@@ -159,6 +160,23 @@ final class RailwayImporter implements AutoCloseable {
         }
     }
 
+    private void insertCategoriasPadrao(Connection connection) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("""
+                insert into categorias_obra (id, obra_id, nome, tipo, ordem, padrao)
+                select gen_random_uuid(), o.id, categoria.nome, categoria.tipo, categoria.ordem, true
+                from obras o
+                cross join (
+                    values
+                        ('Orçamento', 'ORCAMENTO', 0),
+                        ('Nota fiscal', 'NOTA_FISCAL', 1),
+                        ('Projeto', 'PROJETO', 2),
+                        ('Foto', 'FOTO', 3)
+                ) as categoria(nome, tipo, ordem)
+                """)) {
+            statement.executeUpdate();
+        }
+    }
+
     private void insertArquivos(Connection connection, List<ArquivoData> arquivos) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement("""
                 insert into arquivos (
@@ -185,8 +203,13 @@ final class RailwayImporter implements AutoCloseable {
 
     private void insertDocumentos(Connection connection, List<ArquivoData> arquivos) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement("""
-                insert into documentos (id, obra_id, tipo, nome, revisao_atual, created_at)
-                values (?, ?, ?, ?, 1, ?)
+                insert into documentos (
+                    id, obra_id, tipo, nome, revisao_atual, created_at, categoria_id
+                )
+                values (
+                    ?, ?, ?, ?, 1, ?,
+                    (select id from categorias_obra where obra_id = ? and tipo = ? order by ordem limit 1)
+                )
                 """)) {
             for (ArquivoData arquivo : arquivos) {
                 statement.setObject(1, arquivo.id());
@@ -194,6 +217,8 @@ final class RailwayImporter implements AutoCloseable {
                 statement.setString(3, arquivo.tipo());
                 statement.setString(4, arquivo.nomeOriginal());
                 setInstant(statement, 5, arquivo.createdAt());
+                statement.setObject(6, arquivo.obraId());
+                statement.setString(7, arquivo.tipo());
                 statement.addBatch();
             }
             statement.executeBatch();
