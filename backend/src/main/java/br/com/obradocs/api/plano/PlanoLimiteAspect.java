@@ -28,10 +28,7 @@ class PlanoLimiteAspect {
 
     @Before("execution(* br.com.obradocs.api.obra.ObraService.entrarPorCodigo(..)) && args(codigo, usuarioId)")
     void antesDeEntrarPorCodigo(String codigo, UUID usuarioId) {
-        // A obra ainda não foi resolvida neste ponto; a validação específica acontece
-        // no fluxo de inclusão manual de colaborador. O ingresso por código continua
-        // coberto na Fase 2 por teste de integração e será movido para dentro do serviço
-        // caso a resolução de código seja exposta ao domínio de planos.
+        limites.validarEntradaPorCodigo(codigo, usuarioId);
     }
 
     @Before("execution(* br.com.obradocs.api.obra.ObraService.adicionarPermissao(..)) && args(obraId, email, papel, usuarioId)")
