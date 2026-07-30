@@ -1,23 +1,8 @@
 import { apiRequest } from "./apiClient";
+import { MinhaAssinaturaApi, normalizarMinhaAssinatura } from "./planoMapper";
 
-export type PlanoCodigo = "FREE" | "PRO";
+export type { MinhaAssinatura, PlanoCodigo } from "./planoMapper";
+export { normalizarMinhaAssinatura } from "./planoMapper";
 
-export type MinhaAssinatura = {
-  plano: {
-    codigo: PlanoCodigo;
-    nome: string;
-    precoCentavos: number;
-    moeda: string;
-    fundador: boolean;
-  };
-  uso: {
-    obras: number;
-    limiteObras: number | null;
-    armazenamentoBytes: number;
-    limiteArmazenamentoBytes: number;
-    limiteColaboradoresPorObra: number | null;
-  };
-};
-
-export const consultarMinhaAssinatura = () =>
-  apiRequest<MinhaAssinatura>("/v1/minha-assinatura");
+export const consultarMinhaAssinatura = async () =>
+  normalizarMinhaAssinatura(await apiRequest<MinhaAssinaturaApi>("/v1/minha-assinatura"));
