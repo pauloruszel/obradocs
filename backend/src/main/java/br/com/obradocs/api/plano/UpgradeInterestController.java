@@ -15,6 +15,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -32,7 +34,7 @@ class UpgradeInterestController {
 
     private final JdbcTemplate jdbc;
 
-    @Value("${app.admin.emails:paulo.ruszel.santos@gmail.com}")
+    @Value("${app.admin.emails}")
     private String adminEmails;
 
     @PostMapping
@@ -100,10 +102,7 @@ class UpgradeInterestController {
 
     @GetMapping("/admin")
     List<AdminUpgradeInterestResponse> listar(@AuthenticationPrincipal Jwt jwt) {
-        UsuarioResumo usuario = buscarUsuario(UUID.fromString(jwt.getSubject()));
-        if (!emailsAdministradores().contains(usuario.email().toLowerCase(Locale.ROOT))) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Acesso restrito");
-        }
+        exigirAdministrador(jwt);
 
         return jdbc.query("""
                 select id, usuario_id, nome, email, telefone, empresa, status, origem, created_at, updated_at
@@ -128,6 +127,94 @@ class UpgradeInterestController {
                         rs.getString("origem"),
                         rs.getTimestamp("created_at").toInstant(),
                         rs.getTimestamp("updated_at").toInstant()));
+    }
+
+    @GetMapping("/admin-capability")
+    AdminCapabilityResponse capacidadeAdministrativa(@AuthenticationPrincipal Jwt jwt) {
+        UsuarioResumo usuario = buscarUsuario(UUID.fromString(jwt.getSubject()));
+        return new AdminCapabilityResponse(
+                emailsAdministradores().contains(usuario.email().toLowerCase(Locale.ROOT)));
+    }
+
+    @PatchMapping("/admin/{id}/status")
+    @Transactional
+    void atualizarStatus(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id,
+            @Valid @RequestBody AdminStatusRequest request) {
+        exigirAdministrador(jwt);
+        UUID adminId = UUID.fromString(jwt.getSubject());
+        LeadStatus atual = jdbc.query("""
+                select usuario_id, status
+                from upgrade_interest
+                where id = ?
+                for update
+                """,
+                (rs, rowNum) -> new LeadStatus(
+                        rs.getObject("usuario_id", UUID.class),
+                        rs.getString("status")),
+                id).stream().findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Interesse não encontrado"));
+
+        if ("CONVERTED".equals(atual.status()) && !"CONVERTED".equals(request.status())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Um interesse convertido não pode ser reaberto");
+        }
+        if (atual.status().equals(request.status())) {
+            return;
+        }
+
+        String action = "LEAD_STATUS_CHANGED";
+        if ("CONVERTED".equals(request.status())) {
+            ativarPlanoProfissional(atual.usuarioId());
+            action = "PRO_ACTIVATED";
+        }
+        jdbc.update(
+                "update upgrade_interest set status = ?, updated_at = now() where id = ?",
+                request.status(),
+                id);
+        jdbc.update("""
+                insert into admin_plan_audit (
+                    admin_id, usuario_id, upgrade_interest_id, action, previous_status, new_status
+                ) values (?, ?, ?, ?, ?, ?)
+                """,
+                adminId,
+                atual.usuarioId(),
+                id,
+                action,
+                atual.status(),
+                request.status());
+    }
+
+    private void ativarPlanoProfissional(UUID usuarioId) {
+        int updated = jdbc.update("""
+                update assinaturas
+                set plano_id = '10000000-0000-0000-0000-000000000002',
+                    status = 'ACTIVE',
+                    preco_centavos_contratado = 2490,
+                    inicio_em = now(),
+                    fim_em = null,
+                    updated_at = now()
+                where usuario_id = ? and status in ('ACTIVE', 'TRIALING')
+                """, usuarioId);
+        if (updated == 0) {
+            jdbc.update("""
+                    insert into assinaturas (
+                        id, usuario_id, plano_id, status, preco_centavos_contratado,
+                        fundador, inicio_em
+                    ) values (
+                        gen_random_uuid(), ?,
+                        '10000000-0000-0000-0000-000000000002',
+                        'ACTIVE', 2490, false, now()
+                    )
+                    """, usuarioId);
+        }
+    }
+
+    private void exigirAdministrador(Jwt jwt) {
+        UsuarioResumo usuario = buscarUsuario(UUID.fromString(jwt.getSubject()));
+        if (!emailsAdministradores().contains(usuario.email().toLowerCase(Locale.ROOT))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Acesso restrito");
+        }
     }
 
     private UsuarioResumo buscarUsuario(UUID usuarioId) {
@@ -183,6 +270,20 @@ class UpgradeInterestController {
             Instant updatedAt) {
     }
 
+    record AdminCapabilityResponse(boolean admin) {
+    }
+
+    record AdminStatusRequest(
+            @jakarta.validation.constraints.NotNull
+            @jakarta.validation.constraints.Pattern(
+                    regexp = "CONTACTED|CONVERTED|CANCELLED",
+                    message = "Status inválido")
+            String status) {
+    }
+
     private record UsuarioResumo(String nome, String email) {
+    }
+
+    private record LeadStatus(UUID usuarioId, String status) {
     }
 }

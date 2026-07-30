@@ -18,10 +18,12 @@ import AppInput from "@components/AppInput";
 import ScreenState from "@components/ScreenState";
 import { colors, layout, radius, spacing, typography } from "@theme/index";
 import { validateEmail } from "@utils/validation";
+import { getUpgradeLimitCode, UpgradeLimitCode } from "@utils/upgradeConversion";
+import UpgradeLimitDialog from "@components/UpgradeLimitDialog";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Permissoes">;
 
-const PermissoesScreen = ({ route }: Props) => {
+const PermissoesScreen = ({ route, navigation }: Props) => {
   const { obraId, isOwner } = route.params;
   const [permissions, setPermissions] = useState<Permissao[]>([]);
   const [email, setEmail] = useState("");
@@ -30,6 +32,7 @@ const PermissoesScreen = ({ route }: Props) => {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [selectedPermission, setSelectedPermission] = useState<Permissao | null>(null);
   const [loading, setLoading] = useState(true);
+  const [upgradeLimit, setUpgradeLimit] = useState<UpgradeLimitCode | null>(null);
 
   const load = async () => {
     try {
@@ -61,7 +64,12 @@ const PermissoesScreen = ({ route }: Props) => {
       setEmail("");
       toastSuccess("Acesso adicionado", "A pessoa entrou como Editora.");
     } catch (error) {
-      toastError("Não foi possível adicionar", (error as Error).message || "Tente novamente.");
+      const limitCode = getUpgradeLimitCode(error);
+      if (limitCode) {
+        setUpgradeLimit(limitCode);
+      } else {
+        toastError("Não foi possível adicionar", (error as Error).message || "Tente novamente.");
+      }
     } finally {
       setAdding(false);
     }
@@ -222,6 +230,15 @@ const PermissoesScreen = ({ route }: Props) => {
         title={selectedPermission?.profiles?.nome || "Gerenciar acesso"}
         items={menuItems}
         onClose={() => setSelectedPermission(null)}
+      />
+      <UpgradeLimitDialog
+        visible={upgradeLimit !== null}
+        limit={upgradeLimit || "COLLABORATOR_LIMIT_REACHED"}
+        onClose={() => setUpgradeLimit(null)}
+        onUpgrade={() => {
+          setUpgradeLimit(null);
+          navigation.navigate("PlanoProfissional", { origem: "limite_colaborador" });
+        }}
       />
     </View>
   );

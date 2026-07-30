@@ -9,7 +9,9 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.jdbc.core.JdbcTemplate;
 
+import br.com.obradocs.api.arquivo.StorageDeletionQueue;
 import br.com.obradocs.api.plano.PlanoLimiteService;
 import lombok.RequiredArgsConstructor;
 
@@ -26,6 +28,8 @@ class ObraService {
 	private final HistoricoService historico;
 	private final ObraAuthorizationService authorization;
 	private final PlanoLimiteService limitesPlano;
+	private final StorageDeletionQueue deletionQueue;
+	private final JdbcTemplate jdbc;
 
 	@Transactional(readOnly = true)
 	List<Obra> listar(UUID usuarioId) {
@@ -82,9 +86,11 @@ class ObraService {
 	void excluir(UUID obraId, UUID usuarioId) {
 		Obra obra = buscarAtiva(obraId);
 		authorization.exigirEdicao(obraId, usuarioId);
-		obra.excluir(usuarioId);
-		historico.registrar(
-				obraId, usuarioId, "EXCLUIR_OBRA", Map.of("soft_delete", true));
+		deletionQueue.enqueue(jdbc.queryForList(
+				"select storage_path from arquivos where obra_id = ?",
+				String.class,
+				obraId));
+		obras.delete(obra);
 	}
 
 	@Transactional(readOnly = true)

@@ -8,6 +8,10 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.UUID;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -121,12 +125,88 @@ class PlanoLimiteIntegrationTests {
                 obraId,
                 owner.id());
 
-        assertThatThrownBy(() -> limites.validarUpload(obraId, 1))
+        assertThatThrownBy(() -> limites.reservarUpload(obraId, 1))
                 .isInstanceOfSatisfying(LimitePlanoException.class, exception -> {
                     assertThat(exception.getCode()).isEqualTo("STORAGE_LIMIT_REACHED");
                     assertThat(exception.getStatus().value()).isEqualTo(413);
                     assertThat(exception.getDetails().get("limitBytes")).isEqualTo(500L * 1024 * 1024);
                 });
+    }
+
+    @Test
+    void serializaCriacaoDeObrasConcorrentes() throws Exception {
+        UsuarioAutenticado owner = registrar("Owner Concorrente", "owner-concorrente@example.com");
+        CountDownLatch start = new CountDownLatch(1);
+
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            List<Future<Integer>> responses = List.of(
+                    executor.submit(() -> {
+                        start.await();
+                        return post("/v1/obras", "{\"nome\":\"Obra concorrente A\"}", owner.token()).statusCode();
+                    }),
+                    executor.submit(() -> {
+                        start.await();
+                        return post("/v1/obras", "{\"nome\":\"Obra concorrente B\"}", owner.token()).statusCode();
+                    }));
+            start.countDown();
+
+            assertThat(responses).extracting(future -> future.get())
+                    .containsExactlyInAnyOrder(201, 409);
+        }
+    }
+
+    @Test
+    void serializaEntradaDeColaboradoresConcorrentes() throws Exception {
+        UsuarioAutenticado owner = registrar("Owner Colab Concorrente", "owner-colab-concorrente@example.com");
+        UsuarioAutenticado primeiro = registrar("Colab Concorrente A", "colab-concorrente-a@example.com");
+        UsuarioAutenticado segundo = registrar("Colab Concorrente B", "colab-concorrente-b@example.com");
+        JsonNode obra = json(post("/v1/obras", "{\"nome\":\"Obra para concorrência\"}", owner.token()));
+        String body = "{\"codigo\":\"" + obra.path("codigo_compartilhamento").stringValue() + "\"}";
+        CountDownLatch start = new CountDownLatch(1);
+
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            List<Future<Integer>> responses = List.of(
+                    executor.submit(() -> {
+                        start.await();
+                        return post("/v1/obras/entrar", body, primeiro.token()).statusCode();
+                    }),
+                    executor.submit(() -> {
+                        start.await();
+                        return post("/v1/obras/entrar", body, segundo.token()).statusCode();
+                    }));
+            start.countDown();
+
+            assertThat(responses).extracting(future -> future.get())
+                    .containsExactlyInAnyOrder(200, 409);
+        }
+    }
+
+    @Test
+    void reservaArmazenamentoDeFormaAtomica() throws Exception {
+        UsuarioAutenticado owner = registrar("Owner Reserva", "owner-reserva@example.com");
+        JsonNode obra = json(post("/v1/obras", "{\"nome\":\"Obra reserva\"}", owner.token()));
+        UUID obraId = UUID.fromString(obra.path("id").stringValue());
+        CountDownLatch start = new CountDownLatch(1);
+
+        try (var executor = Executors.newFixedThreadPool(2)) {
+            List<Future<String>> results = List.of(
+                    executor.submit(() -> reservar(start, obraId)),
+                    executor.submit(() -> reservar(start, obraId)));
+            start.countDown();
+
+            assertThat(results).extracting(future -> future.get())
+                    .containsExactlyInAnyOrder("RESERVED", "STORAGE_LIMIT_REACHED");
+        }
+    }
+
+    private String reservar(CountDownLatch start, UUID obraId) throws InterruptedException {
+        start.await();
+        try {
+            limites.reservarUpload(obraId, 300L * 1024 * 1024);
+            return "RESERVED";
+        } catch (LimitePlanoException exception) {
+            return exception.getCode();
+        }
     }
 
     private UsuarioAutenticado registrar(String nome, String email) throws Exception {

@@ -1,17 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { isPlanLimitReached, usageLevel } from "./upgradeConversion";
+import { getUpgradeLimitCode, isPlanLimitReached, usageLevel } from "./upgradeConversion";
 
 describe("upgradeConversion", () => {
-  it("identifica o erro padronizado de limite de obras", () => {
+  it("identifica o limite de obras pelo código", () => {
+    expect(isPlanLimitReached({ status: 409, code: "PLAN_LIMIT_REACHED" })).toBe(true);
+  });
+
+  it("não converte mensagens ou outros códigos em oferta de upgrade", () => {
     expect(isPlanLimitReached({
       status: 409,
       message: "Você atingiu o limite de obras do seu plano.",
-    })).toBe(true);
+    })).toBe(false);
+    expect(isPlanLimitReached({ status: 500, code: "OTHER_ERROR" })).toBe(false);
   });
 
-  it("não converte outros conflitos em oferta de upgrade", () => {
-    expect(isPlanLimitReached({ status: 409, message: "Outro conflito" })).toBe(false);
-    expect(isPlanLimitReached({ status: 500, message: "Você atingiu o limite de obras do seu plano." })).toBe(false);
+  it("identifica os três limites comerciais pelo código", () => {
+    expect(getUpgradeLimitCode({ code: "PLAN_LIMIT_REACHED" })).toBe("PLAN_LIMIT_REACHED");
+    expect(getUpgradeLimitCode({ code: "STORAGE_LIMIT_REACHED" })).toBe("STORAGE_LIMIT_REACHED");
+    expect(getUpgradeLimitCode({ code: "COLLABORATOR_LIMIT_REACHED" })).toBe("COLLABORATOR_LIMIT_REACHED");
+    expect(getUpgradeLimitCode({ status: 413 })).toBeNull();
   });
 
   it("classifica corretamente a utilização do plano", () => {

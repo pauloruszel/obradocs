@@ -27,3 +27,15 @@ export const consultarMeuInteresse = () =>
 
 export const listarInteressesUpgrade = () =>
   apiRequest<AdminUpgradeInterest[]>("/v1/upgrade-interest/admin");
+
+export const consultarCapacidadeAdministrativa = () =>
+  apiRequest<{ admin: boolean }>("/v1/upgrade-interest/admin-capability");
+
+export const atualizarStatusInteresse = (
+  id: string,
+  status: "CONTACTED" | "CONVERTED" | "CANCELLED",
+) =>
+  apiRequest<void>(`/v1/upgrade-interest/admin/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import {
   ChevronDown,
@@ -17,15 +17,11 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { RootStackParamList } from "@navigation/AppNavigator";
 import { useAuth } from "@context/AuthContext";
 import { publicApiUrl } from "@services/apiClient";
+import { consultarCapacidadeAdministrativa } from "@services/upgradeInterestService";
 import { toastError, toastInfo } from "@utils/toast";
 import AppButton from "@components/AppButton";
 import AppInput from "@components/AppInput";
 import { colors, layout, radius, spacing, typography } from "@theme/index";
-
-const ADMIN_EMAILS = (process.env.EXPO_PUBLIC_ADMIN_EMAILS || "paulo.ruszel.santos@gmail.com")
-  .split(",")
-  .map((email: string) => email.trim().toLowerCase())
-  .filter(Boolean);
 
 const AccountScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -33,7 +29,13 @@ const AccountScreen = () => {
   const [password, setPassword] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [dangerVisible, setDangerVisible] = useState(false);
-  const isAdmin = Boolean(user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase()));
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    consultarCapacidadeAdministrativa()
+      .then(({ admin }) => setIsAdmin(admin))
+      .catch(() => setIsAdmin(false));
+  }, []);
 
   const open = (path: string) =>
     Linking.openURL(publicApiUrl(path)).catch(() =>
