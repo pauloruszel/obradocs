@@ -17,6 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import br.com.obradocs.api.obra.HistoricoService;
 import br.com.obradocs.api.obra.ObraAuthorizationService;
+import br.com.obradocs.api.plano.PlanoLimiteService;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -32,6 +33,7 @@ class ArquivoService {
 	private final HistoricoService historico;
 	private final S3Storage storage;
 	private final TransactionTemplate transactions;
+	private final PlanoLimiteService limitesPlano;
 
 	@Transactional(readOnly = true)
 	List<ArquivoDetalhado> listar(UUID obraId, ArquivoTipo tipo, String busca, UUID usuarioId) {
@@ -62,6 +64,7 @@ class ArquivoService {
 	ArquivoDetalhado enviar(UUID obraId, ArquivoTipo tipo, MultipartFile multipart, UUID usuarioId) {
 		authorization.exigirEdicao(obraId, usuarioId);
 		ArquivoValidado validado = validar(multipart);
+		limitesPlano.validarUpload(obraId, multipart.getSize());
 		String storagePath = obraId + "/" + UUID.randomUUID() + "-" + sanitizar(validado.nome());
 
 		storage.armazenar(storagePath, multipart, validado.contentType());

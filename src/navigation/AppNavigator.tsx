@@ -11,6 +11,7 @@ import PermissoesScreen from "@screens/PermissoesScreen";
 import ResetPasswordScreen from "@screens/ResetPasswordScreen";
 import UploadArquivoScreen from "@screens/UploadArquivoScreen";
 import AccountScreen from "@screens/AccountScreen";
+import MeuPlanoScreen from "@screens/MeuPlanoScreen";
 import TermsAcceptanceScreen from "@screens/TermsAcceptanceScreen";
 import ReportContentScreen from "@screens/ReportContentScreen";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -32,6 +33,7 @@ export type RootStackParamList = {
   Historico: { obraId: string };
   Permissoes: { obraId: string; isOwner: boolean };
   Account: undefined;
+  MeuPlano: undefined;
   TermsAcceptance: undefined;
   ReportContent: {
     targetType: "OBRA" | "ARQUIVO";
@@ -83,6 +85,7 @@ const AppNavigator = () => {
         <>
           <Stack.Screen name="ObrasList" component={ObrasListScreen} options={{ title: "Minhas obras" }} />
           <Stack.Screen name="Account" component={AccountScreen} options={{ title: "Minha conta" }} />
+          <Stack.Screen name="MeuPlano" component={MeuPlanoScreen} options={{ title: "Meu Plano" }} />
           <Stack.Screen
             name="ReportContent"
             component={ReportContentScreen}

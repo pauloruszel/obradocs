@@ -4,12 +4,16 @@ import {
   ChevronDown,
   ChevronRight,
   CircleHelp,
+  CreditCard,
   FileText,
   LogOut,
   ShieldCheck,
   Trash2,
   UserRound,
 } from "lucide-react-native";
+import { useNavigation } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { RootStackParamList } from "@navigation/AppNavigator";
 import { useAuth } from "@context/AuthContext";
 import { publicApiUrl } from "@services/apiClient";
 import { toastError, toastInfo } from "@utils/toast";
@@ -18,6 +22,7 @@ import AppInput from "@components/AppInput";
 import { colors, layout, radius, spacing, typography } from "@theme/index";
 
 const AccountScreen = () => {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user, signOut, deleteAccount } = useAuth();
   const [password, setPassword] = useState("");
   const [deleting, setDeleting] = useState(false);
@@ -59,12 +64,19 @@ const AccountScreen = () => {
 
   const links = [
     {
+      label: "Meu Plano",
+      icon: CreditCard,
+      onPress: () => navigation.navigate("MeuPlano"),
+      role: "button" as const,
+    },
+    {
       label: "Política de Privacidade",
       icon: ShieldCheck,
       onPress: () => open("/privacy.html"),
+      role: "link" as const,
     },
-    { label: "Termos de Uso", icon: FileText, onPress: () => open("/terms.html") },
-    { label: "Ajuda e contato", icon: CircleHelp, onPress: () => open("/support.html") },
+    { label: "Termos de Uso", icon: FileText, onPress: () => open("/terms.html"), role: "link" as const },
+    { label: "Ajuda e contato", icon: CircleHelp, onPress: () => open("/support.html"), role: "link" as const },
   ];
 
   return (
@@ -83,9 +95,9 @@ const AccountScreen = () => {
         </View>
       </View>
 
-      <Text style={styles.sectionTitle}>Informações e ajuda</Text>
+      <Text style={styles.sectionTitle}>Perfil e assinatura</Text>
       <View style={styles.linkGroup}>
-        {links.map(({ label, icon: Icon, onPress }, index) => (
+        {links.map(({ label, icon: Icon, onPress, role }, index) => (
           <Pressable
             key={label}
             style={({ pressed }) => [
@@ -94,7 +106,7 @@ const AccountScreen = () => {
               pressed && styles.pressed,
             ]}
             onPress={onPress}
-            accessibilityRole="link"
+            accessibilityRole={role}
           >
             <View style={styles.linkIcon}>
               <Icon size={20} color={colors.primary} />
