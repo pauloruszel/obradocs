@@ -331,6 +331,7 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            style={styles.categoriesScroll}
             contentContainerStyle={styles.categories}
           >
             {categorias.map((category) => {
@@ -491,9 +492,16 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     paddingVertical: spacing.md,
   },
-  categories: { gap: spacing.sm, paddingVertical: spacing.md },
+  categoriesScroll: { flexGrow: 0, flexShrink: 0, height: 80 },
+  categories: {
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    alignItems: "center",
+  },
   category: {
-    minHeight: 48,
+    width: 148,
+    height: 56,
+    flexShrink: 0,
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
