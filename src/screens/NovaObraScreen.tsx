@@ -6,8 +6,10 @@ import { criarObra } from "@services/obrasService";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "@navigation/AppNavigator";
 import { toastError, toastSuccess } from "@utils/toast";
+import { isPlanLimitReached } from "@utils/upgradeConversion";
 import AppButton from "@components/AppButton";
 import AppInput from "@components/AppInput";
+import UpgradeLimitDialog from "@components/UpgradeLimitDialog";
 import { colors, layout, radius, spacing, typography } from "@theme/index";
 
 type Props = NativeStackScreenProps<RootStackParamList, "NovaObra">;
@@ -19,6 +21,7 @@ const NovaObraScreen = ({ navigation }: Props) => {
   const [created, setCreated] = useState<CreatedObra | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [showUpgrade, setShowUpgrade] = useState(false);
 
   const handleCreate = async () => {
     const trimmed = nome.trim();
@@ -31,7 +34,11 @@ const NovaObraScreen = ({ navigation }: Props) => {
     try {
       setCreated(await criarObra(trimmed));
     } catch (requestError) {
-      toastError("Não foi possível criar a obra", (requestError as Error).message);
+      if (isPlanLimitReached(requestError)) {
+        setShowUpgrade(true);
+      } else {
+        toastError("Não foi possível criar a obra", (requestError as Error).message);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -62,33 +69,16 @@ const NovaObraScreen = ({ navigation }: Props) => {
           <View style={styles.codeCard}>
             <Text style={styles.codeLabel}>Código da obra</Text>
             <Text style={styles.code}>{created.codigo_compartilhamento}</Text>
-            <AppButton
-              label="Copiar código"
-              variant="secondary"
-              icon={<Copy size={18} color={colors.primary} />}
-              onPress={copyCode}
-            />
-            <AppButton
-              label="Compartilhar código"
-              variant="ghost"
-              icon={<Share2 size={18} color={colors.primary} />}
-              onPress={shareCode}
-            />
+            <AppButton label="Copiar código" variant="secondary" icon={<Copy size={18} color={colors.primary} />} onPress={copyCode} />
+            <AppButton label="Compartilhar código" variant="ghost" icon={<Share2 size={18} color={colors.primary} />} onPress={shareCode} />
           </View>
           <AppButton
             label="Abrir obra"
             icon={<ExternalLink size={18} color={colors.white} />}
-            onPress={() =>
-              navigation.replace("ObraDetail", { obraId: created.id, nome: created.nome })
-            }
+            onPress={() => navigation.replace("ObraDetail", { obraId: created.id, nome: created.nome })}
             style={styles.fullButton}
           />
-          <AppButton
-            label="Voltar para minhas obras"
-            variant="ghost"
-            onPress={() => navigation.navigate("ObrasList")}
-            style={styles.fullButton}
-          />
+          <AppButton label="Voltar para minhas obras" variant="ghost" onPress={() => navigation.navigate("ObrasList")} style={styles.fullButton} />
         </View>
       </View>
     );
@@ -98,9 +88,7 @@ const NovaObraScreen = ({ navigation }: Props) => {
     <View style={styles.screen}>
       <View style={styles.content}>
         <Text style={styles.title}>Dê um nome à obra</Text>
-        <Text style={styles.description}>
-          Use um nome fácil de reconhecer, como o endereço ou o tipo do serviço.
-        </Text>
+        <Text style={styles.description}>Use um nome fácil de reconhecer, como o endereço ou o tipo do serviço.</Text>
         <View style={styles.form}>
           <AppInput
             label="Nome da obra"
@@ -117,57 +105,33 @@ const NovaObraScreen = ({ navigation }: Props) => {
             onSubmitEditing={handleCreate}
             autoFocus
           />
-          <AppButton
-            label="Criar obra"
-            onPress={handleCreate}
-            loading={submitting}
-            disabled={nome.trim().length < 3}
-          />
+          <AppButton label="Criar obra" onPress={handleCreate} loading={submitting} disabled={nome.trim().length < 3} />
         </View>
       </View>
+      <UpgradeLimitDialog
+        visible={showUpgrade}
+        onClose={() => setShowUpgrade(false)}
+        onUpgrade={() => {
+          setShowUpgrade(false);
+          navigation.navigate("PlanoProfissional", { origem: "limite_obra" });
+        }}
+      />
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background, alignItems: "center" },
-  content: {
-    width: "100%",
-    maxWidth: layout.maxContentWidth,
-    padding: spacing.xl,
-  },
+  content: { width: "100%", maxWidth: layout.maxContentWidth, padding: spacing.xl },
   title: { ...typography.screenTitle },
   description: { color: colors.textMuted, fontSize: 15, lineHeight: 22, marginTop: spacing.sm },
   form: { gap: spacing.xl, marginTop: spacing.xl },
   successContent: { flex: 1, alignItems: "center", justifyContent: "center" },
   successTitle: { ...typography.screenTitle, marginTop: spacing.lg },
-  successDescription: {
-    color: colors.textMuted,
-    fontSize: 15,
-    lineHeight: 22,
-    textAlign: "center",
-    marginTop: spacing.sm,
-    maxWidth: 380,
-  },
-  codeCard: {
-    width: "100%",
-    maxWidth: 420,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    padding: spacing.xl,
-    marginVertical: spacing.xl,
-    gap: spacing.md,
-  },
+  successDescription: { color: colors.textMuted, fontSize: 15, lineHeight: 22, textAlign: "center", marginTop: spacing.sm, maxWidth: 380 },
+  codeCard: { width: "100%", maxWidth: 420, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.xl, marginVertical: spacing.xl, gap: spacing.md },
   codeLabel: { color: colors.textMuted, fontSize: 13, fontWeight: "700", textAlign: "center" },
-  code: {
-    color: colors.primary,
-    fontSize: 30,
-    fontWeight: "800",
-    textAlign: "center",
-    letterSpacing: 2,
-  },
+  code: { color: colors.primary, fontSize: 30, fontWeight: "800", textAlign: "center", letterSpacing: 2 },
   fullButton: { width: "100%", maxWidth: 420, marginBottom: spacing.sm },
 });
 
