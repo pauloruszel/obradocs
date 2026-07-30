@@ -44,9 +44,14 @@ export type Permissao = {
 
 export type Arquivo = {
   id: string;
+  documento_id: string;
+  documento_nome: string;
   obra_id: string;
   tipo: ArquivoTipo;
   nome_original: string;
+  revisao: number;
+  revisao_atual: number;
+  atual: boolean;
   storage_path: string;
   content_type: string;
   tamanho_bytes: number;

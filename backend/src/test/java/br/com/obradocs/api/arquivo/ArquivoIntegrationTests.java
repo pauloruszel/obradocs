@@ -119,6 +119,9 @@ class ArquivoIntegrationTests {
         assertThat(arquivo.path("tamanho_bytes").longValue()).isEqualTo(pdf.length);
         assertThat(arquivo.path("storage_path").stringValue()).startsWith(obraId + "/");
         assertThat(arquivo.path("enviado_por_nome").stringValue()).isEqualTo("Owner Arquivo");
+        assertThat(arquivo.path("documento_nome").stringValue()).isEqualTo("projeto.pdf");
+        assertThat(arquivo.path("revisao").intValue()).isEqualTo(1);
+        assertThat(arquivo.path("atual").booleanValue()).isTrue();
 
         JsonNode listagem = json(get("/v1/obras/" + obraId + "/arquivos?tipo=PROJETO", owner.token()));
         assertThat(listagem.size()).isEqualTo(1);
@@ -138,7 +141,63 @@ class ArquivoIntegrationTests {
                 "/v1/arquivos/" + arquivoId,
                 "{\"nome\":\"projeto-final.pdf\"}",
                 owner.token()));
-        assertThat(renomeado.path("nome_original").stringValue()).isEqualTo("projeto-final.pdf");
+        assertThat(renomeado.path("documento_nome").stringValue()).isEqualTo("projeto-final.pdf");
+        assertThat(renomeado.path("nome_original").stringValue()).isEqualTo("projeto.pdf");
+    }
+
+    @Test
+    void preservaRevisoesEListaSomenteAVersaoAtual() throws Exception {
+        UsuarioAutenticado owner = registrar("Owner Revisao", "owner-revisao@example.com");
+        String obraId = criarObra(owner, "Obra com revisoes").path("id").stringValue();
+        byte[] r1 = "%PDF-1.4\nrevisao um".getBytes(StandardCharsets.UTF_8);
+        byte[] r2 = "%PDF-1.4\nrevisao dois".getBytes(StandardCharsets.UTF_8);
+
+        JsonNode primeira = json(upload(
+                obraId, "PROJETO", "estrutural-r1.pdf", "application/pdf", r1, owner.token()));
+        String primeiraId = primeira.path("id").stringValue();
+        byte[] jpeg = {(byte) 0xff, (byte) 0xd8, (byte) 0xff, (byte) 0xe0, 1, 2, 3};
+        assertThat(uploadRevisao(
+                primeiraId, "estrutural-r2.jpg", "image/jpeg", jpeg, owner.token()).statusCode())
+                .isEqualTo(400);
+        JsonNode segunda = json(uploadRevisao(
+                primeiraId, "estrutural-r2.pdf", "application/pdf", r2, owner.token()));
+
+        assertThat(segunda.path("documento_id").stringValue())
+                .isEqualTo(primeira.path("documento_id").stringValue());
+        assertThat(segunda.path("revisao").intValue()).isEqualTo(2);
+        assertThat(segunda.path("revisao_atual").intValue()).isEqualTo(2);
+        assertThat(segunda.path("atual").booleanValue()).isTrue();
+
+        JsonNode listagem = json(get("/v1/obras/" + obraId + "/arquivos?tipo=PROJETO", owner.token()));
+        assertThat(listagem).hasSize(1);
+        assertThat(listagem.get(0).path("id").stringValue()).isEqualTo(segunda.path("id").stringValue());
+
+        JsonNode revisoes = json(get("/v1/arquivos/" + primeiraId + "/revisoes", owner.token()));
+        assertThat(revisoes).hasSize(2);
+        assertThat(revisoes.get(0).path("revisao").intValue()).isEqualTo(2);
+        assertThat(revisoes.get(0).path("atual").booleanValue()).isTrue();
+        assertThat(revisoes.get(1).path("revisao").intValue()).isEqualTo(1);
+        assertThat(revisoes.get(1).path("atual").booleanValue()).isFalse();
+
+        json(patch(
+                "/v1/arquivos/" + primeiraId,
+                "{\"nome\":\"estrutural.pdf\"}",
+                owner.token()));
+        JsonNode revisoesRenomeadas = json(get(
+                "/v1/arquivos/" + segunda.path("id").stringValue() + "/revisoes",
+                owner.token()));
+        assertThat(revisoesRenomeadas.get(0).path("documento_nome").stringValue())
+                .isEqualTo("estrutural.pdf");
+        assertThat(revisoesRenomeadas.get(1).path("documento_nome").stringValue())
+                .isEqualTo("estrutural.pdf");
+        assertThat(revisoesRenomeadas.get(1).path("nome_original").stringValue())
+                .isEqualTo("estrutural-r1.pdf");
+
+        JsonNode downloadR1 = json(get("/v1/arquivos/" + primeiraId + "/download-url", owner.token()));
+        HttpResponse<byte[]> conteudoR1 = http.send(
+                HttpRequest.newBuilder(URI.create(downloadR1.path("url").stringValue())).GET().build(),
+                HttpResponse.BodyHandlers.ofByteArray());
+        assertThat(conteudoR1.body()).isEqualTo(r1);
     }
 
     @Test
@@ -242,6 +301,34 @@ class ArquivoIntegrationTests {
             String contentType,
             byte[] conteudo,
             String token) throws Exception {
+        return uploadMultipart(
+                "/v1/obras/" + obraId + "/arquivos?tipo=" + tipo,
+                nome,
+                contentType,
+                conteudo,
+                token);
+    }
+
+    private HttpResponse<String> uploadRevisao(
+            String arquivoId,
+            String nome,
+            String contentType,
+            byte[] conteudo,
+            String token) throws Exception {
+        return uploadMultipart(
+                "/v1/arquivos/" + arquivoId + "/revisoes",
+                nome,
+                contentType,
+                conteudo,
+                token);
+    }
+
+    private HttpResponse<String> uploadMultipart(
+            String path,
+            String nome,
+            String contentType,
+            byte[] conteudo,
+            String token) throws Exception {
         String boundary = "----obradocs-" + UUID.randomUUID();
         ByteArrayOutputStream body = new ByteArrayOutputStream();
         body.write(("--" + boundary + "\r\n"
@@ -250,7 +337,7 @@ class ArquivoIntegrationTests {
         body.write(conteudo);
         body.write(("\r\n--" + boundary + "--\r\n").getBytes(StandardCharsets.UTF_8));
 
-        HttpRequest request = HttpRequest.newBuilder(uri("/v1/obras/" + obraId + "/arquivos?tipo=" + tipo))
+        HttpRequest request = HttpRequest.newBuilder(uri(path))
                 .header("Authorization", "Bearer " + token)
                 .header("Content-Type", "multipart/form-data; boundary=" + boundary)
                 .POST(HttpRequest.BodyPublishers.ofByteArray(body.toByteArray()))

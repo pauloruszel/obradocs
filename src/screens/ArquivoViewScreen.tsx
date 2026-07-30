@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import WebView from "react-native-webview";
-import { FileText, MoreVertical, Pencil, ShieldAlert } from "lucide-react-native";
+import { FileClock, FileText, MoreVertical, Pencil, ShieldAlert, Upload } from "lucide-react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Arquivo } from "@models/models";
 import { RootStackParamList } from "@navigation/AppNavigator";
@@ -38,7 +38,9 @@ const ArquivoViewScreen = ({ route, navigation }: Props) => {
   const [saving, setSaving] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
 
-  const displayName = formatFileName(meta?.nome_original || route.params.nome || "");
+  const displayName = formatFileName(
+    meta?.documento_nome || meta?.nome_original || route.params.nome || "",
+  );
   const canEdit = papel === "OWNER" || papel === "EDITOR";
 
   useLayoutEffect(() => {
@@ -100,7 +102,7 @@ const ArquivoViewScreen = ({ route, navigation }: Props) => {
     ...(canEdit
       ? [
           {
-            label: "Renomear arquivo",
+            label: "Renomear documento",
             icon: <Pencil size={20} color={colors.text} />,
             onPress: () => setRenameVisible(true),
           },
@@ -143,13 +145,52 @@ const ArquivoViewScreen = ({ route, navigation }: Props) => {
       <View style={styles.metadata}>
         <Text style={styles.title} numberOfLines={2}>{displayName}</Text>
         <Text style={styles.subtitle}>
-          {[arquivoTipoLabel[meta.tipo], fileSize, formatDateTime(meta.created_at)]
+          {[
+            `R${meta.revisao}`,
+            meta.atual ? "Versão atual" : null,
+            arquivoTipoLabel[meta.tipo],
+            fileSize,
+            formatDateTime(meta.created_at),
+          ]
             .filter(Boolean)
             .join(" · ")}
         </Text>
         {!!meta.enviado_por_nome && (
           <Text style={styles.author}>Enviado por {meta.enviado_por_nome}</Text>
         )}
+        <View style={styles.actions}>
+          <AppButton
+            label="Revisões"
+            variant="secondary"
+            icon={<FileClock size={18} color={colors.primary} />}
+            onPress={() =>
+              navigation.navigate("RevisoesArquivo", {
+                arquivoId,
+                obraId: meta.obra_id,
+                nome: displayName,
+                papel,
+              })
+            }
+            style={styles.action}
+          />
+          {canEdit && (
+            <AppButton
+              label="Nova revisão"
+              icon={<Upload size={18} color={colors.white} />}
+              onPress={() =>
+                navigation.navigate("UploadArquivo", {
+                  obraId: meta.obra_id,
+                  arquivoId,
+                  tipo: meta.tipo,
+                  documentoNome: displayName,
+                  contentType: meta.content_type,
+                  papel,
+                })
+              }
+              style={styles.action}
+            />
+          )}
+        </View>
       </View>
 
       <View style={styles.viewer}>
@@ -188,9 +229,9 @@ const ArquivoViewScreen = ({ route, navigation }: Props) => {
       <RenameObraModal
         visible={renameVisible}
         currentName={displayName}
-        title="Renomear arquivo"
-        label="Novo nome do arquivo"
-        helper="Mantenha a extensão para identificar corretamente o formato."
+        title="Renomear documento"
+        label="Novo nome do documento"
+        helper="O novo nome será aplicado a todas as revisões."
         onCancel={() => setRenameVisible(false)}
         onSave={saveName}
         loading={saving}
@@ -211,6 +252,8 @@ const styles = StyleSheet.create({
   title: { color: colors.text, fontSize: 17, fontWeight: "700" },
   subtitle: { color: colors.textMuted, marginTop: spacing.xs, fontSize: 13 },
   author: { color: colors.textMuted, marginTop: spacing.xs, fontSize: 13 },
+  actions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
+  action: { flex: 1 },
   viewer: { flex: 1, backgroundColor: "#EEF2F6" },
   webView: { flex: 1, backgroundColor: "#EEF2F6" },
   image: { flex: 1, width: "100%", resizeMode: "contain" },

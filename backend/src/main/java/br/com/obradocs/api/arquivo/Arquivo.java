@@ -29,6 +29,12 @@ class Arquivo {
 	@Column(name = "obra_id", nullable = false, updatable = false)
 	private UUID obraId;
 
+	@Column(name = "documento_id", nullable = false, updatable = false)
+	private UUID documentoId;
+
+	@Column(nullable = false, updatable = false)
+	private int revisao;
+
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, updatable = false, length = 30)
 	private ArquivoTipo tipo;
@@ -53,6 +59,8 @@ class Arquivo {
 
 	Arquivo(
 			UUID obraId,
+			UUID documentoId,
+			int revisao,
 			ArquivoTipo tipo,
 			String nomeOriginal,
 			String storagePath,
@@ -60,6 +68,8 @@ class Arquivo {
 			long tamanhoBytes,
 			UUID enviadoPor) {
 		this.obraId = obraId;
+		this.documentoId = documentoId;
+		this.revisao = revisao;
 		this.tipo = tipo;
 		this.nomeOriginal = nomeOriginal;
 		this.storagePath = storagePath;
@@ -73,7 +83,4 @@ class Arquivo {
 		createdAt = Instant.now();
 	}
 
-	void renomear(String nomeOriginal) {
-		this.nomeOriginal = nomeOriginal;
-	}
 }
