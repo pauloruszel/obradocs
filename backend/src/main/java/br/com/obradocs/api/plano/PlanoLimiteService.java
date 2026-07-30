@@ -2,6 +2,8 @@ package br.com.obradocs.api.plano;
 
 import java.util.Map;
 import java.util.UUID;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -17,8 +19,9 @@ public class PlanoLimiteService {
     private final PlanoService planos;
     private final EntityManager entityManager;
 
-    @Transactional(readOnly = true)
+    @Transactional
     public void validarCriacaoObra(UUID usuarioId) {
+        bloquearUsuario(usuarioId);
         PlanoService.LimitesPlano limites = planos.limites(usuarioId);
         Integer limite = limites.limiteObras();
         if (limite == null) {
@@ -41,9 +44,10 @@ public class PlanoLimiteService {
         }
     }
 
-    @Transactional(readOnly = true)
-    public void validarUpload(UUID obraId, long tamanhoSolicitado) {
+    @Transactional
+    public UUID reservarUpload(UUID obraId, long tamanhoSolicitado) {
         UUID proprietarioId = proprietarioDaObra(obraId);
+        bloquearUsuario(proprietarioId);
         PlanoService.LimitesPlano limites = planos.limites(proprietarioId);
         long limite = limites.limiteArmazenamentoBytes();
         long usado = numero("""
@@ -53,22 +57,54 @@ public class PlanoLimiteService {
                 where o.created_by = :usuarioId
                   and o.deleted_at is null
                 """, "usuarioId", proprietarioId);
+        entityManager.createNativeQuery("""
+                delete from storage_upload_reservations
+                where expires_at <= now()
+                """).executeUpdate();
+        long reservado = numero("""
+                select coalesce(sum(tamanho_bytes), 0)
+                from storage_upload_reservations
+                where proprietario_id = :usuarioId
+                  and expires_at > now()
+                """, "usuarioId", proprietarioId);
 
-        if (usado + tamanhoSolicitado > limite) {
+        if (usado + reservado + tamanhoSolicitado > limite) {
             throw new LimitePlanoException(
                     "STORAGE_LIMIT_REACHED",
                     "O upload ultrapassa o limite de armazenamento do plano.",
                     HttpStatus.PAYLOAD_TOO_LARGE,
                     Map.of(
-                            "usedBytes", usado,
+                            "usedBytes", usado + reservado,
                             "limitBytes", limite,
                             "requestedBytes", tamanhoSolicitado));
         }
+        UUID reservaId = UUID.randomUUID();
+        entityManager.createNativeQuery("""
+                insert into storage_upload_reservations (
+                    id, proprietario_id, obra_id, tamanho_bytes, expires_at
+                ) values (:id, :proprietarioId, :obraId, :tamanho, :expiresAt)
+                """)
+                .setParameter("id", reservaId)
+                .setParameter("proprietarioId", proprietarioId)
+                .setParameter("obraId", obraId)
+                .setParameter("tamanho", tamanhoSolicitado)
+                .setParameter("expiresAt", Instant.now().plus(15, ChronoUnit.MINUTES))
+                .executeUpdate();
+        return reservaId;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
+    public void liberarReserva(UUID reservaId) {
+        entityManager.createNativeQuery(
+                "delete from storage_upload_reservations where id = :id")
+                .setParameter("id", reservaId)
+                .executeUpdate();
+    }
+
+    @Transactional
     public void validarNovoColaborador(UUID obraId, UUID convidadoId) {
         UUID proprietarioId = proprietarioDaObra(obraId);
+        bloquearUsuario(proprietarioId);
         if (possuiPermissao(obraId, convidadoId)) {
             return;
         }
@@ -141,6 +177,12 @@ public class PlanoLimiteService {
                 where obra_id = :obraId
                   and user_id = :usuarioId
                 """, Map.of("obraId", obraId, "usuarioId", usuarioId)) > 0;
+    }
+
+    private void bloquearUsuario(UUID usuarioId) {
+        entityManager.createNativeQuery("select id from usuarios where id = :id for update")
+                .setParameter("id", usuarioId)
+                .getSingleResult();
     }
 
     private long numero(String sql, String parameterName, Object value) {

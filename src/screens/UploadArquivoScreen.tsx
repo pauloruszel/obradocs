@@ -25,8 +25,10 @@ import { uploadArquivo } from "@services/arquivosService";
 import { ApiError } from "@services/apiClient";
 import { useAuth } from "@context/AuthContext";
 import { toastError, toastSuccess } from "@utils/toast";
+import { getUpgradeLimitCode, UpgradeLimitCode } from "@utils/upgradeConversion";
 import { arquivoTipoLabel, formatFileName } from "@utils/display";
 import AppButton from "@components/AppButton";
+import UpgradeLimitDialog from "@components/UpgradeLimitDialog";
 import { colors, layout, radius, spacing, typography } from "@theme/index";
 
 type Props = NativeStackScreenProps<RootStackParamList, "UploadArquivo">;
@@ -52,6 +54,7 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
     size?: number;
   } | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [upgradeLimit, setUpgradeLimit] = useState<UpgradeLimitCode | null>(null);
   const uploadLockRef = useRef(false);
 
   const validateSize = (size?: number) => {
@@ -125,7 +128,10 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
       toastSuccess("Arquivo enviado", "O documento já está disponível na obra.");
       navigation.goBack();
     } catch (error) {
-      if (error instanceof ApiError && error.status === 413) {
+      const limitCode = getUpgradeLimitCode(error);
+      if (limitCode) {
+        setUpgradeLimit(limitCode);
+      } else if (error instanceof ApiError && error.status === 413) {
         toastError("Arquivo muito grande", "O limite para envio é de 10 MB.");
       } else {
         const message = (error as Error)?.message || "";
@@ -256,6 +262,15 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
           disabled={!file}
         />
       </View>
+      <UpgradeLimitDialog
+        visible={upgradeLimit !== null}
+        limit={upgradeLimit || "STORAGE_LIMIT_REACHED"}
+        onClose={() => setUpgradeLimit(null)}
+        onUpgrade={() => {
+          setUpgradeLimit(null);
+          navigation.navigate("PlanoProfissional", { origem: "limite_armazenamento" });
+        }}
+      />
     </View>
   );
 };

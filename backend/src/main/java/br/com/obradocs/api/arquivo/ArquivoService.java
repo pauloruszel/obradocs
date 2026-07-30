@@ -64,11 +64,11 @@ class ArquivoService {
 	ArquivoDetalhado enviar(UUID obraId, ArquivoTipo tipo, MultipartFile multipart, UUID usuarioId) {
 		authorization.exigirEdicao(obraId, usuarioId);
 		ArquivoValidado validado = validar(multipart);
-		limitesPlano.validarUpload(obraId, multipart.getSize());
+		UUID reservaId = limitesPlano.reservarUpload(obraId, multipart.getSize());
 		String storagePath = obraId + "/" + UUID.randomUUID() + "-" + sanitizar(validado.nome());
 
-		storage.armazenar(storagePath, multipart, validado.contentType());
 		try {
+			storage.armazenar(storagePath, multipart, validado.contentType());
 			return transactions.execute(status -> {
 				Arquivo arquivo = arquivos.save(new Arquivo(
 						obraId,
@@ -86,10 +86,12 @@ class ArquivoService {
 								"arquivoId", arquivo.getId(),
 								"nomeOriginal", arquivo.getNomeOriginal(),
 								"tipo", arquivo.getTipo().name()));
+				limitesPlano.liberarReserva(reservaId);
 				return buscarDetalhadoPorId(arquivo.getId());
 			});
 		} catch (RuntimeException exception) {
 			storage.excluirSilenciosamente(storagePath);
+			limitesPlano.liberarReserva(reservaId);
 			throw exception;
 		}
 	}

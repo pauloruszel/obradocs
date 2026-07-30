@@ -75,6 +75,12 @@ class UpgradeInterestIntegrationTests {
                 Long.class)).isEqualTo(1L);
 
         assertThat(get("/v1/upgrade-interest/admin", userToken).statusCode()).isEqualTo(403);
+        assertThat(objectMapper.readTree(get(
+                "/v1/upgrade-interest/admin-capability",
+                userToken).body()).path("admin").booleanValue()).isFalse();
+        assertThat(objectMapper.readTree(get(
+                "/v1/upgrade-interest/admin-capability",
+                adminToken).body()).path("admin").booleanValue()).isTrue();
 
         HttpResponse<String> painel = get("/v1/upgrade-interest/admin", adminToken);
         assertThat(painel.statusCode()).isEqualTo(200);
@@ -82,6 +88,37 @@ class UpgradeInterestIntegrationTests {
         assertThat(items.size()).isEqualTo(1);
         assertThat(items.get(0).path("empresa").stringValue()).isEqualTo("Studio Atualizado");
         assertThat(items.get(0).path("telefone").stringValue()).isEqualTo("(21) 98888-0000");
+
+        String interesseId = items.get(0).path("id").stringValue();
+        assertThat(patch(
+                "/v1/upgrade-interest/admin/" + interesseId + "/status",
+                "{\"status\":\"CONTACTED\"}",
+                userToken).statusCode()).isEqualTo(403);
+        assertThat(patch(
+                "/v1/upgrade-interest/admin/" + interesseId + "/status",
+                "{\"status\":\"CONTACTED\"}",
+                adminToken).statusCode()).isEqualTo(200);
+        assertThat(patch(
+                "/v1/upgrade-interest/admin/" + interesseId + "/status",
+                "{\"status\":\"CONVERTED\"}",
+                adminToken).statusCode()).isEqualTo(200);
+
+        assertThat(jdbc.queryForObject("""
+                select p.codigo
+                from assinaturas a
+                join planos p on p.id = a.plano_id
+                join usuarios u on u.id = a.usuario_id
+                where u.email = 'lead-upgrade@example.com'
+                  and a.status in ('ACTIVE', 'TRIALING')
+                """, String.class)).isEqualTo("PRO");
+        assertThat(jdbc.queryForObject(
+                "select count(*) from admin_plan_audit where upgrade_interest_id = ?",
+                Long.class,
+                java.util.UUID.fromString(interesseId))).isEqualTo(2);
+        assertThat(patch(
+                "/v1/upgrade-interest/admin/" + interesseId + "/status",
+                "{\"status\":\"CONTACTED\"}",
+                adminToken).statusCode()).isEqualTo(409);
     }
 
     private String registrar(String nome, String email) throws Exception {
@@ -108,6 +145,15 @@ class UpgradeInterestIntegrationTests {
                 .POST(HttpRequest.BodyPublishers.ofString(body));
         if (token != null) request.header("Authorization", "Bearer " + token);
         return http.send(request.build(), HttpResponse.BodyHandlers.ofString());
+    }
+
+    private HttpResponse<String> patch(String path, String body, String token) throws Exception {
+        HttpRequest request = HttpRequest.newBuilder(uri(path))
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + token)
+                .method("PATCH", HttpRequest.BodyPublishers.ofString(body))
+                .build();
+        return http.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     private URI uri(String path) {

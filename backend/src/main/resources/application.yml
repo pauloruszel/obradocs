@@ -42,7 +42,7 @@ management:
 
 app:
   admin:
-    emails: ${ADMIN_EMAILS:paulo.ruszel.santos@gmail.com}
+    emails: ${ADMIN_EMAILS:}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:8081,http://localhost:19006}
   jwt:

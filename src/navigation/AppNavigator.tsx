@@ -36,7 +36,9 @@ export type RootStackParamList = {
   Permissoes: { obraId: string; isOwner: boolean };
   Account: undefined;
   MeuPlano: undefined;
-  PlanoProfissional: { origem?: "meu_plano" | "limite_obra" } | undefined;
+  PlanoProfissional: {
+    origem?: "meu_plano" | "limite_obra" | "limite_armazenamento" | "limite_colaborador";
+  } | undefined;
   UpgradeInteresses: undefined;
   TermsAcceptance: undefined;
   ReportContent: { targetType: "OBRA" | "ARQUIVO"; targetId: string; title: string };

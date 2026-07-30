@@ -110,6 +110,7 @@ const NovaObraScreen = ({ navigation }: Props) => {
       </View>
       <UpgradeLimitDialog
         visible={showUpgrade}
+        limit="PLAN_LIMIT_REACHED"
         onClose={() => setShowUpgrade(false)}
         onUpgrade={() => {
           setShowUpgrade(false);

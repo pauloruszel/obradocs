@@ -20,6 +20,8 @@ export class ApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
+    readonly code?: string,
+    readonly details?: Record<string, unknown>,
   ) {
     super(message);
     this.name = "ApiError";
@@ -39,13 +41,30 @@ const endpoint = (path: string) => {
 
 export const publicApiUrl = (path: string) => endpoint(path);
 
-const readError = async (response: Response) => {
+type ApiErrorBody = {
+  code?: string;
+  detail?: string;
+  title?: string;
+  message?: string;
+  details?: Record<string, unknown>;
+};
+
+const readError = async (response: Response): Promise<ApiErrorBody> => {
   try {
-    const body = await response.json();
-    return body.detail || body.title || body.message || `Erro HTTP ${response.status}`;
+    return (await response.json()) as ApiErrorBody;
   } catch {
-    return `Erro HTTP ${response.status}`;
+    return {};
   }
+};
+
+const apiError = async (response: Response) => {
+  const body = await readError(response);
+  return new ApiError(
+    body.detail || body.title || body.message || `Erro HTTP ${response.status}`,
+    response.status,
+    body.code,
+    body.details,
+  );
 };
 
 const fetchWithTimeout = (
@@ -78,7 +97,7 @@ const refreshSession = async (): Promise<Session> => {
       body: JSON.stringify({ refresh_token: current.refresh_token }),
     });
     if (!response.ok) {
-      throw new ApiError(await readError(response), response.status);
+      throw await apiError(response);
     }
 
     const renewed = (await response.json()) as Session;
@@ -125,7 +144,7 @@ export const apiRequest = async <T>(path: string, options: ApiOptions = {}): Pro
     return apiRequest<T>(path, { ...options, retried: true, timeoutMs });
   }
   if (!response.ok) {
-    throw new ApiError(await readError(response), response.status);
+    throw await apiError(response);
   }
   if (response.status === 204) {
     return undefined as T;

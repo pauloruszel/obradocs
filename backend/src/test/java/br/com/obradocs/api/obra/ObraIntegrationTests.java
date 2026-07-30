@@ -160,7 +160,7 @@ class ObraIntegrationTests {
 	}
 
 	@Test
-	void softDeleteOcultaObraEMantemRegistroDeExclusao() throws Exception {
+	void exclusaoRemoveObraEmCascataEnfileiraStorageELiberaCota() throws Exception {
 		UsuarioAutenticado owner = registrar("Owner Exclusao", "owner-exclusao@example.com");
 		UsuarioAutenticado editor = registrar("Editor Exclusao", "editor-exclusao@example.com");
 		JsonNode obraResponse = criarObra(owner, "Obra a excluir");
@@ -169,16 +169,37 @@ class ObraIntegrationTests {
 		post("/v1/obras/" + obraId + "/permissoes", """
 				{"email":"%s","papel":"EDITOR"}
 				""".formatted(editor.email()), owner.token());
+		String storagePath = obraId + "/arquivo.pdf";
+		jdbc.update("""
+				insert into arquivos (
+				    id, obra_id, tipo, nome_original, storage_path,
+				    content_type, tamanho_bytes, enviado_por
+				) values (?, ?, 'PROJETO', 'arquivo.pdf', ?, 'application/pdf', 100, ?)
+				""", UUID.randomUUID(), obraId, storagePath, owner.id());
 
 		assertThat(delete("/v1/obras/" + obraId, editor.token()).statusCode()).isEqualTo(204);
 		assertThat(get("/v1/obras/" + obraId, owner.token()).statusCode()).isEqualTo(404);
 		assertThat(json(get("/v1/obras", owner.token())).isEmpty()).isTrue();
-
-		Obra excluida = obras.findById(obraId).orElseThrow();
-		assertThat(excluida.getDeletedAt()).isNotNull();
-		assertThat(excluida.getDeletedBy()).isEqualTo(editor.id());
-		assertThat(historicos.findAllByObraIdOrderByCreatedAtDesc(obraId))
-				.anySatisfy(item -> assertThat(item.getAcao()).isEqualTo("EXCLUIR_OBRA"));
+		assertThat(obras.findById(obraId)).isEmpty();
+		assertThat(jdbc.queryForObject(
+				"select count(*) from arquivos where obra_id = ?",
+				Long.class,
+				obraId)).isZero();
+		assertThat(jdbc.queryForObject(
+				"select count(*) from permissoes where obra_id = ?",
+				Long.class,
+				obraId)).isZero();
+		assertThat(jdbc.queryForObject(
+				"select count(*) from historico where obra_id = ?",
+				Long.class,
+				obraId)).isZero();
+		assertThat(jdbc.queryForObject(
+				"select count(*) from storage_deletion_queue where storage_path = ?",
+				Long.class,
+				storagePath)).isEqualTo(1);
+		assertThat(post("/v1/obras", """
+				{"nome":"Nova obra apos exclusao"}
+				""", owner.token()).statusCode()).isEqualTo(201);
 	}
 
 	@Test
