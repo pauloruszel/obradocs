@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import {
-  Alert,
   FlatList,
   Pressable,
   RefreshControl,
@@ -30,8 +29,10 @@ import { listarPermissoes } from "@services/permissoesService";
 import { useAuth } from "@context/AuthContext";
 import { toastError, toastSuccess } from "@utils/toast";
 import { arquivoTipoLabel, formatDateTime, formatFileName, papelLabel } from "@utils/display";
+import { executeDeleteObraFlow } from "@utils/deleteObraFlow";
 import { renomearObra, excluirObra } from "@services/obrasService";
 import RenameObraModal from "@components/RenameObraModal";
+import ConfirmDialog from "@components/ConfirmDialog";
 import ActionMenu, { ActionMenuItem } from "@components/ActionMenu";
 import AppButton from "@components/AppButton";
 import SearchField from "@components/SearchField";
@@ -64,6 +65,8 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
   const [renameVisible, setRenameVisible] = useState(false);
   const [renameLoading, setRenameLoading] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
+  const [deleteVisible, setDeleteVisible] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const canEdit = papel === "OWNER" || papel === "EDITOR";
   const arquivos = filesByCategory[selected] || [];
@@ -208,27 +211,22 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
     }
   };
 
-  const confirmDelete = () => {
-    Alert.alert(
-      "Excluir obra permanentemente?",
-      "A obra e seus documentos deixarão de aparecer para todos. Esta ação não pode ser desfeita.",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Excluir obra",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await excluirObra(obraId);
-              toastSuccess("Obra excluída");
-              navigation.popToTop();
-            } catch {
-              toastError("Não foi possível excluir a obra", "Tente novamente.");
-            }
-          },
-        },
-      ],
-    );
+  const handleDelete = async () => {
+    if (deleteLoading) return;
+
+    setDeleteLoading(true);
+    await executeDeleteObraFlow({
+      deleteObra: () => excluirObra(obraId),
+      onSuccess: () => {
+        setDeleteVisible(false);
+        toastSuccess("Obra excluída com sucesso");
+        navigation.popToTop();
+      },
+      onError: () => {
+        toastError("Não foi possível excluir a obra", "Tente novamente.");
+      },
+    });
+    setDeleteLoading(false);
   };
 
   const menuItems: ActionMenuItem[] = (() => {
@@ -254,7 +252,7 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
       items.push({
         label: "Excluir obra",
         icon: <Trash2 size={20} color={colors.danger} />,
-        onPress: confirmDelete,
+        onPress: () => setDeleteVisible(true),
         destructive: true,
       });
     }
@@ -442,6 +440,16 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
         onCancel={() => setRenameVisible(false)}
         onSave={handleRename}
         loading={renameLoading}
+      />
+      <ConfirmDialog
+        visible={deleteVisible}
+        title="Excluir obra permanentemente?"
+        message="A obra e seus documentos deixarão de aparecer para todos. Esta ação não pode ser desfeita."
+        confirmLabel="Excluir obra"
+        destructive
+        loading={deleteLoading}
+        onCancel={() => setDeleteVisible(false)}
+        onConfirm={handleDelete}
       />
     </View>
   );
