@@ -19,7 +19,11 @@ const UpgradeInteressesScreen = () => {
   const [error, setError] = useState(false);
 
   const load = useCallback(async (refresh = false) => {
-    refresh ? setRefreshing(true) : setLoading(true);
+    if (refresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
     setError(false);
     try {
       setItems(await listarInteressesUpgrade());
@@ -32,21 +36,32 @@ const UpgradeInteressesScreen = () => {
   }, []);
 
   useEffect(() => {
-    void load();
+    load().catch(() => undefined);
   }, [load]);
 
   const pending = useMemo(() => items.filter((item) => item.status === "PENDING").length, [items]);
 
   if (loading) return <ScreenState loading title="Carregando interessados" />;
   if (error) {
-    return <ScreenState title="Não foi possível carregar os interessados" actionLabel="Tentar novamente" onAction={() => void load()} />;
+    return (
+      <ScreenState
+        title="Não foi possível carregar os interessados"
+        actionLabel="Tentar novamente"
+        onAction={() => load().catch(() => undefined)}
+      />
+    );
   }
 
   return (
     <ScrollView
       style={styles.screen}
       contentContainerStyle={styles.content}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />}
+      refreshControl={(
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => load(true).catch(() => undefined)}
+        />
+      )}
     >
       <View style={styles.summary}>
         <View style={styles.summaryIcon}><UsersRound size={24} color={colors.primary} /></View>
