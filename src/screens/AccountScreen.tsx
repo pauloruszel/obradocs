@@ -24,7 +24,7 @@ import { colors, layout, radius, spacing, typography } from "@theme/index";
 
 const ADMIN_EMAILS = (process.env.EXPO_PUBLIC_ADMIN_EMAILS || "paulo.ruszel.santos@gmail.com")
   .split(",")
-  .map((email) => email.trim().toLowerCase())
+  .map((email: string) => email.trim().toLowerCase())
   .filter(Boolean);
 
 const AccountScreen = () => {
