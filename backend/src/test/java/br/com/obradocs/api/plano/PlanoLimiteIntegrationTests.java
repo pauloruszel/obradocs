@@ -105,12 +105,20 @@ class PlanoLimiteIntegrationTests {
                 insert into arquivos (
                     id, obra_id, tipo, nome_original, storage_path,
                     content_type, tamanho_bytes, enviado_por, created_at
-                ) values (?, ?, 'PROJETO', 'limite.pdf', ?, 'application/pdf', ?, ?, now())
+                )
+                select
+                    gen_random_uuid(),
+                    ?,
+                    'PROJETO',
+                    'limite-' || serie || '.pdf',
+                    'test/' || gen_random_uuid() || '-limite-' || serie || '.pdf',
+                    'application/pdf',
+                    10 * 1024 * 1024,
+                    ?,
+                    now()
+                from generate_series(1, 50) as serie
                 """,
-                UUID.randomUUID(),
                 obraId,
-                "test/" + UUID.randomUUID() + "-limite.pdf",
-                500L * 1024 * 1024,
                 owner.id());
 
         assertThatThrownBy(() -> limites.validarUpload(obraId, 1))
