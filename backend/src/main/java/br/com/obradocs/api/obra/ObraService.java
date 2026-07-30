@@ -10,6 +10,7 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import br.com.obradocs.api.plano.PlanoLimiteService;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -24,6 +25,7 @@ class ObraService {
 	private final HistoricoRepository historicos;
 	private final HistoricoService historico;
 	private final ObraAuthorizationService authorization;
+	private final PlanoLimiteService limitesPlano;
 
 	@Transactional(readOnly = true)
 	List<Obra> listar(UUID usuarioId) {
@@ -39,6 +41,7 @@ class ObraService {
 
 	@Transactional
 	Obra criar(String nome, UUID usuarioId) {
+		limitesPlano.validarCriacaoObra(usuarioId);
 		String nomeNormalizado = nome.trim();
 		Obra obra = obras.save(new Obra(nomeNormalizado, gerarCodigoUnico(), usuarioId));
 		permissoes.save(new Permissao(obra.getId(), usuarioId, Papel.OWNER));
@@ -53,6 +56,7 @@ class ObraService {
 				.orElseThrow(() -> new NoSuchElementException("Obra não encontrada"));
 
 		if (permissoes.findByObraIdAndUserId(obra.getId(), usuarioId).isEmpty()) {
+			limitesPlano.validarNovoColaborador(obra.getId(), usuarioId);
 			permissoes.save(new Permissao(obra.getId(), usuarioId, Papel.EDITOR));
 			historico.registrar(
 					obra.getId(),
@@ -98,6 +102,7 @@ class ObraService {
 		authorization.exigirOwner(obraId, usuarioId);
 		UUID convidadoId = permissoes.buscarUsuarioIdPorEmail(email.trim().toLowerCase(Locale.ROOT))
 				.orElseThrow(() -> new NoSuchElementException("Usuário não encontrado"));
+		limitesPlano.validarNovoColaborador(obraId, convidadoId);
 
 		Permissao permissao = permissoes.findByObraIdAndUserId(obraId, convidadoId)
 				.map(existente -> alterarPapel(existente, papel))
