@@ -1,10 +1,5 @@
 import { apiRequest } from "./apiClient";
-import {
-  MinhaAssinatura,
-  MinhaAssinaturaApi,
-  normalizarMinhaAssinatura,
-  PlanoCodigo,
-} from "./planoMapper";
+import { MinhaAssinaturaApi, normalizarMinhaAssinatura } from "./planoMapper";
 
 export type { MinhaAssinatura, PlanoCodigo } from "./planoMapper";
 export { normalizarMinhaAssinatura } from "./planoMapper";
