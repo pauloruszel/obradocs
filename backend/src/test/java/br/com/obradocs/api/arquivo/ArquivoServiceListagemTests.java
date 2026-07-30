@@ -19,6 +19,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import br.com.obradocs.api.obra.HistoricoService;
 import br.com.obradocs.api.obra.ObraAuthorizationService;
 import br.com.obradocs.api.plano.PlanoLimiteService;
+import br.com.obradocs.api.categoria.CategoriaObraService;
 
 @ExtendWith(MockitoExtension.class)
 class ArquivoServiceListagemTests {
@@ -44,6 +45,9 @@ class ArquivoServiceListagemTests {
     @Mock
     private PlanoLimiteService limites;
 
+    @Mock
+    private CategoriaObraService categorias;
+
     private ArquivoService service;
 
     private final UUID obraId = UUID.randomUUID();
@@ -58,14 +62,15 @@ class ArquivoServiceListagemTests {
                 historico,
                 storage,
                 transactions,
-                limites);
+                limites,
+                categorias);
     }
 
     @Test
     void listaTodosQuandoTipoEBuscaNaoForamInformados() {
         when(arquivos.listarTodos(obraId)).thenReturn(List.of());
 
-        service.listar(obraId, null, null, usuarioId);
+        service.listar(obraId, null, null, null, null, usuarioId);
 
         verify(authorization).exigirLeitura(obraId, usuarioId);
         verify(arquivos).listarTodos(obraId);
@@ -77,7 +82,7 @@ class ArquivoServiceListagemTests {
     void listaPorTipoSemEnviarBuscaNulaAoRepository() {
         when(arquivos.listarPorTipo(obraId, ArquivoTipo.PROJETO)).thenReturn(List.of());
 
-        service.listar(obraId, ArquivoTipo.PROJETO, null, usuarioId);
+        service.listar(obraId, null, ArquivoTipo.PROJETO, null, null, usuarioId);
 
         verify(authorization).exigirLeitura(obraId, usuarioId);
         verify(arquivos).listarPorTipo(obraId, ArquivoTipo.PROJETO);
@@ -88,7 +93,7 @@ class ArquivoServiceListagemTests {
     void pesquisaPorNomeSemEnviarTipoNuloAoRepository() {
         when(arquivos.pesquisarPorNome(obraId, "estrutural")).thenReturn(List.of());
 
-        service.listar(obraId, null, "  estrutural  ", usuarioId);
+        service.listar(obraId, null, null, "  estrutural  ", null, usuarioId);
 
         verify(authorization).exigirLeitura(obraId, usuarioId);
         verify(arquivos).pesquisarPorNome(obraId, "estrutural");
@@ -100,7 +105,7 @@ class ArquivoServiceListagemTests {
         when(arquivos.pesquisarPorTipoENome(obraId, ArquivoTipo.NOTA_FISCAL, "plano"))
                 .thenReturn(List.of());
 
-        service.listar(obraId, ArquivoTipo.NOTA_FISCAL, " plano ", usuarioId);
+        service.listar(obraId, null, ArquivoTipo.NOTA_FISCAL, " plano ", null, usuarioId);
 
         verify(authorization).exigirLeitura(obraId, usuarioId);
         verify(arquivos).pesquisarPorTipoENome(obraId, ArquivoTipo.NOTA_FISCAL, "plano");
@@ -111,7 +116,7 @@ class ArquivoServiceListagemTests {
     void trataBuscaEmBrancoComoAusente() {
         when(arquivos.listarPorTipo(obraId, ArquivoTipo.FOTO)).thenReturn(List.of());
 
-        service.listar(obraId, ArquivoTipo.FOTO, "   ", usuarioId);
+        service.listar(obraId, null, ArquivoTipo.FOTO, "   ", null, usuarioId);
 
         verify(authorization).exigirLeitura(obraId, usuarioId);
         verify(arquivos).listarPorTipo(obraId, ArquivoTipo.FOTO);
@@ -122,7 +127,7 @@ class ArquivoServiceListagemTests {
     void rejeitaBuscaAcimaDoLimiteSemConsultarArquivos() {
         String busca = "a".repeat(101);
 
-        assertThatThrownBy(() -> service.listar(obraId, null, busca, usuarioId))
+        assertThatThrownBy(() -> service.listar(obraId, null, null, busca, null, usuarioId))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Busca muito longa; limite de 100 caracteres");
 

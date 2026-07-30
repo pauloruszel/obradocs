@@ -18,6 +18,8 @@ import org.springframework.web.multipart.MultipartFile;
 import br.com.obradocs.api.obra.HistoricoService;
 import br.com.obradocs.api.obra.ObraAuthorizationService;
 import br.com.obradocs.api.plano.PlanoLimiteService;
+import br.com.obradocs.api.categoria.CategoriaObra;
+import br.com.obradocs.api.categoria.CategoriaObraService;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -35,24 +37,42 @@ class ArquivoService {
 	private final S3Storage storage;
 	private final TransactionTemplate transactions;
 	private final PlanoLimiteService limitesPlano;
+	private final CategoriaObraService categorias;
 
 	@Transactional(readOnly = true)
-	List<ArquivoDetalhado> listar(UUID obraId, ArquivoTipo tipo, String busca, UUID usuarioId) {
+	List<ArquivoDetalhado> listar(
+			UUID obraId,
+			UUID categoriaId,
+			ArquivoTipo tipo,
+			String busca,
+			String ambiente,
+			UUID usuarioId) {
 		authorization.exigirLeitura(obraId, usuarioId);
 		String termo = busca == null || busca.isBlank() ? null : busca.trim();
 		if (termo != null && termo.length() > 100) {
 			throw new IllegalArgumentException("Busca muito longa; limite de 100 caracteres");
 		}
-		if (tipo == null && termo == null) {
-			return arquivos.listarTodos(obraId);
+		List<ArquivoDetalhado> resultado;
+		if (categoriaId != null) {
+			categorias.buscar(obraId, categoriaId);
+			resultado = termo == null
+					? arquivos.listarPorCategoria(obraId, categoriaId)
+					: arquivos.pesquisarPorCategoriaENome(obraId, categoriaId, termo);
+		} else if (tipo == null && termo == null) {
+			resultado = arquivos.listarTodos(obraId);
+		} else if (termo == null) {
+			resultado = arquivos.listarPorTipo(obraId, tipo);
+		} else if (tipo == null) {
+			resultado = arquivos.pesquisarPorNome(obraId, termo);
+		} else {
+			resultado = arquivos.pesquisarPorTipoENome(obraId, tipo, termo);
 		}
-		if (termo == null) {
-			return arquivos.listarPorTipo(obraId, tipo);
-		}
-		if (tipo == null) {
-			return arquivos.pesquisarPorNome(obraId, termo);
-		}
-		return arquivos.pesquisarPorTipoENome(obraId, tipo, termo);
+		String ambienteNormalizado = normalizarAmbiente(ambiente);
+		return ambienteNormalizado == null
+				? resultado
+				: resultado.stream()
+						.filter(item -> ambienteNormalizado.equalsIgnoreCase(item.getAmbiente()))
+						.toList();
 	}
 
 	@Transactional(readOnly = true)
@@ -62,8 +82,19 @@ class ArquivoService {
 		return detalhe;
 	}
 
-	ArquivoDetalhado enviar(UUID obraId, ArquivoTipo tipo, MultipartFile multipart, UUID usuarioId) {
+	ArquivoDetalhado enviar(
+			UUID obraId,
+			UUID categoriaId,
+			ArquivoTipo tipoLegado,
+			String ambiente,
+			MultipartFile multipart,
+			UUID usuarioId) {
 		authorization.exigirEdicao(obraId, usuarioId);
+		CategoriaObra categoria = categoriaId != null
+				? categorias.buscar(obraId, categoriaId)
+				: categorias.buscarLegada(
+						obraId,
+						tipoLegado == null ? ArquivoTipo.FOTO : tipoLegado);
 		ArquivoValidado validado = validar(multipart);
 		UUID reservaId = limitesPlano.reservarUpload(obraId, multipart.getSize());
 		String storagePath = obraId + "/" + UUID.randomUUID() + "-" + sanitizar(validado.nome());
@@ -71,12 +102,17 @@ class ArquivoService {
 		try {
 			storage.armazenar(storagePath, multipart, validado.contentType());
 			return transactions.execute(status -> {
-				Documento documento = documentos.save(new Documento(obraId, tipo, validado.nome()));
+				Documento documento = documentos.save(new Documento(
+						obraId,
+						categoria.getId(),
+						categoria.getTipo(),
+						validado.nome(),
+						normalizarAmbiente(ambiente)));
 				Arquivo arquivo = arquivos.save(new Arquivo(
 						obraId,
 						documento.getId(),
 						1,
-						tipo,
+						categoria.getTipo(),
 						validado.nome(),
 						storagePath,
 						validado.contentType(),
@@ -91,6 +127,8 @@ class ArquivoService {
 								"documentoId", documento.getId(),
 								"nomeOriginal", arquivo.getNomeOriginal(),
 								"tipo", arquivo.getTipo().name(),
+								"categoriaId", categoria.getId(),
+								"categoria", categoria.getNome(),
 								"revisao", 1));
 				limitesPlano.liberarReserva(reservaId);
 				return buscarDetalhadoPorId(arquivo.getId());
@@ -252,6 +290,17 @@ class ArquivoService {
 				.replaceAll("-+", "-")
 				.replaceAll("^[-.]+|[-.]+$", "");
 		return seguro.isBlank() ? "arquivo" : seguro;
+	}
+
+	private String normalizarAmbiente(String ambiente) {
+		if (ambiente == null || ambiente.isBlank()) {
+			return null;
+		}
+		String normalizado = ambiente.trim();
+		if (normalizado.length() > 80) {
+			throw new IllegalArgumentException("O ambiente deve ter no mÃ¡ximo 80 caracteres");
+		}
+		return normalizado;
 	}
 
 	private record ArquivoValidado(String nome, String contentType) {

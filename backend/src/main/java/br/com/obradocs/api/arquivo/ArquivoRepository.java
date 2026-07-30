@@ -16,9 +16,13 @@ interface ArquivoRepository extends JpaRepository<Arquivo, UUID> {
             select a as arquivo,
                    u.nome as enviadoPorNome,
                    d.nome as documentoNome,
+                   d.categoriaId as categoriaId,
+                   c.nome as categoriaNome,
+                   d.ambiente as ambiente,
                    d.revisaoAtual as revisaoAtual
             from Arquivo a
             join Documento d on d.id = a.documentoId
+            join CategoriaObra c on c.id = d.categoriaId
             left join Usuario u on u.id = a.enviadoPor
             where a.obraId = :obraId
               and a.revisao = d.revisaoAtual
@@ -30,9 +34,13 @@ interface ArquivoRepository extends JpaRepository<Arquivo, UUID> {
             select a as arquivo,
                    u.nome as enviadoPorNome,
                    d.nome as documentoNome,
+                   d.categoriaId as categoriaId,
+                   c.nome as categoriaNome,
+                   d.ambiente as ambiente,
                    d.revisaoAtual as revisaoAtual
             from Arquivo a
             join Documento d on d.id = a.documentoId
+            join CategoriaObra c on c.id = d.categoriaId
             left join Usuario u on u.id = a.enviadoPor
             where a.obraId = :obraId
               and a.tipo = :tipo
@@ -47,9 +55,34 @@ interface ArquivoRepository extends JpaRepository<Arquivo, UUID> {
             select a as arquivo,
                    u.nome as enviadoPorNome,
                    d.nome as documentoNome,
+                   d.categoriaId as categoriaId,
+                   c.nome as categoriaNome,
+                   d.ambiente as ambiente,
                    d.revisaoAtual as revisaoAtual
             from Arquivo a
             join Documento d on d.id = a.documentoId
+            join CategoriaObra c on c.id = d.categoriaId
+            left join Usuario u on u.id = a.enviadoPor
+            where a.obraId = :obraId
+              and d.categoriaId = :categoriaId
+              and a.revisao = d.revisaoAtual
+            order by a.createdAt desc
+            """)
+    List<ArquivoDetalhado> listarPorCategoria(
+            @Param("obraId") UUID obraId,
+            @Param("categoriaId") UUID categoriaId);
+
+    @Query("""
+            select a as arquivo,
+                   u.nome as enviadoPorNome,
+                   d.nome as documentoNome,
+                   d.categoriaId as categoriaId,
+                   c.nome as categoriaNome,
+                   d.ambiente as ambiente,
+                   d.revisaoAtual as revisaoAtual
+            from Arquivo a
+            join Documento d on d.id = a.documentoId
+            join CategoriaObra c on c.id = d.categoriaId
             left join Usuario u on u.id = a.enviadoPor
             where a.obraId = :obraId
               and a.revisao = d.revisaoAtual
@@ -64,9 +97,13 @@ interface ArquivoRepository extends JpaRepository<Arquivo, UUID> {
             select a as arquivo,
                    u.nome as enviadoPorNome,
                    d.nome as documentoNome,
+                   d.categoriaId as categoriaId,
+                   c.nome as categoriaNome,
+                   d.ambiente as ambiente,
                    d.revisaoAtual as revisaoAtual
             from Arquivo a
             join Documento d on d.id = a.documentoId
+            join CategoriaObra c on c.id = d.categoriaId
             left join Usuario u on u.id = a.enviadoPor
             where a.obraId = :obraId
               and a.tipo = :tipo
@@ -83,9 +120,36 @@ interface ArquivoRepository extends JpaRepository<Arquivo, UUID> {
             select a as arquivo,
                    u.nome as enviadoPorNome,
                    d.nome as documentoNome,
+                   d.categoriaId as categoriaId,
+                   c.nome as categoriaNome,
+                   d.ambiente as ambiente,
                    d.revisaoAtual as revisaoAtual
             from Arquivo a
             join Documento d on d.id = a.documentoId
+            join CategoriaObra c on c.id = d.categoriaId
+            left join Usuario u on u.id = a.enviadoPor
+            where a.obraId = :obraId
+              and d.categoriaId = :categoriaId
+              and a.revisao = d.revisaoAtual
+              and lower(d.nome) like lower(concat('%', :busca, '%'))
+            order by a.createdAt desc
+            """)
+    List<ArquivoDetalhado> pesquisarPorCategoriaENome(
+            @Param("obraId") UUID obraId,
+            @Param("categoriaId") UUID categoriaId,
+            @Param("busca") String busca);
+
+    @Query("""
+            select a as arquivo,
+                   u.nome as enviadoPorNome,
+                   d.nome as documentoNome,
+                   d.categoriaId as categoriaId,
+                   c.nome as categoriaNome,
+                   d.ambiente as ambiente,
+                   d.revisaoAtual as revisaoAtual
+            from Arquivo a
+            join Documento d on d.id = a.documentoId
+            join CategoriaObra c on c.id = d.categoriaId
             left join Usuario u on u.id = a.enviadoPor
             where a.id = :arquivoId
             """)
@@ -95,9 +159,13 @@ interface ArquivoRepository extends JpaRepository<Arquivo, UUID> {
             select a as arquivo,
                    u.nome as enviadoPorNome,
                    d.nome as documentoNome,
+                   d.categoriaId as categoriaId,
+                   c.nome as categoriaNome,
+                   d.ambiente as ambiente,
                    d.revisaoAtual as revisaoAtual
             from Arquivo a
             join Documento d on d.id = a.documentoId
+            join CategoriaObra c on c.id = d.categoriaId
             left join Usuario u on u.id = a.enviadoPor
             where a.documentoId = :documentoId
             order by a.revisao desc
@@ -109,6 +177,9 @@ interface ArquivoDetalhado {
     Arquivo getArquivo();
     String getEnviadoPorNome();
     String getDocumentoNome();
+    UUID getCategoriaId();
+    String getCategoriaNome();
+    String getAmbiente();
     int getRevisaoAtual();
 }
 

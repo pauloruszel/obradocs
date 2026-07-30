@@ -6,10 +6,14 @@ export const listarArquivos = (
   obraId: string,
   tipo?: ArquivoTipo,
   busca?: string,
+  categoriaId?: string,
+  ambiente?: string,
 ): Promise<Arquivo[]> => {
   const query = [
+    categoriaId && `categoriaId=${encodeURIComponent(categoriaId)}`,
     tipo && `tipo=${encodeURIComponent(tipo)}`,
     busca?.trim() && `busca=${encodeURIComponent(busca.trim())}`,
+    ambiente?.trim() && `ambiente=${encodeURIComponent(ambiente.trim())}`,
   ]
     .filter(Boolean)
     .join("&");
@@ -61,19 +65,27 @@ const uploadMultipart = async ({
 
 export const uploadArquivo = ({
   obraId,
+  categoriaId,
   tipo,
   uri,
   nomeOriginal,
   contentType,
+  ambiente,
 }: {
   obraId: string;
+  categoriaId?: string;
   tipo: ArquivoTipo;
   uri: string;
   nomeOriginal: string;
   contentType: string;
+  ambiente?: string;
 }): Promise<Arquivo> =>
   uploadMultipart({
-    path: `/v1/obras/${obraId}/arquivos?tipo=${encodeURIComponent(tipo)}`,
+    path: `/v1/obras/${obraId}/arquivos?${
+      categoriaId
+        ? `categoriaId=${encodeURIComponent(categoriaId)}`
+        : `tipo=${encodeURIComponent(tipo)}`
+    }${ambiente?.trim() ? `&ambiente=${encodeURIComponent(ambiente.trim())}` : ""}`,
     uri,
     nomeOriginal,
     contentType,

@@ -1,5 +1,31 @@
 export type Papel = 'OWNER' | 'EDITOR' | 'VIEWER';
 export type ArquivoTipo = 'ORCAMENTO' | 'NOTA_FISCAL' | 'PROJETO' | 'FOTO';
+export type ObraTemplate =
+  | 'GERAL'
+  | 'ARQUITETURA'
+  | 'INTERIORES'
+  | 'ENGENHARIA'
+  | 'REFORMA';
+
+export type CategoriaObra = {
+  id: string;
+  obra_id: string;
+  nome: string;
+  tipo: ArquivoTipo;
+  ordem: number;
+  padrao: boolean;
+  documentos: number;
+};
+
+export type ModeloCategoria = {
+  id: string;
+  nome: string;
+  categorias: {
+    nome: string;
+    tipo: ArquivoTipo;
+    ordem: number;
+  }[];
+};
 
 export type Profile = {
   id: string;
@@ -31,6 +57,7 @@ export type Obra = {
   deleted_at?: string | null;
   deleted_by?: string | null;
   created_at?: string;
+  template_codigo?: ObraTemplate;
 };
 
 export type Permissao = {
@@ -45,6 +72,9 @@ export type Permissao = {
 export type Arquivo = {
   id: string;
   documento_id: string;
+  categoria_id: string;
+  categoria_nome: string;
+  ambiente?: string | null;
   documento_nome: string;
   obra_id: string;
   tipo: ArquivoTipo;

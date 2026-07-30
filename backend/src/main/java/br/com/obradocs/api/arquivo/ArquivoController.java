@@ -27,10 +27,12 @@ class ArquivoController {
 	@GetMapping("/obras/{obraId}/arquivos")
 	List<ArquivoResponse> listar(
 			@PathVariable UUID obraId,
+			@RequestParam(required = false) UUID categoriaId,
 			@RequestParam(required = false) ArquivoTipo tipo,
 			@RequestParam(required = false) String busca,
+			@RequestParam(required = false) String ambiente,
 			@AuthenticationPrincipal Jwt jwt) {
-		return service.listar(obraId, tipo, busca, usuarioId(jwt)).stream()
+		return service.listar(obraId, categoriaId, tipo, busca, ambiente, usuarioId(jwt)).stream()
 				.map(ArquivoResponse::from)
 				.toList();
 	}
@@ -52,10 +54,13 @@ class ArquivoController {
 	@PostMapping(value = "/obras/{obraId}/arquivos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 	ResponseEntity<ArquivoResponse> enviar(
 			@PathVariable UUID obraId,
-			@RequestParam ArquivoTipo tipo,
+			@RequestParam(required = false) UUID categoriaId,
+			@RequestParam(required = false) ArquivoTipo tipo,
+			@RequestParam(required = false) @Size(max = 80) String ambiente,
 			@RequestPart MultipartFile arquivo,
 			@AuthenticationPrincipal Jwt jwt) {
-		return ResponseEntity.status(HttpStatus.CREATED).body(ArquivoResponse.from(service.enviar(obraId, tipo, arquivo, usuarioId(jwt))));
+		return ResponseEntity.status(HttpStatus.CREATED).body(ArquivoResponse.from(
+				service.enviar(obraId, categoriaId, tipo, ambiente, arquivo, usuarioId(jwt))));
 	}
 
 	@PostMapping(value = "/arquivos/{arquivoId}/revisoes", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -92,6 +97,9 @@ class ArquivoController {
 			UUID id,
 			UUID obraId,
 			UUID documentoId,
+			UUID categoriaId,
+			String categoriaNome,
+			String ambiente,
 			ArquivoTipo tipo,
 			String nomeOriginal,
 			String documentoNome,
@@ -111,6 +119,9 @@ class ArquivoController {
 					arquivo.getId(),
 					arquivo.getObraId(),
 					arquivo.getDocumentoId(),
+					detalhe.getCategoriaId(),
+					detalhe.getCategoriaNome(),
+					detalhe.getAmbiente(),
 					arquivo.getTipo(),
 					arquivo.getNomeOriginal(),
 					detalhe.getDocumentoNome(),

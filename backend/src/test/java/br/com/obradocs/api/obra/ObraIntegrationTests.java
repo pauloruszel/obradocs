@@ -84,6 +84,103 @@ class ObraIntegrationTests {
 	}
 
 	@Test
+	void criaCategoriasDoTemplateEPermiteRenomearEReordenar() throws Exception {
+		UsuarioAutenticado owner = registrar("Owner Categorias", "owner-categorias@example.com");
+		JsonNode obra = json(post("/v1/obras", """
+				{"nome":"Apartamento decorado","template_codigo":"INTERIORES"}
+				""", owner.token()));
+		String obraId = obra.path("id").stringValue();
+
+		assertThat(obra.path("template_codigo").stringValue()).isEqualTo("INTERIORES");
+		JsonNode categorias = json(get("/v1/obras/" + obraId + "/categorias", owner.token()));
+		assertThat(categorias).extracting(item -> item.path("nome").stringValue())
+				.containsExactly("Conceito", "Layouts", "Especificações", "Execução");
+
+		String categoriaId = categorias.get(0).path("id").stringValue();
+		assertThat(patch("/v1/obras/" + obraId + "/categorias/" + categoriaId, """
+				{"nome":"Referências visuais","ordem":3}
+				""", owner.token()).statusCode()).isEqualTo(200);
+
+		JsonNode atualizadas = json(get("/v1/obras/" + obraId + "/categorias", owner.token()));
+		assertThat(atualizadas).extracting(item -> item.path("nome").stringValue())
+				.containsExactly("Layouts", "Especificações", "Execução", "Referências visuais");
+	}
+
+	@Test
+	void planoProSalvaEReutilizaModeloDeCategorias() throws Exception {
+		UsuarioAutenticado owner = registrar("Owner Modelo", "owner-modelo@example.com");
+		JsonNode bloqueado = objectMapper.readTree(post("/v1/modelos-categoria", """
+				{
+				  "nome":"Interiores residencial",
+				  "categorias":[
+				    {"nome":"Conceito","tipo":"PROJETO","ordem":0},
+				    {"nome":"MobiliÃ¡rio","tipo":"PROJETO","ordem":1}
+				  ]
+				}
+				""", owner.token()).body());
+		assertThat(bloqueado.path("code").stringValue())
+				.isEqualTo("CUSTOM_TEMPLATE_REQUIRES_PRO");
+
+		tornarPro(owner.id());
+		JsonNode modelo = json(post("/v1/modelos-categoria", """
+				{
+				  "nome":"Interiores residencial",
+				  "categorias":[
+				    {"nome":"Conceito","tipo":"PROJETO","ordem":0},
+				    {"nome":"MobiliÃ¡rio","tipo":"PROJETO","ordem":1},
+				    {"nome":"ExecuÃ§Ã£o","tipo":"FOTO","ordem":2}
+				  ]
+				}
+				""", owner.token()));
+
+		JsonNode obra = json(post("/v1/obras", """
+				{"nome":"Apartamento modelo","modelo_id":"%s"}
+				""".formatted(modelo.path("id").stringValue()), owner.token()));
+		JsonNode categorias = json(get(
+				"/v1/obras/" + obra.path("id").stringValue() + "/categorias",
+				owner.token()));
+
+		assertThat(categorias).extracting(item -> item.path("nome").stringValue())
+				.containsExactly("Conceito", "MobiliÃ¡rio", "ExecuÃ§Ã£o");
+		assertThat(json(get("/v1/modelos-categoria", owner.token()))).hasSize(1);
+	}
+
+	@Test
+	void categoriasInformamCompletudeEDocumentosMantemAmbiente() throws Exception {
+		UsuarioAutenticado owner = registrar("Owner Ambiente", "owner-ambiente@example.com");
+		JsonNode obra = criarObra(owner, "Casa com ambientes");
+		UUID obraId = UUID.fromString(obra.path("id").stringValue());
+		UUID categoriaId = jdbc.queryForObject(
+				"select id from categorias_obra where obra_id = ? and tipo = 'PROJETO' limit 1",
+				UUID.class,
+				obraId);
+		UUID documentoId = UUID.randomUUID();
+		jdbc.update("""
+				insert into documentos (id, obra_id, categoria_id, tipo, nome, ambiente)
+				values (?, ?, ?, 'PROJETO', 'cozinha.pdf', 'Cozinha')
+				""", documentoId, obraId, categoriaId);
+		jdbc.update("""
+				insert into arquivos (
+				    id, obra_id, documento_id, revisao, tipo, nome_original,
+				    storage_path, content_type, tamanho_bytes, enviado_por
+				) values (?, ?, ?, 1, 'PROJETO', 'cozinha.pdf', ?, 'application/pdf', 100, ?)
+				""", UUID.randomUUID(), obraId, documentoId, obraId + "/cozinha.pdf", owner.id());
+
+		JsonNode categorias = json(get("/v1/obras/" + obraId + "/categorias", owner.token()));
+		assertThat(categorias)
+				.filteredOn(item -> categoriaId.toString().equals(item.path("id").stringValue()))
+				.singleElement()
+				.satisfies(item -> assertThat(item.path("documentos").longValue()).isEqualTo(1));
+
+		JsonNode arquivos = json(get(
+				"/v1/obras/" + obraId + "/arquivos?ambiente=Cozinha",
+				owner.token()));
+		assertThat(arquivos).singleElement()
+				.satisfies(item -> assertThat(item.path("ambiente").stringValue())
+						.isEqualTo("Cozinha"));
+	}
+
+	@Test
 	void entradaPorCodigoConcedeEditorSemDuplicarPermissaoOuHistorico() throws Exception {
 		UsuarioAutenticado owner = registrar("Owner Entrada", "owner-entrada@example.com");
 		UsuarioAutenticado editor = registrar("Editor Entrada", "editor-entrada@example.com");
@@ -172,9 +269,12 @@ class ObraIntegrationTests {
 		String storagePath = obraId + "/arquivo.pdf";
 		UUID documentoId = UUID.randomUUID();
 		jdbc.update("""
-				insert into documentos (id, obra_id, tipo, nome)
-				values (?, ?, 'PROJETO', 'arquivo.pdf')
-				""", documentoId, obraId);
+				insert into documentos (id, obra_id, tipo, nome, categoria_id)
+				values (
+				    ?, ?, 'PROJETO', 'arquivo.pdf',
+				    (select id from categorias_obra where obra_id = ? and tipo = 'PROJETO' limit 1)
+				)
+				""", documentoId, obraId, obraId);
 		jdbc.update("""
 				insert into arquivos (
 				    id, obra_id, documento_id, revisao, tipo, nome_original,

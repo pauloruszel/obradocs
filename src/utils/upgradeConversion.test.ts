@@ -14,10 +14,13 @@ describe("upgradeConversion", () => {
     expect(isPlanLimitReached({ status: 500, code: "OTHER_ERROR" })).toBe(false);
   });
 
-  it("identifica os três limites comerciais pelo código", () => {
+  it("identifica os limites comerciais pelo código", () => {
     expect(getUpgradeLimitCode({ code: "PLAN_LIMIT_REACHED" })).toBe("PLAN_LIMIT_REACHED");
     expect(getUpgradeLimitCode({ code: "STORAGE_LIMIT_REACHED" })).toBe("STORAGE_LIMIT_REACHED");
     expect(getUpgradeLimitCode({ code: "COLLABORATOR_LIMIT_REACHED" })).toBe("COLLABORATOR_LIMIT_REACHED");
+    expect(getUpgradeLimitCode({ code: "CATEGORY_LIMIT_REACHED" })).toBe("CATEGORY_LIMIT_REACHED");
+    expect(getUpgradeLimitCode({ code: "CUSTOM_TEMPLATE_REQUIRES_PRO" }))
+      .toBe("CUSTOM_TEMPLATE_REQUIRES_PRO");
     expect(getUpgradeLimitCode({ status: 413 })).toBeNull();
   });
 

@@ -17,6 +17,7 @@ import UpgradeInteressesScreen from "@screens/UpgradeInteressesScreen";
 import TermsAcceptanceScreen from "@screens/TermsAcceptanceScreen";
 import ReportContentScreen from "@screens/ReportContentScreen";
 import RevisoesArquivoScreen from "@screens/RevisoesArquivoScreen";
+import CategoriasObraScreen from "@screens/CategoriasObraScreen";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import React from "react";
 import { Papel } from "@models/models";
@@ -35,18 +36,21 @@ export type RootStackParamList = {
     obraId: string;
     arquivoId?: string;
     tipo?: import("@models/models").ArquivoTipo;
+    categoriaId?: string;
+    categoriaNome?: string;
     documentoNome?: string;
     contentType?: string;
     papel?: Papel;
   };
   ArquivoView: { arquivoId: string; obraId: string; path: string; nome: string; tipo: string; papel?: Papel };
   RevisoesArquivo: { arquivoId: string; obraId: string; nome: string; papel?: Papel };
+  CategoriasObra: { obraId: string };
   Historico: { obraId: string };
   Permissoes: { obraId: string; isOwner: boolean };
   Account: undefined;
   MeuPlano: undefined;
   PlanoProfissional: {
-    origem?: "meu_plano" | "limite_obra" | "limite_armazenamento" | "limite_colaborador";
+    origem?: "meu_plano" | "limite_obra" | "limite_armazenamento" | "limite_colaborador" | "limite_categoria";
   } | undefined;
   UpgradeInteresses: undefined;
   TermsAcceptance: undefined;
@@ -83,6 +87,7 @@ const AppNavigator = () => {
           <Stack.Screen name="UploadArquivo" component={UploadArquivoScreen} options={{ title: "Enviar arquivo" }} />
           <Stack.Screen name="ArquivoView" component={ArquivoViewScreen} options={{ title: "Arquivo" }} />
           <Stack.Screen name="RevisoesArquivo" component={RevisoesArquivoScreen} options={{ title: "Revisões" }} />
+          <Stack.Screen name="CategoriasObra" component={CategoriasObraScreen} options={{ title: "Categorias" }} />
           <Stack.Screen name="Historico" component={HistoricoScreen} options={{ title: "Histórico" }} />
           <Stack.Screen name="Permissoes" component={PermissoesScreen} options={{ title: "Permissões" }} />
           <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} options={{ headerShown: false, presentation: "modal" }} />

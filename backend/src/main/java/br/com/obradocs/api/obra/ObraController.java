@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import br.com.obradocs.api.categoria.ObraTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -42,7 +43,12 @@ class ObraController {
 			@Valid @RequestBody CriarObraRequest request,
 			@AuthenticationPrincipal Jwt jwt) {
 		return ResponseEntity.status(HttpStatus.CREATED)
-				.body(ObraResponse.from(service.criar(request.nome(), usuarioId(jwt))));
+				.body(ObraResponse.from(
+						service.criar(
+								request.nome(),
+								request.templateCodigo(),
+								request.modeloId(),
+								usuarioId(jwt))));
 	}
 
 	@GetMapping("/{obraId}")
@@ -121,7 +127,10 @@ class ObraController {
 		return UUID.fromString(jwt.getSubject());
 	}
 
-	record CriarObraRequest(@NotBlank @Size(min = 3, max = 200) String nome) {
+	record CriarObraRequest(
+			@NotBlank @Size(min = 3, max = 200) String nome,
+			ObraTemplate templateCodigo,
+			UUID modeloId) {
 	}
 
 	record RenomearObraRequest(@NotBlank @Size(min = 3, max = 200) String nome) {
@@ -145,6 +154,7 @@ class ObraController {
 			UUID createdBy,
 			Instant deletedAt,
 			UUID deletedBy,
+			ObraTemplate templateCodigo,
 			Instant createdAt) {
 
 		static ObraResponse from(Obra obra) {
@@ -155,6 +165,7 @@ class ObraController {
 					obra.getCreatedBy(),
 					obra.getDeletedAt(),
 					obra.getDeletedBy(),
+					obra.getTemplateCodigo(),
 					obra.getCreatedAt());
 		}
 	}

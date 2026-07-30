@@ -7,12 +7,16 @@ export type RequestErrorLike = {
 export type UpgradeLimitCode =
   | "PLAN_LIMIT_REACHED"
   | "STORAGE_LIMIT_REACHED"
-  | "COLLABORATOR_LIMIT_REACHED";
+  | "COLLABORATOR_LIMIT_REACHED"
+  | "CATEGORY_LIMIT_REACHED"
+  | "CUSTOM_TEMPLATE_REQUIRES_PRO";
 
 const UPGRADE_LIMIT_CODES: UpgradeLimitCode[] = [
   "PLAN_LIMIT_REACHED",
   "STORAGE_LIMIT_REACHED",
   "COLLABORATOR_LIMIT_REACHED",
+  "CATEGORY_LIMIT_REACHED",
+  "CUSTOM_TEMPLATE_REQUIRES_PRO",
 ];
 
 export const getUpgradeLimitCode = (error: unknown): UpgradeLimitCode | null => {

@@ -1,12 +1,16 @@
-import { Obra } from "@models/models";
+import { Obra, ObraTemplate } from "@models/models";
 import { apiRequest } from "./apiClient";
 
 export const listObrasDoUsuario = (): Promise<Obra[]> => apiRequest("/v1/obras");
 
-export const criarObra = (nome: string): Promise<Obra> =>
+export const criarObra = (
+  nome: string,
+  templateCodigo: ObraTemplate = "GERAL",
+  modeloId?: string,
+): Promise<Obra> =>
   apiRequest("/v1/obras", {
     method: "POST",
-    body: JSON.stringify({ nome }),
+    body: JSON.stringify({ nome, template_codigo: templateCodigo, modelo_id: modeloId }),
   });
 
 export const entrarPorCodigo = (codigo: string): Promise<Obra> =>
