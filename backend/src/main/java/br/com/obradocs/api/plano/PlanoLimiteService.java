@@ -96,6 +96,21 @@ public class PlanoLimiteService {
     }
 
     @Transactional(readOnly = true)
+    public void validarEntradaPorCodigo(String codigo, UUID usuarioId) {
+        String normalizado = codigo == null ? "" : codigo.replaceAll("[^A-Za-z0-9]", "").toUpperCase();
+        Object value = entityManager.createNativeQuery("""
+                select id
+                from obras
+                where upper(replace(codigo_compartilhamento, '-', '')) = :codigo
+                  and deleted_at is null
+                """)
+                .setParameter("codigo", normalizado)
+                .getSingleResult();
+        UUID obraId = value instanceof UUID uuid ? uuid : UUID.fromString(value.toString());
+        validarNovoColaborador(obraId, usuarioId);
+    }
+
+    @Transactional(readOnly = true)
     public UUID buscarUsuarioIdPorEmail(String email) {
         Object value = entityManager.createNativeQuery("""
                 select id
