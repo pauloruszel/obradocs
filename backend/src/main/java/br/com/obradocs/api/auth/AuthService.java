@@ -21,6 +21,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import br.com.obradocs.api.config.SecurityConfig.JwtProperties;
 import br.com.obradocs.api.config.SecurityConfig.PasswordResetProperties;
+import br.com.obradocs.api.plano.PlanoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -40,6 +41,7 @@ class AuthService {
 	private final PasswordResetProperties passwordResetProperties;
 	private final BrevoEmailSender emailSender;
 	private final AccountDeletionService accountDeletionService;
+	private final PlanoService planoService;
 	private final Clock clock = Clock.systemUTC();
 
 	@Transactional
@@ -53,6 +55,7 @@ class AuthService {
 		try {
 			Usuario usuario = usuarios.saveAndFlush(
 					new Usuario(nome.trim(), normalizedEmail, passwordEncoder.encode(senha)));
+			planoService.atribuirPlanoGratuitoSeNecessario(usuario.getId());
 			return criarSessao(usuario);
 		} catch (DataIntegrityViolationException exception) {
 			throw new EmailJaCadastradoException();
