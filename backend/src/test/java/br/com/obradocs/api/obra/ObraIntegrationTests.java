@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.testcontainers.junit.jupiter.Container;
@@ -47,6 +48,9 @@ class ObraIntegrationTests {
 
 	@Autowired
 	HistoricoRepository historicos;
+
+	@Autowired
+	JdbcTemplate jdbc;
 
 	@MockitoBean
 	AuthRateLimiter rateLimiter;
@@ -111,6 +115,7 @@ class ObraIntegrationTests {
 	@Test
 	void aplicaPapeisEPermiteSomenteOwnerGerenciarPermissoes() throws Exception {
 		UsuarioAutenticado owner = registrar("Owner Papeis", "owner-papeis@example.com");
+		tornarPro(owner.id());
 		UsuarioAutenticado editor = registrar("Editor Papeis", "editor-papeis@example.com");
 		UsuarioAutenticado viewer = registrar("Viewer Papeis", "viewer-papeis@example.com");
 		JsonNode obra = criarObra(owner, "Obra com papeis");
@@ -186,6 +191,16 @@ class ObraIntegrationTests {
 				""".formatted(obra.path("id").stringValue()), owner.token());
 
 		assertThat(response.statusCode()).isEqualTo(201);
+	}
+
+	private void tornarPro(UUID usuarioId) {
+		jdbc.update("""
+				update assinaturas
+				set plano_id = '10000000-0000-0000-0000-000000000002',
+				    preco_centavos_contratado = 2490,
+				    updated_at = now()
+				where usuario_id = ? and status in ('ACTIVE', 'TRIALING')
+				""", usuarioId);
 	}
 
 	private JsonNode criarObra(UsuarioAutenticado usuario, String nome) throws Exception {
