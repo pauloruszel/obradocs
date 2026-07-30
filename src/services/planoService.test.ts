@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizarMinhaAssinatura } from "./planoService";
+import { normalizarMinhaAssinatura } from "./planoMapper";
 
 describe("normalizarMinhaAssinatura", () => {
   it("mapeia os campos snake_case retornados pelo backend", () => {
