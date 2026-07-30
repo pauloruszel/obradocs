@@ -13,6 +13,7 @@ import UploadArquivoScreen from "@screens/UploadArquivoScreen";
 import AccountScreen from "@screens/AccountScreen";
 import MeuPlanoScreen from "@screens/MeuPlanoScreen";
 import PlanoProfissionalScreen from "@screens/PlanoProfissionalScreen";
+import UpgradeInteressesScreen from "@screens/UpgradeInteressesScreen";
 import TermsAcceptanceScreen from "@screens/TermsAcceptanceScreen";
 import ReportContentScreen from "@screens/ReportContentScreen";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -36,92 +37,43 @@ export type RootStackParamList = {
   Account: undefined;
   MeuPlano: undefined;
   PlanoProfissional: { origem?: "meu_plano" | "limite_obra" } | undefined;
+  UpgradeInteresses: undefined;
   TermsAcceptance: undefined;
-  ReportContent: {
-    targetType: "OBRA" | "ARQUIVO";
-    targetId: string;
-    title: string;
-  };
+  ReportContent: { targetType: "OBRA" | "ARQUIVO"; targetId: string; title: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const AppNavigator = () => {
   const { user, loading } = useAuth();
-
-  if (loading) {
-    return <ScreenState loading title="Preparando o Obradocs" />;
-  }
+  if (loading) return <ScreenState loading title="Preparando o Obradocs" />;
 
   return (
-    <Stack.Navigator
-      screenOptions={{
-        headerStyle: { backgroundColor: colors.surface },
-        headerTintColor: colors.text,
-        headerTitleStyle: { fontWeight: "700" },
-        headerShadowVisible: false,
-        contentStyle: { backgroundColor: colors.background },
-      }}
-    >
+    <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: colors.surface }, headerTintColor: colors.text, headerTitleStyle: { fontWeight: "700" }, headerShadowVisible: false, contentStyle: { backgroundColor: colors.background } }}>
       {!user ? (
         <>
           <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
-          <Stack.Screen
-            name="ForgotPassword"
-            component={ForgotPasswordScreen}
-            options={{ headerShown: false }}
-          />
-          <Stack.Screen
-            name="ResetPassword"
-            component={ResetPasswordScreen}
-            options={{ headerShown: false }}
-          />
+          <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} options={{ headerShown: false }} />
         </>
       ) : !user.terms_accepted ? (
-        <Stack.Screen
-          name="TermsAcceptance"
-          component={TermsAcceptanceScreen}
-          options={{ headerShown: false }}
-        />
+        <Stack.Screen name="TermsAcceptance" component={TermsAcceptanceScreen} options={{ headerShown: false }} />
       ) : (
         <>
           <Stack.Screen name="ObrasList" component={ObrasListScreen} options={{ title: "Minhas obras" }} />
           <Stack.Screen name="Account" component={AccountScreen} options={{ title: "Minha conta" }} />
           <Stack.Screen name="MeuPlano" component={MeuPlanoScreen} options={{ title: "Meu Plano" }} />
-          <Stack.Screen
-            name="PlanoProfissional"
-            component={PlanoProfissionalScreen}
-            options={{ title: "Plano Profissional" }}
-          />
-          <Stack.Screen
-            name="ReportContent"
-            component={ReportContentScreen}
-            options={{ title: "Denunciar conteúdo" }}
-          />
+          <Stack.Screen name="PlanoProfissional" component={PlanoProfissionalScreen} options={{ title: "Plano Profissional" }} />
+          <Stack.Screen name="UpgradeInteresses" component={UpgradeInteressesScreen} options={{ title: "Interessados" }} />
+          <Stack.Screen name="ReportContent" component={ReportContentScreen} options={{ title: "Denunciar conteúdo" }} />
           <Stack.Screen name="NovaObra" component={NovaObraScreen} options={{ title: "Nova obra" }} />
-          <Stack.Screen
-            name="EntrarObra"
-            component={EntrarObraScreen}
-            options={{ title: "Entrar em uma obra" }}
-          />
-          <Stack.Screen
-            name="ObraDetail"
-            component={ObraDetailScreen}
-            options={({ route }) => ({ title: route.params.nome })}
-          />
-          <Stack.Screen
-            name="UploadArquivo"
-            component={UploadArquivoScreen}
-            options={{ title: "Enviar arquivo" }}
-          />
+          <Stack.Screen name="EntrarObra" component={EntrarObraScreen} options={{ title: "Entrar em uma obra" }} />
+          <Stack.Screen name="ObraDetail" component={ObraDetailScreen} options={({ route }) => ({ title: route.params.nome })} />
+          <Stack.Screen name="UploadArquivo" component={UploadArquivoScreen} options={{ title: "Enviar arquivo" }} />
           <Stack.Screen name="ArquivoView" component={ArquivoViewScreen} options={{ title: "Arquivo" }} />
           <Stack.Screen name="Historico" component={HistoricoScreen} options={{ title: "Histórico" }} />
           <Stack.Screen name="Permissoes" component={PermissoesScreen} options={{ title: "Permissões" }} />
-          <Stack.Screen
-            name="ResetPassword"
-            component={ResetPasswordScreen}
-            options={{ headerShown: false, presentation: "modal" }}
-          />
+          <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} options={{ headerShown: false, presentation: "modal" }} />
         </>
       )}
     </Stack.Navigator>

@@ -39,7 +39,7 @@ const MeuPlanoScreen = () => {
   }, []);
 
   useEffect(() => {
-    void load();
+    load().catch(() => undefined);
   }, [load]);
 
   if (loading) return <ScreenState loading title="Carregando seu plano" />;
@@ -50,7 +50,7 @@ const MeuPlanoScreen = () => {
         title="Não foi possível carregar seu plano"
         description="Verifique sua conexão e tente novamente."
         actionLabel="Tentar novamente"
-        onAction={() => void load()}
+        onAction={() => load().catch(() => undefined)}
       />
     );
   }

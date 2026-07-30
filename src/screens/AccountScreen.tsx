@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   Trash2,
   UserRound,
+  UsersRound,
 } from "lucide-react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -21,12 +22,18 @@ import AppButton from "@components/AppButton";
 import AppInput from "@components/AppInput";
 import { colors, layout, radius, spacing, typography } from "@theme/index";
 
+const ADMIN_EMAILS = (process.env.EXPO_PUBLIC_ADMIN_EMAILS || "paulo.ruszel.santos@gmail.com")
+  .split(",")
+  .map((email: string) => email.trim().toLowerCase())
+  .filter(Boolean);
+
 const AccountScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user, signOut, deleteAccount } = useAuth();
   const [password, setPassword] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [dangerVisible, setDangerVisible] = useState(false);
+  const isAdmin = Boolean(user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase()));
 
   const open = (path: string) =>
     Linking.openURL(publicApiUrl(path)).catch(() =>
@@ -69,6 +76,12 @@ const AccountScreen = () => {
       onPress: () => navigation.navigate("MeuPlano"),
       role: "button" as const,
     },
+    ...(isAdmin ? [{
+      label: "Interessados no Profissional",
+      icon: UsersRound,
+      onPress: () => navigation.navigate("UpgradeInteresses"),
+      role: "button" as const,
+    }] : []),
     {
       label: "Política de Privacidade",
       icon: ShieldCheck,
@@ -80,15 +93,9 @@ const AccountScreen = () => {
   ];
 
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
+    <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.profile}>
-        <View style={styles.avatar}>
-          <UserRound size={28} color={colors.primary} />
-        </View>
+        <View style={styles.avatar}><UserRound size={28} color={colors.primary} /></View>
         <View style={styles.profileInfo}>
           <Text style={styles.name}>{user?.nome}</Text>
           <Text style={styles.email} numberOfLines={1}>{user?.email}</Text>
@@ -100,74 +107,33 @@ const AccountScreen = () => {
         {links.map(({ label, icon: Icon, onPress, role }, index) => (
           <Pressable
             key={label}
-            style={({ pressed }) => [
-              styles.linkRow,
-              index < links.length - 1 && styles.linkBorder,
-              pressed && styles.pressed,
-            ]}
+            style={({ pressed }) => [styles.linkRow, index < links.length - 1 && styles.linkBorder, pressed && styles.pressed]}
             onPress={onPress}
             accessibilityRole={role}
           >
-            <View style={styles.linkIcon}>
-              <Icon size={20} color={colors.primary} />
-            </View>
+            <View style={styles.linkIcon}><Icon size={20} color={colors.primary} /></View>
             <Text style={styles.linkText}>{label}</Text>
             <ChevronRight size={19} color={colors.textMuted} />
           </Pressable>
         ))}
       </View>
 
-      <AppButton
-        label="Sair da conta"
-        variant="secondary"
-        icon={<LogOut size={19} color={colors.primary} />}
-        onPress={signOut}
-        style={styles.signOut}
-      />
+      <AppButton label="Sair da conta" variant="secondary" icon={<LogOut size={19} color={colors.primary} />} onPress={signOut} style={styles.signOut} />
 
-      <Pressable
-        style={styles.dangerHeader}
-        onPress={() => setDangerVisible((current) => !current)}
-        accessibilityRole="button"
-        accessibilityState={{ expanded: dangerVisible }}
-      >
-        <View style={styles.dangerIcon}>
-          <Trash2 size={20} color={colors.danger} />
-        </View>
+      <Pressable style={styles.dangerHeader} onPress={() => setDangerVisible((current) => !current)} accessibilityRole="button" accessibilityState={{ expanded: dangerVisible }}>
+        <View style={styles.dangerIcon}><Trash2 size={20} color={colors.danger} /></View>
         <View style={styles.dangerHeaderText}>
           <Text style={styles.dangerTitle}>Excluir conta</Text>
           <Text style={styles.dangerSummary}>Remover permanentemente seus dados</Text>
         </View>
-        <ChevronDown
-          size={20}
-          color={colors.textMuted}
-          style={{ transform: [{ rotate: dangerVisible ? "180deg" : "0deg" }] }}
-        />
+        <ChevronDown size={20} color={colors.textMuted} style={{ transform: [{ rotate: dangerVisible ? "180deg" : "0deg" }] }} />
       </Pressable>
 
       {dangerVisible && (
         <View style={styles.dangerContent}>
-          <Text style={styles.description}>
-            Obras sem outro proprietário e seus arquivos serão excluídos permanentemente.
-          </Text>
-          <AppInput
-            label="Senha atual"
-            placeholder="Confirme sua senha"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-            editable={!deleting}
-            autoCapitalize="none"
-            autoComplete="current-password"
-          />
-          <AppButton
-            label="Excluir minha conta"
-            variant="danger"
-            onPress={confirmDelete}
-            loading={deleting}
-            disabled={!password}
-            style={styles.deleteButton}
-          />
+          <Text style={styles.description}>Obras sem outro proprietário e seus arquivos serão excluídos permanentemente.</Text>
+          <AppInput label="Senha atual" placeholder="Confirme sua senha" secureTextEntry value={password} onChangeText={setPassword} editable={!deleting} autoCapitalize="none" autoComplete="current-password" />
+          <AppButton label="Excluir minha conta" variant="danger" onPress={confirmDelete} loading={deleting} disabled={!password} style={styles.deleteButton} />
         </View>
       )}
     </ScrollView>
@@ -176,85 +142,26 @@ const AccountScreen = () => {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
-  content: {
-    width: "100%",
-    maxWidth: layout.maxContentWidth,
-    alignSelf: "center",
-    padding: spacing.lg,
-    paddingBottom: spacing.xxl,
-  },
-  profile: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    padding: spacing.lg,
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: spacing.xl,
-  },
-  avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: colors.primarySoft,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: spacing.md,
-  },
+  content: { width: "100%", maxWidth: layout.maxContentWidth, alignSelf: "center", padding: spacing.lg, paddingBottom: spacing.xxl },
+  profile: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: spacing.lg, flexDirection: "row", alignItems: "center", marginBottom: spacing.xl },
+  avatar: { width: 52, height: 52, borderRadius: 26, backgroundColor: colors.primarySoft, alignItems: "center", justifyContent: "center", marginRight: spacing.md },
   profileInfo: { flex: 1, minWidth: 0 },
   name: { color: colors.text, fontSize: 19, fontWeight: "800" },
   email: { color: colors.textMuted, marginTop: spacing.xs },
   sectionTitle: { ...typography.sectionTitle, marginBottom: spacing.md },
-  linkGroup: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    overflow: "hidden",
-  },
-  linkRow: {
-    minHeight: 58,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: spacing.md,
-  },
+  linkGroup: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, overflow: "hidden" },
+  linkRow: { minHeight: 58, flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.md },
   linkBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
   pressed: { backgroundColor: colors.surfaceMuted },
   linkIcon: { width: 36, alignItems: "flex-start" },
   linkText: { flex: 1, color: colors.text, fontSize: 15, fontWeight: "600" },
   signOut: { marginVertical: spacing.xl },
-  dangerHeader: {
-    minHeight: 66,
-    flexDirection: "row",
-    alignItems: "center",
-    padding: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radius.md,
-    backgroundColor: colors.surface,
-  },
-  dangerIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: radius.md,
-    backgroundColor: colors.dangerSoft,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: spacing.md,
-  },
+  dangerHeader: { minHeight: 66, flexDirection: "row", alignItems: "center", padding: spacing.md, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, backgroundColor: colors.surface },
+  dangerIcon: { width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.dangerSoft, alignItems: "center", justifyContent: "center", marginRight: spacing.md },
   dangerHeaderText: { flex: 1 },
   dangerTitle: { color: colors.danger, fontWeight: "700" },
   dangerSummary: { color: colors.textMuted, fontSize: 13, marginTop: spacing.xs },
-  dangerContent: {
-    borderWidth: 1,
-    borderTopWidth: 0,
-    borderColor: colors.border,
-    borderBottomLeftRadius: radius.md,
-    borderBottomRightRadius: radius.md,
-    backgroundColor: colors.surface,
-    padding: spacing.lg,
-  },
+  dangerContent: { borderWidth: 1, borderTopWidth: 0, borderColor: colors.border, borderBottomLeftRadius: radius.md, borderBottomRightRadius: radius.md, backgroundColor: colors.surface, padding: spacing.lg },
   description: { color: colors.textMuted, lineHeight: 21, marginBottom: spacing.lg },
   deleteButton: { marginTop: spacing.lg },
 });
