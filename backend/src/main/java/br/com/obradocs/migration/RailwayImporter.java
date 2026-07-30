@@ -86,6 +86,7 @@ final class RailwayImporter implements AutoCloseable {
             insertUsers(connection, bundle.users());
             insertObras(connection, bundle.obras());
             insertPermissoes(connection, bundle.permissoes());
+            insertDocumentos(connection, bundle.arquivos());
             insertArquivos(connection, bundle.arquivos());
             insertHistorico(connection, bundle.historico());
             connection.commit();
@@ -162,8 +163,8 @@ final class RailwayImporter implements AutoCloseable {
         try (PreparedStatement statement = connection.prepareStatement("""
                 insert into arquivos (
                     id, obra_id, tipo, nome_original, storage_path, content_type,
-                    tamanho_bytes, enviado_por, created_at
-                ) values (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    tamanho_bytes, enviado_por, created_at, documento_id, revisao
+                ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
                 """)) {
             for (ArquivoData arquivo : arquivos) {
                 statement.setObject(1, arquivo.id());
@@ -175,6 +176,24 @@ final class RailwayImporter implements AutoCloseable {
                 statement.setLong(7, arquivo.tamanhoBytes());
                 statement.setObject(8, arquivo.enviadoPor());
                 setInstant(statement, 9, arquivo.createdAt());
+                statement.setObject(10, arquivo.id());
+                statement.addBatch();
+            }
+            statement.executeBatch();
+        }
+    }
+
+    private void insertDocumentos(Connection connection, List<ArquivoData> arquivos) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("""
+                insert into documentos (id, obra_id, tipo, nome, revisao_atual, created_at)
+                values (?, ?, ?, ?, 1, ?)
+                """)) {
+            for (ArquivoData arquivo : arquivos) {
+                statement.setObject(1, arquivo.id());
+                statement.setObject(2, arquivo.obraId());
+                statement.setString(3, arquivo.tipo());
+                statement.setString(4, arquivo.nomeOriginal());
+                setInstant(statement, 5, arquivo.createdAt());
                 statement.addBatch();
             }
             statement.executeBatch();
@@ -237,6 +256,7 @@ final class RailwayImporter implements AutoCloseable {
         assertCount(connection, "usuarios", bundle.users().size());
         assertCount(connection, "obras", bundle.obras().size());
         assertCount(connection, "permissoes", bundle.permissoes().size());
+        assertCount(connection, "documentos", bundle.arquivos().size());
         assertCount(connection, "arquivos", bundle.arquivos().size());
         assertCount(connection, "historico", bundle.historico().size());
 
@@ -279,7 +299,7 @@ final class RailwayImporter implements AutoCloseable {
         for (ArquivoData arquivo : bundle.arquivos()) {
             check(connection, """
                     select obra_id, tipo, nome_original, storage_path, content_type,
-                           tamanho_bytes, enviado_por, created_at
+                           tamanho_bytes, enviado_por, created_at, documento_id, revisao
                     from arquivos where id = ?
                     """, arquivo.id(), row -> {
                 requireEqual(arquivo.obraId(), row.getObject("obra_id", UUID.class), "obra do arquivo " + arquivo.id());
@@ -290,6 +310,8 @@ final class RailwayImporter implements AutoCloseable {
                 require(arquivo.tamanhoBytes() == row.getLong("tamanho_bytes"), "Tamanho divergente no arquivo " + arquivo.id());
                 requireEqual(arquivo.enviadoPor(), row.getObject("enviado_por", UUID.class), "enviado_por do arquivo " + arquivo.id());
                 requireInstant(arquivo.createdAt(), instant(row, "created_at"), "created_at do arquivo " + arquivo.id());
+                requireEqual(arquivo.id(), row.getObject("documento_id", UUID.class), "documento do arquivo " + arquivo.id());
+                require(row.getInt("revisao") == 1, "Revisao inicial divergente no arquivo " + arquivo.id());
             });
         }
         for (HistoricoData item : bundle.historico()) {
@@ -308,10 +330,16 @@ final class RailwayImporter implements AutoCloseable {
     }
 
     private static void assertSchemaReady(Connection connection) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement("select password_change_required from usuarios where false")) {
+        try (PreparedStatement statement = connection.prepareStatement("""
+                select u.password_change_required
+                from usuarios u
+                join documentos d on false
+                join arquivos a on a.documento_id = d.id
+                where false
+                """)) {
             statement.executeQuery();
         } catch (SQLException exception) {
-            throw new IllegalStateException("Schema de destino desatualizado; execute as migracoes Flyway ate V5", exception);
+            throw new IllegalStateException("Schema de destino desatualizado; execute as migracoes Flyway ate V13", exception);
         }
     }
 
@@ -321,6 +349,7 @@ final class RailwayImporter implements AutoCloseable {
                     (select count(*) from usuarios)
                   + (select count(*) from obras)
                   + (select count(*) from permissoes)
+                  + (select count(*) from documentos)
                   + (select count(*) from arquivos)
                   + (select count(*) from historico)
                 """); ResultSet result = statement.executeQuery()) {

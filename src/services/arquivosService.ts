@@ -19,15 +19,16 @@ export const listarArquivos = (
 export const buscarArquivo = (arquivoId: string): Promise<Arquivo> =>
   apiRequest(`/v1/arquivos/${arquivoId}`);
 
-export const uploadArquivo = async ({
-  obraId,
-  tipo,
+export const listarRevisoes = (arquivoId: string): Promise<Arquivo[]> =>
+  apiRequest(`/v1/arquivos/${arquivoId}/revisoes`);
+
+const uploadMultipart = async ({
+  path,
   uri,
   nomeOriginal,
   contentType,
 }: {
-  obraId: string;
-  tipo: ArquivoTipo;
+  path: string;
   uri: string;
   nomeOriginal: string;
   contentType: string;
@@ -51,15 +52,50 @@ export const uploadArquivo = async ({
       } as unknown as Blob,
     );
   }
-  return apiRequest(
-    `/v1/obras/${obraId}/arquivos?tipo=${encodeURIComponent(tipo)}`,
-    {
-      method: "POST",
-      body: form,
-      timeoutMs: 120_000,
-    },
-  );
+  return apiRequest(path, {
+    method: "POST",
+    body: form,
+    timeoutMs: 120_000,
+  });
 };
+
+export const uploadArquivo = ({
+  obraId,
+  tipo,
+  uri,
+  nomeOriginal,
+  contentType,
+}: {
+  obraId: string;
+  tipo: ArquivoTipo;
+  uri: string;
+  nomeOriginal: string;
+  contentType: string;
+}): Promise<Arquivo> =>
+  uploadMultipart({
+    path: `/v1/obras/${obraId}/arquivos?tipo=${encodeURIComponent(tipo)}`,
+    uri,
+    nomeOriginal,
+    contentType,
+  });
+
+export const uploadRevisao = ({
+  arquivoId,
+  uri,
+  nomeOriginal,
+  contentType,
+}: {
+  arquivoId: string;
+  uri: string;
+  nomeOriginal: string;
+  contentType: string;
+}): Promise<Arquivo> =>
+  uploadMultipart({
+    path: `/v1/arquivos/${arquivoId}/revisoes`,
+    uri,
+    nomeOriginal,
+    contentType,
+  });
 
 export const gerarUrlTemporaria = async (arquivoId: string): Promise<string> => {
   const response = await apiRequest<{ url: string }>(

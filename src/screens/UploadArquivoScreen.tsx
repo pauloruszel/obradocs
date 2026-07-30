@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useLayoutEffect, useRef, useState } from "react";
 import {
   Image,
   Pressable,
@@ -21,7 +21,7 @@ import {
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "@navigation/AppNavigator";
 import { ArquivoTipo } from "@models/models";
-import { uploadArquivo } from "@services/arquivosService";
+import { uploadArquivo, uploadRevisao } from "@services/arquivosService";
 import { ApiError } from "@services/apiClient";
 import { useAuth } from "@context/AuthContext";
 import { toastError, toastSuccess } from "@utils/toast";
@@ -44,9 +44,17 @@ const typeIcon: Record<ArquivoTipo, React.ElementType> = {
 };
 
 const UploadArquivoScreen = ({ route, navigation }: Props) => {
-  const { obraId } = route.params;
+  const {
+    obraId,
+    arquivoId,
+    documentoNome,
+    contentType: revisionContentType,
+    tipo: tipoInicial,
+    papel,
+  } = route.params;
+  const isRevision = !!arquivoId;
   const { user } = useAuth();
-  const [tipo, setTipo] = useState<ArquivoTipo>("FOTO");
+  const [tipo, setTipo] = useState<ArquivoTipo>(tipoInicial || "FOTO");
   const [file, setFile] = useState<{
     uri: string;
     name: string;
@@ -56,6 +64,10 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
   const [uploading, setUploading] = useState(false);
   const [upgradeLimit, setUpgradeLimit] = useState<UpgradeLimitCode | null>(null);
   const uploadLockRef = useRef(false);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({ title: isRevision ? "Enviar nova revisão" : "Enviar arquivo" });
+  }, [isRevision, navigation]);
 
   const validateSize = (size?: number) => {
     if (typeof size === "number" && size > MAX_FILE_SIZE) {
@@ -68,7 +80,7 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
 
   const pickDocument = async () => {
     const result = await DocumentPicker.getDocumentAsync({
-      type: ["application/pdf", "image/jpeg"],
+      type: revisionContentType || ["application/pdf", "image/jpeg"],
       copyToCacheDirectory: true,
     });
     if (result.canceled) return;
@@ -98,7 +110,7 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
       mime: "image/jpeg",
       size: asset.fileSize,
     });
-    setTipo("FOTO");
+    if (!isRevision) setTipo("FOTO");
   };
 
   const handleUpload = async () => {
@@ -118,14 +130,34 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
         return;
       }
 
-      await uploadArquivo({
-        obraId,
-        tipo,
-        uri: file.uri,
-        nomeOriginal: file.name,
-        contentType: isPdf ? "application/pdf" : "image/jpeg",
-      });
-      toastSuccess("Arquivo enviado", "O documento já está disponível na obra.");
+      const contentType = isPdf ? "application/pdf" : "image/jpeg";
+      if (arquivoId) {
+        const revision = await uploadRevisao({
+          arquivoId,
+          uri: file.uri,
+          nomeOriginal: file.name,
+          contentType,
+        });
+        toastSuccess(`Revisão R${revision.revisao} enviada`, "A versão mais recente já está disponível.");
+        navigation.replace("ArquivoView", {
+          arquivoId: revision.id,
+          obraId,
+          path: revision.storage_path,
+          nome: revision.documento_nome,
+          tipo: revision.tipo,
+          papel,
+        });
+        return;
+      } else {
+        await uploadArquivo({
+          obraId,
+          tipo,
+          uri: file.uri,
+          nomeOriginal: file.name,
+          contentType,
+        });
+        toastSuccess("Arquivo enviado", "O documento já está disponível na obra.");
+      }
       navigation.goBack();
     } catch (error) {
       const limitCode = getUpgradeLimitCode(error);
@@ -168,33 +200,45 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.sectionTitle}>Categoria</Text>
-        <Text style={styles.helper}>Escolha onde o arquivo será organizado.</Text>
-        <View style={styles.categoryGrid}>
-          {tipos.map((itemTipo) => {
-            const Icon = typeIcon[itemTipo];
-            const active = tipo === itemTipo;
-            return (
-              <Pressable
-                key={itemTipo}
-                style={({ pressed }) => [
-                  styles.category,
-                  active && styles.categoryActive,
-                  pressed && styles.pressed,
-                ]}
-                onPress={() => setTipo(itemTipo)}
-                disabled={uploading}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: active, disabled: uploading }}
-              >
-                <Icon size={21} color={active ? colors.white : colors.primary} />
-                <Text style={[styles.categoryText, active && styles.categoryTextActive]}>
-                  {arquivoTipoLabel[itemTipo]}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        {isRevision ? (
+          <View style={styles.revisionSummary}>
+            <Text style={styles.sectionTitle}>Nova versão</Text>
+            <Text style={styles.revisionName} numberOfLines={2}>
+              {formatFileName(documentoNome || "Documento")}
+            </Text>
+            <Text style={styles.helper}>{arquivoTipoLabel[tipo]}</Text>
+          </View>
+        ) : (
+          <>
+            <Text style={styles.sectionTitle}>Categoria</Text>
+            <Text style={styles.helper}>Escolha onde o arquivo será organizado.</Text>
+            <View style={styles.categoryGrid}>
+              {tipos.map((itemTipo) => {
+                const Icon = typeIcon[itemTipo];
+                const active = tipo === itemTipo;
+                return (
+                  <Pressable
+                    key={itemTipo}
+                    style={({ pressed }) => [
+                      styles.category,
+                      active && styles.categoryActive,
+                      pressed && styles.pressed,
+                    ]}
+                    onPress={() => setTipo(itemTipo)}
+                    disabled={uploading}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: active, disabled: uploading }}
+                  >
+                    <Icon size={21} color={active ? colors.white : colors.primary} />
+                    <Text style={[styles.categoryText, active && styles.categoryTextActive]}>
+                      {arquivoTipoLabel[itemTipo]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </>
+        )}
 
         <Text style={styles.sectionTitle}>Arquivo</Text>
         <Text style={styles.helper}>Formatos aceitos: PDF ou JPEG, até 10 MB.</Text>
@@ -242,20 +286,22 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
             disabled={uploading}
             style={styles.sourceButton}
           />
-          <AppButton
-            label="Tirar foto"
-            variant="secondary"
-            icon={<Camera size={18} color={colors.primary} />}
-            onPress={takePhoto}
-            disabled={uploading}
-            style={styles.sourceButton}
-          />
+          {revisionContentType !== "application/pdf" && (
+            <AppButton
+              label="Tirar foto"
+              variant="secondary"
+              icon={<Camera size={18} color={colors.primary} />}
+              onPress={takePhoto}
+              disabled={uploading}
+              style={styles.sourceButton}
+            />
+          )}
         </View>
       </ScrollView>
 
       <View style={styles.footer}>
         <AppButton
-          label="Enviar arquivo"
+          label={isRevision ? "Enviar revisão" : "Enviar arquivo"}
           icon={<Upload size={19} color={colors.white} />}
           onPress={handleUpload}
           loading={uploading}
@@ -304,6 +350,15 @@ const styles = StyleSheet.create({
   categoryActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   categoryText: { color: colors.text, fontWeight: "700" },
   categoryTextActive: { color: colors.white },
+  revisionSummary: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.xl,
+  },
+  revisionName: { color: colors.text, fontSize: 17, fontWeight: "700", marginTop: spacing.sm },
   pressed: { opacity: 0.78 },
   preview: {
     minHeight: 76,

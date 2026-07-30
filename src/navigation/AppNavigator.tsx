@@ -16,6 +16,7 @@ import PlanoProfissionalScreen from "@screens/PlanoProfissionalScreen";
 import UpgradeInteressesScreen from "@screens/UpgradeInteressesScreen";
 import TermsAcceptanceScreen from "@screens/TermsAcceptanceScreen";
 import ReportContentScreen from "@screens/ReportContentScreen";
+import RevisoesArquivoScreen from "@screens/RevisoesArquivoScreen";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import React from "react";
 import { Papel } from "@models/models";
@@ -30,8 +31,16 @@ export type RootStackParamList = {
   NovaObra: undefined;
   EntrarObra: undefined;
   ObraDetail: { obraId: string; nome: string };
-  UploadArquivo: { obraId: string };
+  UploadArquivo: {
+    obraId: string;
+    arquivoId?: string;
+    tipo?: import("@models/models").ArquivoTipo;
+    documentoNome?: string;
+    contentType?: string;
+    papel?: Papel;
+  };
   ArquivoView: { arquivoId: string; obraId: string; path: string; nome: string; tipo: string; papel?: Papel };
+  RevisoesArquivo: { arquivoId: string; obraId: string; nome: string; papel?: Papel };
   Historico: { obraId: string };
   Permissoes: { obraId: string; isOwner: boolean };
   Account: undefined;
@@ -73,6 +82,7 @@ const AppNavigator = () => {
           <Stack.Screen name="ObraDetail" component={ObraDetailScreen} options={({ route }) => ({ title: route.params.nome })} />
           <Stack.Screen name="UploadArquivo" component={UploadArquivoScreen} options={{ title: "Enviar arquivo" }} />
           <Stack.Screen name="ArquivoView" component={ArquivoViewScreen} options={{ title: "Arquivo" }} />
+          <Stack.Screen name="RevisoesArquivo" component={RevisoesArquivoScreen} options={{ title: "Revisões" }} />
           <Stack.Screen name="Historico" component={HistoricoScreen} options={{ title: "Histórico" }} />
           <Stack.Screen name="Permissoes" component={PermissoesScreen} options={{ title: "Permissões" }} />
           <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} options={{ headerShown: false, presentation: "modal" }} />

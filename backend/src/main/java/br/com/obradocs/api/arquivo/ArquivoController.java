@@ -40,6 +40,15 @@ class ArquivoController {
 		return ArquivoResponse.from(service.buscar(arquivoId, usuarioId(jwt)));
 	}
 
+	@GetMapping("/arquivos/{arquivoId}/revisoes")
+	List<ArquivoResponse> listarRevisoes(
+			@PathVariable UUID arquivoId,
+			@AuthenticationPrincipal Jwt jwt) {
+		return service.listarRevisoes(arquivoId, usuarioId(jwt)).stream()
+				.map(ArquivoResponse::from)
+				.toList();
+	}
+
 	@PostMapping(value = "/obras/{obraId}/arquivos", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
 	ResponseEntity<ArquivoResponse> enviar(
 			@PathVariable UUID obraId,
@@ -47,6 +56,15 @@ class ArquivoController {
 			@RequestPart MultipartFile arquivo,
 			@AuthenticationPrincipal Jwt jwt) {
 		return ResponseEntity.status(HttpStatus.CREATED).body(ArquivoResponse.from(service.enviar(obraId, tipo, arquivo, usuarioId(jwt))));
+	}
+
+	@PostMapping(value = "/arquivos/{arquivoId}/revisoes", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+	ResponseEntity<ArquivoResponse> enviarRevisao(
+			@PathVariable UUID arquivoId,
+			@RequestPart MultipartFile arquivo,
+			@AuthenticationPrincipal Jwt jwt) {
+		return ResponseEntity.status(HttpStatus.CREATED)
+				.body(ArquivoResponse.from(service.enviarRevisao(arquivoId, arquivo, usuarioId(jwt))));
 	}
 
 	@PatchMapping("/arquivos/{arquivoId}")
@@ -73,13 +91,18 @@ class ArquivoController {
 	record ArquivoResponse(
 			UUID id,
 			UUID obraId,
+			UUID documentoId,
 			ArquivoTipo tipo,
 			String nomeOriginal,
+			String documentoNome,
 			String storagePath,
 			String contentType,
 			long tamanhoBytes,
 			UUID enviadoPor,
 			String enviadoPorNome,
+			int revisao,
+			int revisaoAtual,
+			boolean atual,
 			Instant createdAt) {
 
 		static ArquivoResponse from(ArquivoDetalhado detalhe) {
@@ -87,13 +110,18 @@ class ArquivoController {
 			return new ArquivoResponse(
 					arquivo.getId(),
 					arquivo.getObraId(),
+					arquivo.getDocumentoId(),
 					arquivo.getTipo(),
 					arquivo.getNomeOriginal(),
+					detalhe.getDocumentoNome(),
 					arquivo.getStoragePath(),
 					arquivo.getContentType(),
 					arquivo.getTamanhoBytes(),
 					arquivo.getEnviadoPor(),
 					detalhe.getEnviadoPorNome(),
+					arquivo.getRevisao(),
+					detalhe.getRevisaoAtual(),
+					arquivo.getRevisao() == detalhe.getRevisaoAtual(),
 					arquivo.getCreatedAt());
 		}
 	}

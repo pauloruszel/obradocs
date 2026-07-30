@@ -106,24 +106,37 @@ class PlanoLimiteIntegrationTests {
         UUID obraId = UUID.fromString(obra.path("id").stringValue());
 
         jdbc.update("""
-                insert into arquivos (
-                    id, obra_id, tipo, nome_original, storage_path,
-                    content_type, tamanho_bytes, enviado_por, created_at
-                )
+                insert into documentos (id, obra_id, tipo, nome)
                 select
                     gen_random_uuid(),
                     ?,
                     'PROJETO',
-                    'limite-' || serie || '.pdf',
-                    'test/' || gen_random_uuid() || '-limite-' || serie || '.pdf',
+                    'limite-' || serie || '.pdf'
+                from generate_series(1, 50) as serie
+                """,
+                obraId);
+        jdbc.update("""
+                insert into arquivos (
+                    id, obra_id, documento_id, revisao, tipo, nome_original,
+                    storage_path, content_type, tamanho_bytes, enviado_por, created_at
+                )
+                select
+                    gen_random_uuid(),
+                    d.obra_id,
+                    d.id,
+                    1,
+                    'PROJETO',
+                    d.nome,
+                    'test/' || gen_random_uuid() || '-' || d.nome,
                     'application/pdf',
                     10 * 1024 * 1024,
                     ?,
                     now()
-                from generate_series(1, 50) as serie
+                from documentos d
+                where d.obra_id = ?
                 """,
-                obraId,
-                owner.id());
+                owner.id(),
+                obraId);
 
         assertThatThrownBy(() -> limites.reservarUpload(obraId, 1))
                 .isInstanceOfSatisfying(LimitePlanoException.class, exception -> {

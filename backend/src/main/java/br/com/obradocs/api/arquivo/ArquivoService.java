@@ -29,6 +29,7 @@ class ArquivoService {
 	private static final byte[] JPEG_HEADER = {(byte) 0xff, (byte) 0xd8, (byte) 0xff};
 
 	private final ArquivoRepository arquivos;
+	private final DocumentoRepository documentos;
 	private final ObraAuthorizationService authorization;
 	private final HistoricoService historico;
 	private final S3Storage storage;
@@ -70,8 +71,11 @@ class ArquivoService {
 		try {
 			storage.armazenar(storagePath, multipart, validado.contentType());
 			return transactions.execute(status -> {
+				Documento documento = documentos.save(new Documento(obraId, tipo, validado.nome()));
 				Arquivo arquivo = arquivos.save(new Arquivo(
 						obraId,
+						documento.getId(),
+						1,
 						tipo,
 						validado.nome(),
 						storagePath,
@@ -84,8 +88,10 @@ class ArquivoService {
 						"UPLOAD_ARQUIVO",
 						Map.of(
 								"arquivoId", arquivo.getId(),
+								"documentoId", documento.getId(),
 								"nomeOriginal", arquivo.getNomeOriginal(),
-								"tipo", arquivo.getTipo().name()));
+								"tipo", arquivo.getTipo().name(),
+								"revisao", 1));
 				limitesPlano.liberarReserva(reservaId);
 				return buscarDetalhadoPorId(arquivo.getId());
 			});
@@ -94,6 +100,59 @@ class ArquivoService {
 			limitesPlano.liberarReserva(reservaId);
 			throw exception;
 		}
+	}
+
+	ArquivoDetalhado enviarRevisao(UUID arquivoId, MultipartFile multipart, UUID usuarioId) {
+		ArquivoDetalhado referencia = buscarDetalhadoPorId(arquivoId);
+		Arquivo arquivoAnterior = referencia.getArquivo();
+		authorization.exigirEdicao(arquivoAnterior.getObraId(), usuarioId);
+		ArquivoValidado validado = validar(multipart);
+		if (!arquivoAnterior.getContentType().equals(validado.contentType())) {
+			throw new IllegalArgumentException("Nova revisão deve manter o formato do documento");
+		}
+		UUID reservaId = limitesPlano.reservarUpload(arquivoAnterior.getObraId(), multipart.getSize());
+		String storagePath = arquivoAnterior.getObraId() + "/" + UUID.randomUUID() + "-" + sanitizar(validado.nome());
+
+		try {
+			storage.armazenar(storagePath, multipart, validado.contentType());
+			return transactions.execute(status -> {
+				Documento documento = documentos.findByIdForUpdate(arquivoAnterior.getDocumentoId())
+						.orElseThrow(() -> new NoSuchElementException("Documento não encontrado"));
+				int revisao = documento.adicionarRevisao();
+				Arquivo arquivo = arquivos.save(new Arquivo(
+						documento.getObraId(),
+						documento.getId(),
+						revisao,
+						documento.getTipo(),
+						validado.nome(),
+						storagePath,
+						validado.contentType(),
+						multipart.getSize(),
+						usuarioId));
+				historico.registrar(
+						documento.getObraId(),
+						usuarioId,
+						"NOVA_REVISAO",
+						Map.of(
+								"arquivoId", arquivo.getId(),
+								"documentoId", documento.getId(),
+								"nome", documento.getNome(),
+								"revisao", revisao));
+				limitesPlano.liberarReserva(reservaId);
+				return buscarDetalhadoPorId(arquivo.getId());
+			});
+		} catch (RuntimeException exception) {
+			storage.excluirSilenciosamente(storagePath);
+			limitesPlano.liberarReserva(reservaId);
+			throw exception;
+		}
+	}
+
+	@Transactional(readOnly = true)
+	List<ArquivoDetalhado> listarRevisoes(UUID arquivoId, UUID usuarioId) {
+		Arquivo arquivo = buscarDetalhadoPorId(arquivoId).getArquivo();
+		authorization.exigirLeitura(arquivo.getObraId(), usuarioId);
+		return arquivos.listarRevisoes(arquivo.getDocumentoId());
 	}
 
 	@Transactional(readOnly = true)
@@ -110,13 +169,15 @@ class ArquivoService {
 		authorization.exigirEdicao(arquivo.getObraId(), usuarioId);
 		String nome = validarNome(novoNome);
 		validarExtensao(nome, arquivo.getContentType());
-		arquivo.renomear(nome);
+		Documento documento = documentos.findById(arquivo.getDocumentoId())
+				.orElseThrow(() -> new NoSuchElementException("Documento não encontrado"));
+		documento.renomear(nome);
 		historico.registrar(
 				arquivo.getObraId(),
 				usuarioId,
 				"RENOMEAR_ARQUIVO",
-				Map.of("arquivoId", arquivoId, "novoNome", nome));
-		return detalhe;
+				Map.of("arquivoId", arquivoId, "documentoId", documento.getId(), "novoNome", nome));
+		return buscarDetalhadoPorId(arquivoId);
 	}
 
 	private ArquivoDetalhado buscarDetalhadoPorId(UUID arquivoId) {

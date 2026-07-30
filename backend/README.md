@@ -39,6 +39,8 @@ Configure um bucket S3 compatível pelas variáveis do `.env.example`. Para dese
 - `POST /v1/obras/{obraId}/arquivos` como `multipart/form-data`, com `tipo` e `arquivo`
 - `GET /v1/arquivos/{arquivoId}`
 - `PATCH /v1/arquivos/{arquivoId}`
+- `GET /v1/arquivos/{arquivoId}/revisoes`
+- `POST /v1/arquivos/{arquivoId}/revisoes` como `multipart/form-data`
 - `GET /v1/arquivos/{arquivoId}/download-url`
 - `POST /v1/reports`
 - `GET /actuator/health`

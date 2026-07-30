@@ -274,24 +274,24 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
             arquivoId: item.id,
             obraId,
             path: item.storage_path,
-            nome: item.nome_original,
+            nome: item.documento_nome,
             tipo: item.tipo,
             papel,
           })
         }
         accessibilityRole="button"
-        accessibilityLabel={`Abrir arquivo ${formatFileName(item.nome_original)}`}
+        accessibilityLabel={`Abrir documento ${formatFileName(item.documento_nome)}`}
       >
         <View style={styles.fileIcon}>
           <Icon size={21} color={colors.primary} />
         </View>
         <View style={styles.fileContent}>
           <Text style={styles.fileName} numberOfLines={2}>
-            {formatFileName(item.nome_original)}
+            {formatFileName(item.documento_nome)}
           </Text>
           <Text style={styles.fileMeta}>
             {searchActive ? `${arquivoTipoLabel[item.tipo]} · ` : ""}
-            {size} · {formatDateTime(item.created_at)}
+            R{item.revisao} · {size} · {formatDateTime(item.created_at)}
           </Text>
           {!!item.enviado_por_nome && (
             <Text style={styles.fileAuthor} numberOfLines={1}>

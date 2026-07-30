@@ -28,6 +28,7 @@ const actionLabels: Record<string, string> = {
   CRIACAO_OBRA: "Obra criada",
   ENTROU_OBRA: "Pessoa adicionada à obra",
   UPLOAD_ARQUIVO: "Arquivo enviado",
+  NOVA_REVISAO: "Nova revisão enviada",
   RENOMEAR_OBRA: "Obra renomeada",
   RENOMEAR_ARQUIVO: "Arquivo renomeado",
   EXCLUIR_OBRA: "Obra excluída",
@@ -37,6 +38,7 @@ const actionIcons: Record<string, React.ElementType> = {
   CRIACAO_OBRA: FolderPlus,
   ENTROU_OBRA: LogIn,
   UPLOAD_ARQUIVO: FileUp,
+  NOVA_REVISAO: FileUp,
   RENOMEAR_OBRA: FolderPen,
   RENOMEAR_ARQUIVO: FilePenLine,
   EXCLUIR_OBRA: Trash2,
@@ -50,13 +52,16 @@ const formatDetails = (item: Historico): string | null => {
   const details = item.detalhes;
   if (!details) return null;
 
-  if (item.acao === "UPLOAD_ARQUIVO") {
-    const name = typeof details.nomeOriginal === "string" ? formatFileName(details.nomeOriginal) : "";
+  if (item.acao === "UPLOAD_ARQUIVO" || item.acao === "NOVA_REVISAO") {
+    const nameValue = details.nome ?? details.nomeOriginal;
+    const name = typeof nameValue === "string" ? formatFileName(nameValue) : "";
     const type =
       typeof details.tipo === "string" && details.tipo in arquivoTipoLabel
         ? arquivoTipoLabel[details.tipo as ArquivoTipo]
         : "";
-    return [name, type].filter(Boolean).join(" · ") || null;
+    const revision =
+      typeof details.revisao === "number" ? `R${details.revisao}` : "";
+    return [name, revision, type].filter(Boolean).join(" · ") || null;
   }
 
   const value = [

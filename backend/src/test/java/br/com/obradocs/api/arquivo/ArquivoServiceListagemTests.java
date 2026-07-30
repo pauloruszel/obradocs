@@ -27,6 +27,9 @@ class ArquivoServiceListagemTests {
     private ArquivoRepository arquivos;
 
     @Mock
+    private DocumentoRepository documentos;
+
+    @Mock
     private ObraAuthorizationService authorization;
 
     @Mock
@@ -48,7 +51,14 @@ class ArquivoServiceListagemTests {
 
     @BeforeEach
     void setUp() {
-        service = new ArquivoService(arquivos, authorization, historico, storage, transactions, limites);
+        service = new ArquivoService(
+                arquivos,
+                documentos,
+                authorization,
+                historico,
+                storage,
+                transactions,
+                limites);
     }
 
     @Test

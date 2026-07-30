@@ -170,12 +170,17 @@ class ObraIntegrationTests {
 				{"email":"%s","papel":"EDITOR"}
 				""".formatted(editor.email()), owner.token());
 		String storagePath = obraId + "/arquivo.pdf";
+		UUID documentoId = UUID.randomUUID();
+		jdbc.update("""
+				insert into documentos (id, obra_id, tipo, nome)
+				values (?, ?, 'PROJETO', 'arquivo.pdf')
+				""", documentoId, obraId);
 		jdbc.update("""
 				insert into arquivos (
-				    id, obra_id, tipo, nome_original, storage_path,
-				    content_type, tamanho_bytes, enviado_por
-				) values (?, ?, 'PROJETO', 'arquivo.pdf', ?, 'application/pdf', 100, ?)
-				""", UUID.randomUUID(), obraId, storagePath, owner.id());
+				    id, obra_id, documento_id, revisao, tipo, nome_original,
+				    storage_path, content_type, tamanho_bytes, enviado_por
+				) values (?, ?, ?, 1, 'PROJETO', 'arquivo.pdf', ?, 'application/pdf', 100, ?)
+				""", UUID.randomUUID(), obraId, documentoId, storagePath, owner.id());
 
 		assertThat(delete("/v1/obras/" + obraId, editor.token()).statusCode()).isEqualTo(204);
 		assertThat(get("/v1/obras/" + obraId, owner.token()).statusCode()).isEqualTo(404);
