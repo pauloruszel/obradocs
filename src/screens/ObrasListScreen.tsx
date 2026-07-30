@@ -206,7 +206,6 @@ const styles = StyleSheet.create({
     height: 48,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: -spacing.sm,
   },
   actions: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.xl },
   action: { flex: 1 },
