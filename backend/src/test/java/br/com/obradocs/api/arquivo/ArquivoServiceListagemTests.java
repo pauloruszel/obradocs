@@ -18,6 +18,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import br.com.obradocs.api.obra.HistoricoService;
 import br.com.obradocs.api.obra.ObraAuthorizationService;
+import br.com.obradocs.api.plano.PlanoLimiteService;
 
 @ExtendWith(MockitoExtension.class)
 class ArquivoServiceListagemTests {
@@ -37,6 +38,9 @@ class ArquivoServiceListagemTests {
     @Mock
     private TransactionTemplate transactions;
 
+    @Mock
+    private PlanoLimiteService limites;
+
     private ArquivoService service;
 
     private final UUID obraId = UUID.randomUUID();
@@ -44,7 +48,7 @@ class ArquivoServiceListagemTests {
 
     @BeforeEach
     void setUp() {
-        service = new ArquivoService(arquivos, authorization, historico, storage, transactions);
+        service = new ArquivoService(arquivos, authorization, historico, storage, transactions, limites);
     }
 
     @Test
