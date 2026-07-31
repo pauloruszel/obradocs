@@ -362,166 +362,177 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
     );
   };
 
+  const categoryLoading =
+    !searchActive &&
+    selectedCategory != null &&
+    loadingCategory === selectedCategory.id &&
+    filesByCategory[selectedCategory.id] === undefined;
+
   return (
     <View style={styles.screen}>
       <View style={styles.content}>
-        <View style={styles.summary}>
-          <View style={styles.summaryText}>
-            <Text style={styles.obraTitle} numberOfLines={2}>{obraNome}</Text>
-          </View>
-          <View style={styles.roleBadge}>
-            <Text style={styles.roleBadgeText}>{papelLabel[papel]}</Text>
-          </View>
-        </View>
+        <FlatList
+          data={categoryLoading ? [] : displayedFiles}
+          keyExtractor={(item) => item.id}
+          renderItem={renderFile}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[
+            categoryLoading || displayedFiles.length === 0 ? styles.emptyList : styles.list,
+            { paddingBottom: 92 + insets.bottom },
+          ]}
+          ListHeaderComponent={
+            <View>
+              <View style={styles.summary}>
+                <View style={styles.summaryText}>
+                  <Text style={styles.obraTitle} numberOfLines={2}>{obraNome}</Text>
+                </View>
+                <View style={styles.roleBadge}>
+                  <Text style={styles.roleBadgeText}>{papelLabel[papel]}</Text>
+                </View>
+              </View>
 
-        <SearchField
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Buscar documento nesta obra"
-        />
-
-        {searchActive ? (
-          <Text style={styles.searchCount}>
-            {searching
-              ? "Buscando documentos..."
-              : `${searchResults.length} ${searchResults.length === 1 ? "documento encontrado" : "documentos encontrados"}`}
-          </Text>
-        ) : (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.categoriesScroll}
-            contentContainerStyle={styles.categories}
-          >
-            {categorias.map((category) => {
-              const Icon = categoryIcon[category.tipo];
-              const active = selected === category.id;
-              return (
-                <Pressable
-                  key={category.id}
-                  style={[styles.category, active && styles.categoryActive]}
-                  onPress={() => selectCategory(category)}
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: active }}
-                >
-                  <Icon size={17} color={active ? colors.white : colors.textMuted} />
-                  <Text style={[styles.categoryText, active && styles.categoryTextActive]}>
-                    {category.nome}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        )}
-
-        {!searchActive && categorias.length > 0 && (
-          <View style={styles.completeness}>
-            <View style={styles.completenessHeader}>
-              <Text style={styles.completenessTitle}>Documentação da obra</Text>
-              <Text style={styles.completenessValue}>{completude}%</Text>
-            </View>
-            <View style={styles.progressTrack}>
-              <View style={[styles.progressValue, { width: `${completude}%` }]} />
-            </View>
-            <Text style={styles.completenessHint}>
-              {categoriasPreenchidas} de {categorias.length} categorias com documentos
-            </Text>
-          </View>
-        )}
-
-        {!searchActive && ambientes.length > 0 && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.roomsScroll}
-            contentContainerStyle={styles.rooms}
-          >
-            {[null, ...ambientes].map((ambiente) => {
-              const active = ambienteFiltro === ambiente;
-              return (
-                <Pressable
-                  key={ambiente || "todos"}
-                  style={[styles.room, active && styles.roomActive]}
-                  onPress={() => setAmbienteFiltro(ambiente)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
-                >
-                  <Text style={[styles.roomText, active && styles.roomTextActive]}>
-                    {ambiente || "Todos os ambientes"}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        )}
-
-        <View style={styles.shortcuts}>
-          <AppButton
-            label="Histórico"
-            variant="secondary"
-            icon={<History size={18} color={colors.primary} />}
-            onPress={() => navigation.navigate("Historico", { obraId })}
-            style={styles.shortcut}
-          />
-          <AppButton
-            label="Permissões"
-            variant="secondary"
-            icon={<Users size={18} color={colors.primary} />}
-            onPress={() =>
-              navigation.navigate("Permissoes", { obraId, isOwner: papel === "OWNER" })
-            }
-            style={styles.shortcut}
-          />
-        </View>
-
-        {!searchActive &&
-        selectedCategory &&
-        loadingCategory === selectedCategory.id &&
-        filesByCategory[selectedCategory.id] === undefined ? (
-          <ScreenState loading title={`Carregando ${selectedCategory.nome.toLowerCase()}`} />
-        ) : (
-          <FlatList
-            data={displayedFiles}
-            keyExtractor={(item) => item.id}
-            renderItem={renderFile}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={[
-              displayedFiles.length === 0 ? styles.emptyList : styles.list,
-              { paddingBottom: 92 + insets.bottom },
-            ]}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                colors={[colors.primary]}
-                tintColor={colors.primary}
+              <SearchField
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Buscar documento nesta obra"
               />
-            }
-            ListEmptyComponent={
-              searchActive && searching ? (
-                <ScreenState loading title="Buscando documentos" />
-              ) : searchActive ? (
-                <ScreenState
-                  icon={<FileText size={42} color={colors.textMuted} />}
-                  title="Nenhum documento encontrado"
-                  description="Tente buscar por outro nome."
-                  actionLabel="Limpar busca"
-                  onAction={() => setQuery("")}
-                />
+
+              {searchActive ? (
+                <Text style={styles.searchCount}>
+                  {searching
+                    ? "Buscando documentos..."
+                    : `${searchResults.length} ${searchResults.length === 1 ? "documento encontrado" : "documentos encontrados"}`}
+                </Text>
               ) : (
-                <ScreenState
-                  icon={<FileText size={42} color={colors.textMuted} />}
-                  title="Nenhum arquivo nesta categoria"
-                  description={
-                    canEdit
-                      ? "Envie o primeiro documento para começar a organizar esta obra."
-                      : "Quando um documento for enviado, ele aparecerá aqui."
-                  }
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.categoriesScroll}
+                  contentContainerStyle={styles.categories}
+                >
+                  {categorias.map((category) => {
+                    const Icon = categoryIcon[category.tipo];
+                    const active = selected === category.id;
+                    return (
+                      <Pressable
+                        key={category.id}
+                        style={[styles.category, active && styles.categoryActive]}
+                        onPress={() => selectCategory(category)}
+                        accessibilityRole="tab"
+                        accessibilityState={{ selected: active }}
+                      >
+                        <Icon size={17} color={active ? colors.white : colors.textMuted} />
+                        <Text style={[styles.categoryText, active && styles.categoryTextActive]}>
+                          {category.nome}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              )}
+
+              {!searchActive && categorias.length > 0 && (
+                <View style={styles.completeness}>
+                  <View style={styles.completenessHeader}>
+                    <Text style={styles.completenessTitle}>Documentação da obra</Text>
+                    <Text style={styles.completenessValue}>{completude}%</Text>
+                  </View>
+                  <View style={styles.progressTrack}>
+                    <View style={[styles.progressValue, { width: `${completude}%` }]} />
+                  </View>
+                  <Text style={styles.completenessHint}>
+                    {categoriasPreenchidas} de {categorias.length} categorias com documentos
+                  </Text>
+                </View>
+              )}
+
+              {!searchActive && ambientes.length > 0 && (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.roomsScroll}
+                  contentContainerStyle={styles.rooms}
+                >
+                  {[null, ...ambientes].map((ambiente) => {
+                    const active = ambienteFiltro === ambiente;
+                    return (
+                      <Pressable
+                        key={ambiente || "todos"}
+                        style={[styles.room, active && styles.roomActive]}
+                        onPress={() => setAmbienteFiltro(ambiente)}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active }}
+                      >
+                        <Text style={[styles.roomText, active && styles.roomTextActive]}>
+                          {ambiente || "Todos os ambientes"}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              )}
+
+              <View style={styles.shortcuts}>
+                <AppButton
+                  label="Histórico"
+                  variant="secondary"
+                  icon={<History size={18} color={colors.primary} />}
+                  onPress={() => navigation.navigate("Historico", { obraId })}
+                  style={styles.shortcut}
                 />
-              )
-            }
-          />
-        )}
+                <AppButton
+                  label="Permissões"
+                  variant="secondary"
+                  icon={<Users size={18} color={colors.primary} />}
+                  onPress={() =>
+                    navigation.navigate("Permissoes", { obraId, isOwner: papel === "OWNER" })
+                  }
+                  style={styles.shortcut}
+                />
+              </View>
+            </View>
+          }
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+          ListEmptyComponent={
+            categoryLoading ? (
+              <ScreenState
+                loading
+                title={
+                  selectedCategory
+                    ? `Carregando ${selectedCategory.nome.toLowerCase()}`
+                    : "Carregando documentos"
+                }
+              />
+            ) : searchActive && searching ? (
+              <ScreenState loading title="Buscando documentos" />
+            ) : searchActive ? (
+              <ScreenState
+                icon={<FileText size={42} color={colors.textMuted} />}
+                title="Nenhum documento encontrado"
+                description="Tente buscar por outro nome."
+                actionLabel="Limpar busca"
+                onAction={() => setQuery("")}
+              />
+            ) : (
+              <ScreenState
+                icon={<FileText size={42} color={colors.textMuted} />}
+                title="Nenhum arquivo nesta categoria"
+                description={
+                  canEdit
+                    ? "Envie o primeiro documento para começar a organizar esta obra."
+                    : "Quando um documento for enviado, ele aparecerá aqui."
+                }
+              />
+            )
+          }
+        />
       </View>
 
       {canEdit && (
