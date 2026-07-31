@@ -18,6 +18,7 @@ import TermsAcceptanceScreen from "@screens/TermsAcceptanceScreen";
 import ReportContentScreen from "@screens/ReportContentScreen";
 import RevisoesArquivoScreen from "@screens/RevisoesArquivoScreen";
 import CategoriasObraScreen from "@screens/CategoriasObraScreen";
+import NotificacoesScreen from "@screens/NotificacoesScreen";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import React from "react";
 import { Papel } from "@models/models";
@@ -29,6 +30,7 @@ export type RootStackParamList = {
   ForgotPassword: undefined;
   ResetPassword: { token?: string } | undefined;
   ObrasList: undefined;
+  Notificacoes: undefined;
   NovaObra: undefined;
   EntrarObra: undefined;
   ObraDetail: { obraId: string; nome: string };
@@ -76,6 +78,7 @@ const AppNavigator = () => {
       ) : (
         <>
           <Stack.Screen name="ObrasList" component={ObrasListScreen} options={{ title: "Minhas obras" }} />
+          <Stack.Screen name="Notificacoes" component={NotificacoesScreen} options={{ title: "Notificações" }} />
           <Stack.Screen name="Account" component={AccountScreen} options={{ title: "Minha conta" }} />
           <Stack.Screen name="MeuPlano" component={MeuPlanoScreen} options={{ title: "Meu Plano" }} />
           <Stack.Screen name="PlanoProfissional" component={PlanoProfissionalScreen} options={{ title: "Plano Profissional" }} />

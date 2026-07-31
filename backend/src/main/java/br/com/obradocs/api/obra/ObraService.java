@@ -127,13 +127,22 @@ class ObraService {
 	PermissaoDetalhada adicionarPermissao(UUID obraId, String email, Papel papel, UUID usuarioId) {
 		buscarAtiva(obraId);
 		authorization.exigirOwner(obraId, usuarioId);
-		UUID convidadoId = permissoes.buscarUsuarioIdPorEmail(email.trim().toLowerCase(Locale.ROOT))
+		String emailNormalizado = email.trim().toLowerCase(Locale.ROOT);
+		UUID convidadoId = permissoes.buscarUsuarioIdPorEmail(emailNormalizado)
 				.orElseThrow(() -> new NoSuchElementException("Usuário não encontrado"));
 		limitesPlano.validarNovoColaborador(obraId, convidadoId);
 
-		Permissao permissao = permissoes.findByObraIdAndUserId(obraId, convidadoId)
-				.map(existente -> alterarPapel(existente, papel))
-				.orElseGet(() -> permissoes.save(new Permissao(obraId, convidadoId, papel)));
+		Permissao existente = permissoes.findByObraIdAndUserId(obraId, convidadoId).orElse(null);
+		Permissao permissao = existente == null
+				? permissoes.save(new Permissao(obraId, convidadoId, papel))
+				: alterarPapel(existente, papel);
+		if (existente == null) {
+			historico.registrar(
+					obraId,
+					usuarioId,
+					"ACESSO_CONCEDIDO",
+					Map.of("convidadoId", convidadoId, "email", emailNormalizado, "papel", papel.name()));
+		}
 		return detalhar(permissao);
 	}
 
