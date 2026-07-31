@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Notificacao } from "@services/notificacoesService";
-import { mensagemNotificacao } from "./notificacoes";
+import { mensagemNotificacao, notificationBadgeLabel } from "./notificacoes";
 
 const notification = (acao: string, detalhes: Record<string, unknown>): Notificacao => ({
   id: "notification-id",
@@ -28,5 +28,13 @@ describe("mensagemNotificacao", () => {
       .toBe("Paulo concedeu acesso a você.");
     expect(mensagemNotificacao(notification("ENTROU_OBRA", {})))
       .toBe("Paulo entrou na obra usando o código de compartilhamento.");
+  });
+});
+
+describe("notificationBadgeLabel", () => {
+  it("oculta zero e limita contagens acima de 99", () => {
+    expect(notificationBadgeLabel(0)).toBeNull();
+    expect(notificationBadgeLabel(99)).toBe("99");
+    expect(notificationBadgeLabel(100)).toBe("99+");
   });
 });

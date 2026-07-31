@@ -1,6 +1,11 @@
 import { Notificacao } from "@services/notificacoesService";
 import { formatFileName } from "./display";
 
+export const notificationBadgeLabel = (count: number) => {
+  if (count <= 0) return null;
+  return count > 99 ? "99+" : String(count);
+};
+
 const detail = (item: Notificacao, ...keys: string[]) => {
   for (const key of keys) {
     const value = item.detalhes?.[key];

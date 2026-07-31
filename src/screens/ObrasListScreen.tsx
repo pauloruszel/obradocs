@@ -27,6 +27,7 @@ import SearchField from "@components/SearchField";
 import ScreenState from "@components/ScreenState";
 import { colors, layout, radius, spacing } from "@theme/index";
 import { contarNotificacoesNaoLidas } from "@services/notificacoesService";
+import { notificationBadgeLabel } from "@utils/notificacoes";
 
 type Nav = NativeStackNavigationProp<RootStackParamList, "ObrasList">;
 
@@ -38,6 +39,7 @@ const ObrasListScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const badgeLabel = notificationBadgeLabel(unreadNotifications);
   const filteredObras = useMemo(() => {
     const term = query
       .normalize("NFD")
@@ -66,11 +68,9 @@ const ObrasListScreen = () => {
             accessibilityLabel={`Abrir notificações${unreadNotifications ? `. ${unreadNotifications} não lidas` : ""}`}
           >
             <Bell size={23} color={colors.primary} />
-            {unreadNotifications > 0 && (
+            {badgeLabel && (
               <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>
-                  {unreadNotifications > 99 ? "99+" : unreadNotifications}
-                </Text>
+                <Text style={styles.notificationBadgeText}>{badgeLabel}</Text>
               </View>
             )}
           </Pressable>
