@@ -11,6 +11,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import {
   Building2,
+  Bell,
   ChevronRight,
   CircleUserRound,
   KeyRound,
@@ -25,6 +26,7 @@ import AppButton from "@components/AppButton";
 import SearchField from "@components/SearchField";
 import ScreenState from "@components/ScreenState";
 import { colors, layout, radius, spacing } from "@theme/index";
+import { contarNotificacoesNaoLidas } from "@services/notificacoesService";
 
 type Nav = NativeStackNavigationProp<RootStackParamList, "ObrasList">;
 
@@ -35,6 +37,7 @@ const ObrasListScreen = () => {
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const filteredObras = useMemo(() => {
     const term = query
       .normalize("NFD")
@@ -55,17 +58,42 @@ const ObrasListScreen = () => {
     navigation.setOptions({
       title: "Minhas obras",
       headerRight: () => (
-        <Pressable
-          style={styles.accountButton}
-          onPress={() => navigation.navigate("Account")}
-          accessibilityRole="button"
-          accessibilityLabel="Abrir minha conta"
-        >
-          <CircleUserRound size={24} color={colors.primary} />
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable
+            style={styles.headerButton}
+            onPress={() => navigation.navigate("Notificacoes")}
+            accessibilityRole="button"
+            accessibilityLabel={`Abrir notificações${unreadNotifications ? `. ${unreadNotifications} não lidas` : ""}`}
+          >
+            <Bell size={23} color={colors.primary} />
+            {unreadNotifications > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>
+                  {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                </Text>
+              </View>
+            )}
+          </Pressable>
+          <Pressable
+            style={styles.headerButton}
+            onPress={() => navigation.navigate("Account")}
+            accessibilityRole="button"
+            accessibilityLabel="Abrir minha conta"
+          >
+            <CircleUserRound size={24} color={colors.primary} />
+          </Pressable>
+        </View>
       ),
     });
-  }, [navigation]);
+  }, [navigation, unreadNotifications]);
+
+  const loadUnreadNotifications = useCallback(async () => {
+    try {
+      setUnreadNotifications(await contarNotificacoesNaoLidas());
+    } catch {
+      // A lista de obras continua disponível se apenas o contador falhar.
+    }
+  }, []);
 
   const load = useCallback(
     async (showInitialLoader = false) => {
@@ -90,12 +118,14 @@ const ObrasListScreen = () => {
   useFocusEffect(
     useCallback(() => {
       load(obras.length === 0);
-    }, [load]),
+      loadUnreadNotifications();
+    }, [load, loadUnreadNotifications]),
   );
 
   const onRefresh = async () => {
     setRefreshing(true);
     await load();
+    await loadUnreadNotifications();
     setRefreshing(false);
   };
 
@@ -201,12 +231,23 @@ const ObrasListScreen = () => {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background, alignItems: "center" },
   content: { flex: 1, width: "100%", maxWidth: layout.maxContentWidth, padding: spacing.lg },
-  accountButton: {
-    width: 48,
-    height: 48,
+  headerActions: { flexDirection: "row", alignItems: "center" },
+  headerButton: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
+  notificationBadge: {
+    position: "absolute",
+    top: 4,
+    right: 2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: colors.danger,
+    borderWidth: 2,
+    borderColor: colors.surface,
   },
+  notificationBadgeText: { color: colors.white, fontSize: 9, fontWeight: "800" },
   actions: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.xl },
   action: { flex: 1 },
   list: { paddingTop: spacing.md, paddingBottom: spacing.xxl },
