@@ -20,7 +20,7 @@ jobs:
     env:
       EXPO_PUBLIC_API_URL: https://obradocs-production.up.railway.app
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version: 22
