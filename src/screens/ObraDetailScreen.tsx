@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useFocusEffect } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   Camera,
   FileText,
@@ -51,6 +52,7 @@ const categoryIcon: Record<ArquivoTipo, React.ElementType> = {
 };
 
 const ObraDetailScreen = ({ route, navigation }: Props) => {
+  const insets = useSafeAreaInsets();
   const { obraId, nome } = route.params;
   const { user } = useAuth();
   const [categorias, setCategorias] = useState<CategoriaObra[]>([]);
@@ -483,7 +485,10 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
             keyExtractor={(item) => item.id}
             renderItem={renderFile}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={displayedFiles.length === 0 ? styles.emptyList : styles.list}
+            contentContainerStyle={[
+              displayedFiles.length === 0 ? styles.emptyList : styles.list,
+              { paddingBottom: 92 + insets.bottom },
+            ]}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
@@ -531,7 +536,7 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
               tipo: selectedCategory?.tipo,
             })
           }
-          style={styles.floatingAction}
+          style={{ ...styles.floatingAction, bottom: spacing.lg + insets.bottom }}
         />
       )}
 
@@ -640,10 +645,10 @@ const styles = StyleSheet.create({
   },
   progressValue: { height: "100%", backgroundColor: colors.primary },
   completenessHint: { color: colors.textMuted, fontSize: 12, marginTop: spacing.sm },
-  roomsScroll: { flexGrow: 0, marginBottom: spacing.md },
-  rooms: { gap: spacing.sm },
+  roomsScroll: { flexGrow: 0, flexShrink: 0, height: 44, marginBottom: spacing.md },
+  rooms: { alignItems: "center", gap: spacing.sm },
   room: {
-    minHeight: 36,
+    height: 44,
     justifyContent: "center",
     paddingHorizontal: spacing.md,
     borderRadius: radius.md,

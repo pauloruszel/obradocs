@@ -19,6 +19,7 @@ import {
   Upload,
 } from "lucide-react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RootStackParamList } from "@navigation/AppNavigator";
 import { ArquivoTipo, CategoriaObra } from "@models/models";
 import { uploadArquivo, uploadRevisao } from "@services/arquivosService";
@@ -45,6 +46,7 @@ const typeIcon: Record<ArquivoTipo, React.ElementType> = {
 };
 
 const UploadArquivoScreen = ({ route, navigation }: Props) => {
+  const insets = useSafeAreaInsets();
   const {
     obraId,
     arquivoId,
@@ -353,7 +355,7 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: spacing.lg + insets.bottom }]}>
         <AppButton
           label={isRevision ? "Enviar revisão" : "Enviar arquivo"}
           icon={<Upload size={19} color={colors.white} />}

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { Linking, Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Check, ChevronRight, FileText, ShieldCheck } from "lucide-react-native";
 import { useAuth } from "@context/AuthContext";
 import { publicApiUrl } from "@services/apiClient";
@@ -41,7 +42,11 @@ const TermsAcceptanceScreen = () => {
 
   return (
     <SafeAreaView style={styles.screen}>
-      <View style={styles.content}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.brand}>Obradocs</Text>
         <Text style={styles.title}>Antes de continuar</Text>
         <Text style={styles.description}>
@@ -99,7 +104,7 @@ const TermsAcceptanceScreen = () => {
           disabled={submitting}
           style={styles.exit}
         />
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -107,7 +112,7 @@ const TermsAcceptanceScreen = () => {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   content: {
-    flex: 1,
+    flexGrow: 1,
     width: "100%",
     maxWidth: 520,
     alignSelf: "center",
