@@ -207,6 +207,8 @@ class ObraIntegrationTests {
 		JsonNode historico = json(get("/v1/obras/" + obraId + "/historico", owner.token()));
 		assertThat(historico).filteredOn(item -> "ENTROU_OBRA".equals(item.path("acao").stringValue()))
 				.hasSize(1);
+		assertThat(contarNotificacoes(owner.id(), "ENTROU_OBRA")).isEqualTo(1);
+		assertThat(contarNotificacoes(editor.id(), "ENTROU_OBRA")).isZero();
 	}
 
 	@Test
@@ -224,6 +226,9 @@ class ObraIntegrationTests {
 		JsonNode viewerPermissao = json(post("/v1/obras/" + obraId + "/permissoes", """
 				{"email":"%s","papel":"VIEWER"}
 				""".formatted(viewer.email()), owner.token()));
+		assertThat(contarNotificacoes(editor.id(), "ACESSO_CONCEDIDO")).isEqualTo(1);
+		assertThat(contarNotificacoes(viewer.id(), "ACESSO_CONCEDIDO")).isEqualTo(1);
+		assertThat(contarNotificacoes(owner.id(), "ACESSO_CONCEDIDO")).isZero();
 
 		assertThat(patch("/v1/obras/" + obraId, """
 				{"nome":"Viewer nao renomeia"}
@@ -305,6 +310,15 @@ class ObraIntegrationTests {
 		assertThat(post("/v1/obras", """
 				{"nome":"Nova obra apos exclusao"}
 				""", owner.token()).statusCode()).isEqualTo(201);
+	}
+
+	private int contarNotificacoes(UUID usuarioId, String acao) {
+		return jdbc.queryForObject("""
+				select count(*)
+				from notificacoes n
+				join historico h on h.id = n.historico_id
+				where n.usuario_id = ? and h.acao = ?
+				""", Integer.class, usuarioId, acao);
 	}
 
 	@Test

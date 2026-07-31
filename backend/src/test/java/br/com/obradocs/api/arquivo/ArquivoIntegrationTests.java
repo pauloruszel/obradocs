@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -87,6 +88,9 @@ class ArquivoIntegrationTests {
     @Autowired
     S3Client s3;
 
+    @Autowired
+    JdbcTemplate jdbc;
+
     private final HttpClient http = HttpClient.newHttpClient();
 
     @BeforeEach
@@ -148,7 +152,12 @@ class ArquivoIntegrationTests {
     @Test
     void preservaRevisoesEListaSomenteAVersaoAtual() throws Exception {
         UsuarioAutenticado owner = registrar("Owner Revisao", "owner-revisao@example.com");
-        String obraId = criarObra(owner, "Obra com revisoes").path("id").stringValue();
+        UsuarioAutenticado colaborador = registrar("Colaborador Revisao", "colaborador-revisao@example.com");
+        JsonNode obra = criarObra(owner, "Obra com revisoes");
+        String obraId = obra.path("id").stringValue();
+        String codigo = obra.path("codigo_compartilhamento").stringValue();
+        assertThat(post("/v1/obras/entrar", "{\"codigo\":\"" + codigo + "\"}", colaborador.token())
+                .statusCode()).isEqualTo(200);
         byte[] r1 = "%PDF-1.4\nrevisao um".getBytes(StandardCharsets.UTF_8);
         byte[] r2 = "%PDF-1.4\nrevisao dois".getBytes(StandardCharsets.UTF_8);
 
@@ -178,6 +187,11 @@ class ArquivoIntegrationTests {
         assertThat(revisoes.get(0).path("atual").booleanValue()).isTrue();
         assertThat(revisoes.get(1).path("revisao").intValue()).isEqualTo(1);
         assertThat(revisoes.get(1).path("atual").booleanValue()).isFalse();
+
+        assertThat(contarNotificacoes(colaborador.email(), "UPLOAD_ARQUIVO")).isEqualTo(1);
+        assertThat(contarNotificacoes(colaborador.email(), "NOVA_REVISAO")).isEqualTo(1);
+        assertThat(contarNotificacoes(owner.email(), "UPLOAD_ARQUIVO")).isZero();
+        assertThat(contarNotificacoes(owner.email(), "NOVA_REVISAO")).isZero();
 
         json(patch(
                 "/v1/arquivos/" + primeiraId,
@@ -307,6 +321,16 @@ class ArquivoIntegrationTests {
                 contentType,
                 conteudo,
                 token);
+    }
+
+    private int contarNotificacoes(String email, String acao) {
+        return jdbc.queryForObject("""
+                select count(*)
+                from notificacoes n
+                join usuarios u on u.id = n.usuario_id
+                join historico h on h.id = n.historico_id
+                where u.email = ? and h.acao = ?
+                """, Integer.class, email, acao);
     }
 
     private HttpResponse<String> uploadRevisao(

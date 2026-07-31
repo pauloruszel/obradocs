@@ -58,3 +58,6 @@ interface HistoricoRepository extends JpaRepository<Historico, UUID> {
 
 	List<Historico> findAllByObraIdOrderByCreatedAtDesc(UUID obraId);
 }
+
+interface NotificacaoRepository extends JpaRepository<Notificacao, UUID> {
+}
