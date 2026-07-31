@@ -50,4 +50,10 @@ class Notificacao {
 	void onCreate() {
 		createdAt = Instant.now();
 	}
+
+	void marcarComoLida() {
+		if (lidaAt == null) {
+			lidaAt = Instant.now();
+		}
+	}
 }

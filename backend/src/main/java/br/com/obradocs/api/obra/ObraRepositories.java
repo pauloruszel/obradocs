@@ -5,6 +5,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -60,4 +61,14 @@ interface HistoricoRepository extends JpaRepository<Historico, UUID> {
 }
 
 interface NotificacaoRepository extends JpaRepository<Notificacao, UUID> {
+
+	List<Notificacao> findTop50ByUsuarioIdOrderByCreatedAtDesc(UUID usuarioId);
+
+	Optional<Notificacao> findByIdAndUsuarioId(UUID id, UUID usuarioId);
+
+	long countByUsuarioIdAndLidaAtIsNull(UUID usuarioId);
+
+	@Modifying
+	@Query("update Notificacao n set n.lidaAt = current_timestamp where n.usuarioId = :usuarioId and n.lidaAt is null")
+	int marcarTodasComoLidas(@Param("usuarioId") UUID usuarioId);
 }

@@ -6,6 +6,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -209,6 +210,47 @@ class ObraIntegrationTests {
 				.hasSize(1);
 		assertThat(contarNotificacoes(owner.id(), "ENTROU_OBRA")).isEqualTo(1);
 		assertThat(contarNotificacoes(editor.id(), "ENTROU_OBRA")).isZero();
+	}
+
+	@Test
+	void listaContaEMarcaSomenteAsNotificacoesDoUsuario() throws Exception {
+		UsuarioAutenticado owner = registrar("Owner Notificacoes", "owner-notificacoes@example.com");
+		tornarPro(owner.id());
+		UsuarioAutenticado colaborador = registrar(
+				"Colaborador Notificacoes", "colaborador-notificacoes@example.com");
+		UsuarioAutenticado outro = registrar("Outro Usuario", "outro-notificacoes@example.com");
+
+		for (String nome : List.of("Obra notificada 1", "Obra notificada 2")) {
+			String obraId = criarObra(owner, nome).path("id").stringValue();
+			assertThat(post("/v1/obras/" + obraId + "/permissoes", """
+					{"email":"%s","papel":"VIEWER"}
+					""".formatted(colaborador.email()), owner.token()).statusCode()).isEqualTo(201);
+		}
+
+		JsonNode notificacoes = json(get("/v1/notificacoes", colaborador.token()));
+		assertThat(notificacoes).hasSize(2);
+		assertThat(notificacoes).allSatisfy(notificacao -> {
+			assertThat(notificacao.path("acao").stringValue()).isEqualTo("ACESSO_CONCEDIDO");
+			assertThat(notificacao.path("obra_nome").stringValue()).startsWith("Obra notificada");
+			assertThat(notificacao.path("autor_nome").stringValue()).isEqualTo("Owner Notificacoes");
+			assertThat(notificacao.path("lida_at").isNull()).isTrue();
+		});
+		assertThat(json(get("/v1/notificacoes/nao-lidas/count", colaborador.token()))
+				.path("quantidade").intValue()).isEqualTo(2);
+
+		String notificacaoId = notificacoes.get(0).path("id").stringValue();
+		assertThat(patch("/v1/notificacoes/" + notificacaoId + "/lida", null, outro.token()).statusCode())
+				.isEqualTo(404);
+		assertThat(patch("/v1/notificacoes/" + notificacaoId + "/lida", null, colaborador.token()).statusCode())
+				.isEqualTo(204);
+		assertThat(json(get("/v1/notificacoes/nao-lidas/count", colaborador.token()))
+				.path("quantidade").intValue()).isEqualTo(1);
+
+		assertThat(patch("/v1/notificacoes/lidas", null, colaborador.token()).statusCode()).isEqualTo(204);
+		assertThat(json(get("/v1/notificacoes/nao-lidas/count", colaborador.token()))
+				.path("quantidade").intValue()).isZero();
+		assertThat(json(get("/v1/notificacoes", colaborador.token())))
+				.allSatisfy(notificacao -> assertThat(notificacao.path("lida_at").isTextual()).isTrue());
 	}
 
 	@Test
