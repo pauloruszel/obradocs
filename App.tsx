@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import AppNavigator from './src/navigation/AppNavigator';
 import { AuthProvider } from './src/context/AuthContext';
 import FlashMessage from "react-native-flash-message";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { colors } from "./src/theme";
 
 const linking = {
@@ -32,15 +33,17 @@ const navigationTheme = {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <NavigationContainer
-        linking={Platform.OS === "web" ? undefined : linking}
-        theme={navigationTheme}
-      >
-        <StatusBar style="dark" />
-        <AppNavigator />
-        <FlashMessage position="top" floating />
-      </NavigationContainer>
-    </AuthProvider>
+    <SafeAreaProvider>
+      <AuthProvider>
+        <NavigationContainer
+          linking={Platform.OS === "web" ? undefined : linking}
+          theme={navigationTheme}
+        >
+          <StatusBar style="dark" />
+          <AppNavigator />
+          <FlashMessage position="top" floating />
+        </NavigationContainer>
+      </AuthProvider>
+    </SafeAreaProvider>
   );
 }
