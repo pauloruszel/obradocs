@@ -50,7 +50,7 @@ export type RootStackParamList = {
   RevisoesArquivo: { arquivoId: string; obraId: string; nome: string; papel?: Papel };
   AprovacaoArquivo: { arquivoId: string; obraId: string };
   CategoriasObra: { obraId: string };
-  Historico: { obraId: string };
+  Historico: { obraId: string; clientPortal?: boolean };
   Permissoes: { obraId: string; isOwner: boolean };
   CodigoAcesso: { obraId: string; nome: string };
   Account: undefined;

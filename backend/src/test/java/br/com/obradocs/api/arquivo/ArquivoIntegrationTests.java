@@ -218,10 +218,18 @@ class ArquivoIntegrationTests {
     void controlaSolicitacaoDecisaoERevisaoOficialAprovada() throws Exception {
         UsuarioAutenticado owner = registrar("Owner Aprovacao", "owner-aprovacao@example.com");
         UsuarioAutenticado editor = registrar("Editor Aprovacao", "editor-aprovacao@example.com");
+        UsuarioAutenticado cliente = registrar("Cliente Aprovacao", "cliente-aprovacao@example.com");
         JsonNode obra = criarObra(owner, "Obra com aprovacao");
         String obraId = obra.path("id").stringValue();
         String codigo = obra.path("codigo_compartilhamento").stringValue();
+        jdbc.update("""
+                update assinaturas
+                set plano_id = '10000000-0000-0000-0000-000000000002'
+                where usuario_id = (select id from usuarios where email = ?)
+                """, owner.email());
         assertThat(post("/v1/obras/entrar", "{\"codigo\":\"" + codigo + "\"}", editor.token()).statusCode())
+                .isEqualTo(200);
+        assertThat(post("/v1/obras/entrar", "{\"codigo\":\"" + codigo + "\"}", cliente.token()).statusCode())
                 .isEqualTo(200);
 
         byte[] r1 = "%PDF-1.4\nrevisao para aprovar".getBytes(StandardCharsets.UTF_8);
@@ -278,6 +286,8 @@ class ArquivoIntegrationTests {
         assertThat(aprovada.path("aprovacao_decidida_por").stringValue()).isNotBlank();
         assertThat(aprovada.path("aprovacao_decidida_at").stringValue()).isNotBlank();
         assertThat(json(get("/v1/notificacoes", editor.token())).toString())
+                .contains("REVISAO_APROVADA");
+        assertThat(json(get("/v1/notificacoes", cliente.token())).toString())
                 .contains("REVISAO_APROVADA");
         assertThat(post(
                 "/v1/arquivos/" + primeiraId + "/aprovacao/decidir",

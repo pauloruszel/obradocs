@@ -163,7 +163,7 @@ const ArquivoViewScreen = ({ route, navigation }: Props) => {
         {!!meta.enviado_por_nome && (
           <Text style={styles.author}>Enviado por {meta.enviado_por_nome}</Text>
         )}
-        <View style={styles.actions}>
+        {canEdit && <View style={styles.actions}>
           <AppButton
             label="Revisões"
             variant="secondary"
@@ -178,25 +178,23 @@ const ArquivoViewScreen = ({ route, navigation }: Props) => {
             }
             style={styles.action}
           />
-          {canEdit && (
-            <AppButton
-              label="Nova revisão"
-              icon={<Upload size={18} color={colors.white} />}
-              onPress={() =>
-                navigation.navigate("UploadArquivo", {
-                  obraId: meta.obra_id,
-                  arquivoId,
-                  tipo: meta.tipo,
-                  documentoNome: displayName,
-                  contentType: meta.content_type,
-                  papel,
-                })
-              }
-              style={styles.action}
-            />
-          )}
-        </View>
-        <View style={styles.approvalCard}>
+          <AppButton
+            label="Nova revisão"
+            icon={<Upload size={18} color={colors.white} />}
+            onPress={() =>
+              navigation.navigate("UploadArquivo", {
+                obraId: meta.obra_id,
+                arquivoId,
+                tipo: meta.tipo,
+                documentoNome: displayName,
+                contentType: meta.content_type,
+                papel,
+              })
+            }
+            style={styles.action}
+          />
+        </View>}
+        {(canEdit || meta.aprovacao_status) && <View style={styles.approvalCard}>
           <View style={styles.approvalText}>
             <Text style={styles.approvalTitle}>
               {meta.aprovacao_status ? aprovacaoLabel[meta.aprovacao_status] : "Sem aprovação solicitada"}
@@ -214,7 +212,7 @@ const ArquivoViewScreen = ({ route, navigation }: Props) => {
             onPress={() => navigation.navigate("AprovacaoArquivo", { arquivoId, obraId: meta.obra_id })}
             style={styles.approvalButton}
           />
-        </View>
+        </View>}
       </View>
 
       <View style={styles.viewer}>

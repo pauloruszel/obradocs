@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
+  Linking,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -12,7 +14,10 @@ import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useFocusEffect } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
+  BadgeCheck,
   Camera,
+  Clock3,
+  Download,
   FileText,
   History,
   KeyRound,
@@ -26,14 +31,15 @@ import {
   Users,
 } from "lucide-react-native";
 import { RootStackParamList } from "@navigation/AppNavigator";
-import { Arquivo, ArquivoTipo, CategoriaObra } from "@models/models";
-import { listarArquivos } from "@services/arquivosService";
+import { Arquivo, ArquivoTipo, CategoriaObra, Papel } from "@models/models";
+import { gerarUrlTemporaria, listarArquivos, listarRevisoes } from "@services/arquivosService";
 import { listarCategorias } from "@services/categoriasService";
 import { listarPermissoes } from "@services/permissoesService";
 import { useAuth } from "@context/AuthContext";
 import { toastError, toastSuccess } from "@utils/toast";
 import { arquivoTipoLabel, formatDateTime, formatFileName, papelLabel } from "@utils/display";
 import { executeDeleteObraFlow } from "@utils/deleteObraFlow";
+import { selecionarRevisaoOficial } from "@utils/clientPortal";
 import { renomearObra, excluirObra } from "@services/obrasService";
 import RenameObraModal from "@components/RenameObraModal";
 import ConfirmDialog from "@components/ConfirmDialog";
@@ -60,6 +66,7 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
   const [selected, setSelected] = useState<string | null>(null);
   const selectedRef = useRef<string | null>(null);
   const [filesByCategory, setFilesByCategory] = useState<Record<string, Arquivo[]>>({});
+  const [pendingByCategory, setPendingByCategory] = useState<Record<string, Arquivo[]>>({});
   const [loadingCategory, setLoadingCategory] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [ambienteFiltro, setAmbienteFiltro] = useState<string | null>(null);
@@ -73,10 +80,13 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
   const [menuVisible, setMenuVisible] = useState(false);
   const [deleteVisible, setDeleteVisible] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const canEdit = papel === "OWNER" || papel === "EDITOR";
+  const clientPortal = papel === "VIEWER";
   const selectedCategory = categorias.find((item) => item.id === selected) || null;
   const arquivos = selected ? filesByCategory[selected] || [] : [];
+  const pendingFiles = selected ? pendingByCategory[selected] || [] : [];
   const searchActive = query.trim().length > 0;
   const ambientes = Array.from(
     new Set(arquivos.map((item) => item.ambiente?.trim()).filter(Boolean) as string[]),
@@ -107,18 +117,21 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
     });
   }, [navigation, obraNome]);
 
-  const loadPermission = useCallback(async () => {
-    if (!user) return;
+  const loadPermission = useCallback(async (): Promise<Papel> => {
+    if (!user) return "VIEWER";
     try {
       const permissions = await listarPermissoes(obraId);
       const current = permissions.find((item) => item.user_id === user.id);
-      if (current) setPapel(current.papel);
+      const role = current?.papel || "VIEWER";
+      setPapel(role);
+      return role;
     } catch (error) {
       const offline = /network|fetch/i.test((error as Error)?.message || "");
       toastError(
         offline ? "Sem conexão" : "Não foi possível carregar seu acesso",
         offline ? "Verifique sua internet." : "Tente novamente.",
       );
+      return "VIEWER";
     }
   }, [obraId, user]);
 
@@ -140,13 +153,27 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
     }
   }, [obraId]);
 
+  const resolveClientFiles = useCallback(async (items: Arquivo[]) =>
+    (await Promise.all(items.map(async (item) => {
+      if (item.oficial_aprovada) return item;
+      if (item.revisao_aprovada == null) return null;
+      return selecionarRevisaoOficial(item, await listarRevisoes(item.id));
+    }))).filter((item): item is Arquivo => item != null), []);
+
   const loadFiles = useCallback(
-    async (category: CategoriaObra) => {
+    async (category: CategoriaObra, role: Papel) => {
       try {
         const result = await listarArquivos(obraId, undefined, undefined, category.id);
+        const visible = role === "VIEWER" ? await resolveClientFiles(result) : result;
         setFilesByCategory((current) => ({
           ...current,
-          [category.id]: result,
+          [category.id]: visible,
+        }));
+        setPendingByCategory((current) => ({
+          ...current,
+          [category.id]: role === "VIEWER"
+            ? result.filter((item) => item.aprovacao_status === "PENDING")
+            : [],
         }));
       } catch (error) {
         const offline = /network|fetch/i.test((error as Error)?.message || "");
@@ -158,22 +185,21 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
         setLoadingCategory((current) => (current === category.id ? null : current));
       }
     },
-    [obraId],
+    [obraId, resolveClientFiles],
   );
 
   useFocusEffect(
     useCallback(() => {
-      loadPermission();
-      loadCategories().then((result) => {
+      loadPermission().then((role) => loadCategories().then((result) => {
         const category =
           result.find((item) => item.id === selectedRef.current)
           || result.find((item) => item.tipo === "FOTO")
           || result[0];
         if (category) {
           setLoadingCategory(category.id);
-          loadFiles(category);
+          loadFiles(category, role);
         }
-      });
+      }));
     }, [loadCategories, loadFiles, loadPermission]),
   );
 
@@ -190,7 +216,8 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
     const timeout = setTimeout(async () => {
       try {
         const result = await listarArquivos(obraId, undefined, term);
-        if (active) setSearchResults(result);
+        const visible = clientPortal ? await resolveClientFiles(result) : result;
+        if (active) setSearchResults(visible);
       } catch (error) {
         if (!active) return;
         const offline = /network|fetch/i.test((error as Error)?.message || "");
@@ -207,7 +234,7 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
       active = false;
       clearTimeout(timeout);
     };
-  }, [obraId, query]);
+  }, [clientPortal, obraId, query, resolveClientFiles]);
 
   const selectCategory = (category: CategoriaObra) => {
     if (category.id === selected) return;
@@ -216,7 +243,7 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
     setSelected(category.id);
     if (filesByCategory[category.id] === undefined) {
       setLoadingCategory(category.id);
-      loadFiles(category);
+      loadFiles(category, papel);
     }
   };
 
@@ -224,19 +251,17 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
     setRefreshing(true);
     if (searchActive) {
       try {
-        const [, result] = await Promise.all([
+        const [role, result] = await Promise.all([
           loadPermission(),
           listarArquivos(obraId, undefined, query),
         ]);
-        setSearchResults(result);
+        setSearchResults(role === "VIEWER" ? await resolveClientFiles(result) : result);
       } catch {
         toastError("Não foi possível atualizar a busca", "Tente novamente.");
       }
     } else {
-      await Promise.all([
-        loadPermission(),
-        selectedCategory ? loadFiles(selectedCategory) : loadCategories(),
-      ]);
+      const role = await loadPermission();
+      await (selectedCategory ? loadFiles(selectedCategory, role) : loadCategories());
     }
     setRefreshing(false);
   };
@@ -319,6 +344,18 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
     return items;
   })();
 
+  const downloadFile = async (item: Arquivo) => {
+    if (downloadingId) return;
+    setDownloadingId(item.id);
+    try {
+      await Linking.openURL(await gerarUrlTemporaria(item.id));
+    } catch {
+      toastError("Não foi possível baixar o documento", "Tente novamente.");
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
   const renderFile = ({ item }: { item: Arquivo }) => {
     const Icon = categoryIcon[item.tipo];
     const size =
@@ -353,6 +390,12 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
             {searchActive ? `${arquivoTipoLabel[item.tipo]} · ` : ""}
             R{item.revisao} · {size} · {formatDateTime(item.created_at)}
           </Text>
+          {clientPortal && (
+            <View style={styles.officialRow}>
+              <BadgeCheck size={14} color={colors.success} />
+              <Text style={styles.officialText}>Revisão oficial aprovada</Text>
+            </View>
+          )}
           {!!item.ambiente && (
             <Text style={styles.fileAuthor} numberOfLines={1}>
               Ambiente: {item.ambiente}
@@ -364,6 +407,21 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
             </Text>
           )}
         </View>
+        {clientPortal && (
+          <Pressable
+            style={styles.downloadButton}
+            onPress={(event) => {
+              event.stopPropagation();
+              downloadFile(item);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={`Baixar documento ${formatFileName(item.documento_nome)}`}
+          >
+            {downloadingId === item.id
+              ? <ActivityIndicator color={colors.primary} />
+              : <Download size={21} color={colors.primary} />}
+          </Pressable>
+        )}
       </Pressable>
     );
   };
@@ -391,9 +449,10 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
               <View style={styles.summary}>
                 <View style={styles.summaryText}>
                   <Text style={styles.obraTitle} numberOfLines={2}>{obraNome}</Text>
+                  {clientPortal && <Text style={styles.portalLabel}>Portal do cliente</Text>}
                 </View>
                 <View style={styles.roleBadge}>
-                  <Text style={styles.roleBadgeText}>{papelLabel[papel]}</Text>
+                  <Text style={styles.roleBadgeText}>{clientPortal ? "Cliente" : papelLabel[papel]}</Text>
                 </View>
               </View>
 
@@ -437,7 +496,7 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
                 </ScrollView>
               )}
 
-              {!searchActive && categorias.length > 0 && (
+              {!clientPortal && !searchActive && categorias.length > 0 && (
                 <View style={styles.completeness}>
                   <View style={styles.completenessHeader}>
                     <Text style={styles.completenessTitle}>Documentação da obra</Text>
@@ -478,23 +537,45 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
                 </ScrollView>
               )}
 
+              {clientPortal && !searchActive && pendingFiles.length > 0 && (
+                <View style={styles.pendingCard}>
+                  <View style={styles.pendingHeader}>
+                    <Clock3 size={18} color={colors.warning} />
+                    <Text style={styles.pendingTitle}>Aguardando decisão</Text>
+                    <Text style={styles.pendingCount}>{pendingFiles.length}</Text>
+                  </View>
+                  {pendingFiles.map((item) => (
+                    <View key={item.id} style={styles.pendingItem}>
+                      <Text style={styles.pendingName} numberOfLines={1}>
+                        {formatFileName(item.documento_nome)} · R{item.revisao}
+                      </Text>
+                      <Text style={styles.pendingDescription}>
+                        Em análise pelo responsável da obra.
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
               <View style={styles.shortcuts}>
                 <AppButton
-                  label="Histórico"
+                  label={clientPortal ? "Histórico da obra" : "Histórico"}
                   variant="secondary"
                   icon={<History size={18} color={colors.primary} />}
-                  onPress={() => navigation.navigate("Historico", { obraId })}
+                  onPress={() => navigation.navigate("Historico", { obraId, clientPortal })}
                   style={styles.shortcut}
                 />
-                <AppButton
-                  label="Permissões"
-                  variant="secondary"
-                  icon={<Users size={18} color={colors.primary} />}
-                  onPress={() =>
-                    navigation.navigate("Permissoes", { obraId, isOwner: papel === "OWNER" })
-                  }
-                  style={styles.shortcut}
-                />
+                {!clientPortal && (
+                  <AppButton
+                    label="Permissões"
+                    variant="secondary"
+                    icon={<Users size={18} color={colors.primary} />}
+                    onPress={() =>
+                      navigation.navigate("Permissoes", { obraId, isOwner: papel === "OWNER" })
+                    }
+                    style={styles.shortcut}
+                  />
+                )}
               </View>
             </View>
           }
@@ -529,11 +610,11 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
             ) : (
               <ScreenState
                 icon={<FileText size={42} color={colors.textMuted} />}
-                title="Nenhum arquivo nesta categoria"
+                title={clientPortal ? "Nenhum documento aprovado nesta categoria" : "Nenhum arquivo nesta categoria"}
                 description={
                   canEdit
                     ? "Envie o primeiro documento para começar a organizar esta obra."
-                    : "Quando um documento for enviado, ele aparecerá aqui."
+                    : "Assim que uma revisão for aprovada, ela ficará disponível aqui."
                 }
               />
             )
@@ -607,6 +688,7 @@ const styles = StyleSheet.create({
   },
   summaryText: { flex: 1, minWidth: 0 },
   obraTitle: { color: colors.text, fontSize: 18, fontWeight: "800" },
+  portalLabel: { color: colors.textMuted, fontSize: 12, marginTop: spacing.xs },
   roleBadge: {
     backgroundColor: colors.primarySoft,
     borderRadius: radius.md,
@@ -676,6 +758,20 @@ const styles = StyleSheet.create({
   roomActive: { backgroundColor: colors.primarySoft, borderColor: colors.primary },
   roomText: { color: colors.textMuted, fontSize: 13, fontWeight: "700" },
   roomTextActive: { color: colors.primary },
+  pendingCard: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  pendingHeader: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  pendingTitle: { flex: 1, color: colors.text, fontSize: 14, fontWeight: "800" },
+  pendingCount: { color: colors.warning, fontSize: 13, fontWeight: "800" },
+  pendingItem: { marginTop: spacing.sm, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border },
+  pendingName: { color: colors.text, fontSize: 13, fontWeight: "700" },
+  pendingDescription: { color: colors.textMuted, fontSize: 12, marginTop: spacing.xs },
   shortcuts: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.md },
   shortcut: { flex: 1 },
   list: { paddingBottom: 92 },
@@ -704,7 +800,16 @@ const styles = StyleSheet.create({
   fileContent: { flex: 1, minWidth: 0 },
   fileName: { color: colors.text, fontWeight: "700" },
   fileMeta: { color: colors.textMuted, fontSize: 13, marginTop: spacing.xs },
+  officialRow: { flexDirection: "row", alignItems: "center", gap: spacing.xs, marginTop: spacing.xs },
+  officialText: { color: colors.success, fontSize: 12, fontWeight: "700" },
   fileAuthor: { color: colors.textMuted, fontSize: 13, marginTop: spacing.xs },
+  downloadButton: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: spacing.sm,
+  },
   floatingAction: {
     position: "absolute",
     right: spacing.lg,

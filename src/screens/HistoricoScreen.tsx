@@ -57,6 +57,14 @@ const formatAction = (action: string) =>
   actionLabels[action] ||
   action.toLowerCase().replaceAll("_", " ").replace(/^./, (letter) => letter.toUpperCase());
 
+const clientActions = new Set([
+  "UPLOAD_ARQUIVO",
+  "NOVA_REVISAO",
+  "APROVACAO_SOLICITADA",
+  "REVISAO_APROVADA",
+  "ALTERACOES_SOLICITADAS",
+]);
+
 const formatDetails = (item: Historico): string | null => {
   const details = item.detalhes;
   if (!details) return null;
@@ -90,7 +98,7 @@ const formatDetails = (item: Historico): string | null => {
 };
 
 const HistoricoScreen = ({ route }: Props) => {
-  const { obraId } = route.params;
+  const { obraId, clientPortal = false } = route.params;
   const [logs, setLogs] = useState<Historico[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -103,12 +111,13 @@ const HistoricoScreen = ({ route }: Props) => {
 
   const sections = useMemo(() => {
     const groups = new Map<string, Historico[]>();
-    logs.forEach((item) => {
+    const visibleLogs = clientPortal ? logs.filter((item) => clientActions.has(item.acao)) : logs;
+    visibleLogs.forEach((item) => {
       const key = formatDate(item.created_at) || "Data não informada";
       groups.set(key, [...(groups.get(key) || []), item]);
     });
     return Array.from(groups, ([title, data]) => ({ title, data }));
-  }, [logs]);
+  }, [clientPortal, logs]);
 
   if (loading) return <ScreenState loading title="Carregando histórico" />;
 
@@ -119,7 +128,7 @@ const HistoricoScreen = ({ route }: Props) => {
         keyExtractor={(item) => item.id}
         stickySectionHeadersEnabled={false}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={logs.length === 0 ? styles.emptyContent : styles.content}
+        contentContainerStyle={sections.length === 0 ? styles.emptyContent : styles.content}
         renderSectionHeader={({ section }) => <Text style={styles.dateHeader}>{section.title}</Text>}
         renderItem={({ item, index, section }) => {
           const Icon = actionIcons[item.acao] || FilePenLine;
@@ -146,8 +155,10 @@ const HistoricoScreen = ({ route }: Props) => {
         ListEmptyComponent={
           <ScreenState
             icon={<FileUp size={42} color={colors.textMuted} />}
-            title="Nenhuma atividade registrada"
-            description="As alterações realizadas nesta obra aparecerão aqui."
+            title={clientPortal ? "Nenhuma atualização de documentos" : "Nenhuma atividade registrada"}
+            description={clientPortal
+              ? "Envios, revisões e decisões de aprovação aparecerão aqui."
+              : "As alterações realizadas nesta obra aparecerão aqui."}
           />
         }
       />
