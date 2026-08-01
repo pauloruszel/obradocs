@@ -26,10 +26,12 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
+import org.mockito.ArgumentCaptor;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import br.com.obradocs.api.auth.AuthRateLimiter;
+import br.com.obradocs.api.auth.BrevoEmailSender;
 
 @Testcontainers
 @ActiveProfiles("test")
@@ -61,6 +63,9 @@ class ObraIntegrationTests {
 	@MockitoBean
 	AuthRateLimiter rateLimiter;
 
+	@MockitoBean
+	BrevoEmailSender emailSender;
+
 	private final HttpClient http = HttpClient.newHttpClient();
 
 	@Test
@@ -87,6 +92,59 @@ class ObraIntegrationTests {
 		JsonNode historico = json(get("/v1/obras/" + obraId + "/historico", owner.token()));
 		assertThat(historico.size()).isEqualTo(1);
 		assertThat(historico.get(0).path("acao").stringValue()).isEqualTo("CRIACAO_OBRA");
+	}
+
+	@Test
+	void conviteProtegeEmailExpiracaoDuplicidadeEReutilizacao() throws Exception {
+		UsuarioAutenticado owner = registrar("Owner Convite", "owner-convite@example.com");
+		UsuarioAutenticado convidado = registrar("Pessoa Convidada", "convidado@example.com");
+		UsuarioAutenticado outro = registrar("Outro Usuario", "outro-convite@example.com");
+		JsonNode obra = criarObra(owner, "Obra com convite");
+		String obraId = obra.path("id").stringValue();
+
+		assertThat(post("/v1/obras/" + obraId + "/convites", """
+				{"email":"convidado@example.com","papel":"VIEWER"}
+				""", owner.token()).statusCode()).isEqualTo(201);
+		assertThat(post("/v1/obras/" + obraId + "/convites", """
+				{"email":"convidado@example.com","papel":"EDITOR"}
+				""", owner.token()).statusCode()).isEqualTo(409);
+
+		ArgumentCaptor<String> links = ArgumentCaptor.forClass(String.class);
+		verify(emailSender).enviarConvite(
+				eq("convidado@example.com"), eq("Obra com convite"), eq(Papel.VIEWER), links.capture());
+		String token = links.getValue().substring(links.getValue().indexOf("?invite=") + 8);
+
+		assertThat(post("/v1/convites/aceitar", """
+				{"token":"%s"}
+				""".formatted(token), outro.token()).statusCode()).isEqualTo(403);
+		assertThat(post("/v1/convites/aceitar", """
+				{"token":"%s"}
+				""".formatted(token), convidado.token()).statusCode()).isEqualTo(200);
+		assertThat(post("/v1/convites/aceitar", """
+				{"token":"%s"}
+				""".formatted(token), convidado.token()).statusCode()).isEqualTo(409);
+
+		UsuarioAutenticado expirado = registrar("Convite Expirado", "expirado@example.com");
+		assertThat(post("/v1/obras/" + obraId + "/convites", """
+				{"email":"expirado@example.com","papel":"EDITOR"}
+				""", owner.token()).statusCode()).isEqualTo(201);
+		verify(emailSender, times(2)).enviarConvite(
+				org.mockito.ArgumentMatchers.anyString(),
+				org.mockito.ArgumentMatchers.anyString(),
+				org.mockito.ArgumentMatchers.any(),
+				links.capture());
+		String expiredToken = links.getAllValues().getLast();
+		expiredToken = expiredToken.substring(expiredToken.indexOf("?invite=") + 8);
+		jdbc.update(
+				"update obra_convites set expires_at = now() - interval '1 minute' where email = ?",
+				"expirado@example.com");
+
+		assertThat(post("/v1/convites/aceitar", """
+				{"token":"%s"}
+				""".formatted(expiredToken), expirado.token()).statusCode()).isEqualTo(410);
+		assertThat(jdbc.queryForObject(
+				"select status from obra_convites where email = ?", String.class, "expirado@example.com"))
+				.isEqualTo("EXPIRED");
 	}
 
 	@Test

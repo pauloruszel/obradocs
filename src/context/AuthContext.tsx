@@ -8,8 +8,10 @@ import {
   signUp as register,
 } from "@services/authService";
 import { setUnauthorizedHandler } from "@services/apiClient";
-import { toastError, toastInfo } from "@utils/toast";
-import React, { createContext, useContext, useEffect, useState } from "react";
+import { aceitarConvite } from "@services/permissoesService";
+import { toastError, toastInfo, toastSuccess } from "@utils/toast";
+import React, { createContext, useContext, useEffect, useRef, useState } from "react";
+import { Linking } from "react-native";
 
 type AuthContextValue = {
   session: Session | null;
@@ -30,9 +32,30 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+const clearInviteFromBrowserUrl = () => {
+  const browser = globalThis as typeof globalThis & {
+    location?: { href: string };
+    history?: { replaceState: (data: unknown, unused: string, url?: string | URL | null) => void };
+  };
+  if (!browser.location || !browser.history) return;
+  const [withoutHash, hash] = browser.location.href.split("#", 2);
+  const [path, query] = withoutHash.split("?", 2);
+  const cleanedQuery = query
+    ?.split("&")
+    .filter((item: string) => !item.startsWith("invite="))
+    .join("&");
+  browser.history.replaceState(
+    null,
+    "",
+    `${path}${cleanedQuery ? `?${cleanedQuery}` : ""}${hash ? `#${hash}` : ""}`,
+  );
+};
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [inviteToken, setInviteToken] = useState<string | null>(null);
+  const acceptingInvite = useRef(false);
 
   useEffect(() => {
     setUnauthorizedHandler(() => {
@@ -47,6 +70,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     return () => setUnauthorizedHandler(null);
   }, []);
+
+  useEffect(() => {
+    const capture = (url: string | null) => {
+      const match = url?.match(/[?&]invite=([^&#]+)/);
+      if (match) setInviteToken(decodeURIComponent(match[1]));
+    };
+    Linking.getInitialURL().then(capture);
+    const subscription = Linking.addEventListener("url", ({ url }) => capture(url));
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(() => {
+    if (!session || !inviteToken || acceptingInvite.current) return;
+    acceptingInvite.current = true;
+    aceitarConvite(inviteToken)
+      .then((obra) => toastSuccess("Convite aceito", `Você já pode acessar ${obra.nome}.`))
+      .catch((error) => toastError("Não foi possível aceitar o convite", (error as Error).message))
+      .finally(() => {
+        clearInviteFromBrowserUrl();
+        setInviteToken(null);
+        acceptingInvite.current = false;
+      });
+  }, [session, inviteToken]);
 
   const signIn = async (email: string, password: string) => {
     try {

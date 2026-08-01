@@ -37,6 +37,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @EnableConfigurationProperties({
 		SecurityConfig.JwtProperties.class,
 		SecurityConfig.PasswordResetProperties.class,
+		SecurityConfig.InvitationProperties.class,
 		SecurityConfig.BrevoProperties.class,
 		SecurityConfig.CorsProperties.class
 })
@@ -160,6 +161,19 @@ public class SecurityConfig {
 			}
 			if (from == null || from.isBlank()) {
 				throw new IllegalStateException("PASSWORD_RESET_FROM deve ser informado");
+			}
+		}
+	}
+
+	@ConfigurationProperties("app.invitation")
+	public record InvitationProperties(String url, Duration tokenTtl) {
+
+		public InvitationProperties {
+			if (url == null || url.isBlank()) {
+				throw new IllegalStateException("INVITATION_URL deve ser informada");
+			}
+			if (tokenTtl == null || tokenTtl.isNegative() || tokenTtl.isZero()) {
+				throw new IllegalStateException("INVITATION_TOKEN_TTL deve ser positivo");
 			}
 		}
 	}

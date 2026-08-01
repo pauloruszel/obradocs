@@ -72,6 +72,19 @@ export type Permissao = {
   profiles?: Profile;
 };
 
+export type ObraConvite = {
+  id: string;
+  obra_id: string;
+  email: string;
+  papel: Exclude<Papel, "OWNER">;
+  status: "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED";
+  expires_at: string;
+  invited_by: string;
+  accepted_by?: string | null;
+  created_at: string;
+  accepted_at?: string | null;
+};
+
 export type Arquivo = {
   id: string;
   documento_id: string;

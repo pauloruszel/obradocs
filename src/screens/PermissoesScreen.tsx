@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from "react-native";
-import { MoreVertical, ShieldCheck, Trash2, UserRound, Users } from "lucide-react-native";
+import { Clock3, MoreVertical, ShieldCheck, Trash2, UserRound, Users, X } from "lucide-react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "@navigation/AppNavigator";
 import {
   atualizarPermissao,
   convidarUsuarioPorEmail,
+  listarConvites,
   listarPermissoes,
   removerPermissao,
+  revogarConvite,
 } from "@services/permissoesService";
-import { Permissao, Papel } from "@models/models";
+import { ObraConvite, Permissao, Papel } from "@models/models";
 import { toastError, toastSuccess } from "@utils/toast";
 import { papelLabel } from "@utils/display";
 import ActionMenu, { ActionMenuItem } from "@components/ActionMenu";
@@ -26,7 +28,9 @@ type Props = NativeStackScreenProps<RootStackParamList, "Permissoes">;
 const PermissoesScreen = ({ route, navigation }: Props) => {
   const { obraId, isOwner } = route.params;
   const [permissions, setPermissions] = useState<Permissao[]>([]);
+  const [invitations, setInvitations] = useState<ObraConvite[]>([]);
   const [email, setEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<Exclude<Papel, "OWNER">>("EDITOR");
   const [emailError, setEmailError] = useState("");
   const [adding, setAdding] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -36,7 +40,12 @@ const PermissoesScreen = ({ route, navigation }: Props) => {
 
   const load = async () => {
     try {
-      setPermissions(await listarPermissoes(obraId));
+      const [accesses, invites] = await Promise.all([
+        listarPermissoes(obraId),
+        isOwner ? listarConvites(obraId) : Promise.resolve([]),
+      ]);
+      setPermissions(accesses);
+      setInvitations(invites.filter((item) => item.status === "PENDING"));
     } catch (error) {
       const offline = /network|fetch/i.test((error as Error)?.message || "");
       toastError(
@@ -59,10 +68,10 @@ const PermissoesScreen = ({ route, navigation }: Props) => {
 
     setAdding(true);
     try {
-      await convidarUsuarioPorEmail(obraId, email.trim(), "EDITOR");
+      await convidarUsuarioPorEmail(obraId, email.trim(), inviteRole);
       await load();
       setEmail("");
-      toastSuccess("Acesso adicionado", "A pessoa entrou como Editora.");
+      toastSuccess("Convite enviado", "A pessoa receberá um link por e-mail.");
     } catch (error) {
       const limitCode = getUpgradeLimitCode(error);
       if (limitCode) {
@@ -72,6 +81,19 @@ const PermissoesScreen = ({ route, navigation }: Props) => {
       }
     } finally {
       setAdding(false);
+    }
+  };
+
+  const handleRevokeInvite = async (invite: ObraConvite) => {
+    setUpdatingId(invite.id);
+    try {
+      await revogarConvite(obraId, invite.id);
+      await load();
+      toastSuccess("Convite revogado");
+    } catch (error) {
+      toastError("Não foi possível revogar", (error as Error).message || "Tente novamente.");
+    } finally {
+      setUpdatingId(null);
     }
   };
 
@@ -140,7 +162,7 @@ const PermissoesScreen = ({ route, navigation }: Props) => {
           <View style={styles.addSection}>
             <Text style={styles.sectionTitle}>Adicionar pessoa</Text>
             <Text style={styles.helper}>
-              Informe o e-mail cadastrado no Obradocs. O acesso inicial será de Editor.
+              A pessoa receberá um link para entrar ou criar a conta com este e-mail.
             </Text>
             <View style={styles.addForm}>
               <AppInput
@@ -159,8 +181,23 @@ const PermissoesScreen = ({ route, navigation }: Props) => {
                 returnKeyType="done"
                 onSubmitEditing={handleAdd}
               />
+              <View style={styles.roleSelector}>
+                {(["EDITOR", "VIEWER"] as const).map((role) => (
+                  <Pressable
+                    key={role}
+                    style={[styles.roleOption, inviteRole === role && styles.roleOptionSelected]}
+                    onPress={() => setInviteRole(role)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: inviteRole === role }}
+                  >
+                    <Text style={[styles.roleOptionText, inviteRole === role && styles.roleOptionTextSelected]}>
+                      {papelLabel[role]}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
               <AppButton
-                label="Adicionar acesso"
+                label="Enviar convite"
                 onPress={handleAdd}
                 loading={adding}
                 disabled={!email.trim()}
@@ -222,6 +259,38 @@ const PermissoesScreen = ({ route, navigation }: Props) => {
               description="Adicione pessoas pelo e-mail cadastrado no Obradocs."
             />
           }
+          ListFooterComponent={isOwner && invitations.length > 0 ? (
+            <View style={styles.invitesSection}>
+              <View style={styles.listHeader}>
+                <Text style={styles.sectionTitle}>Convites pendentes</Text>
+                <View style={styles.countBadge}>
+                  <Text style={styles.count}>{invitations.length}</Text>
+                </View>
+              </View>
+              {invitations.map((invite) => (
+                <View key={invite.id} style={styles.card}>
+                  <View style={styles.inviteIcon}>
+                    <Clock3 size={20} color={colors.primary} />
+                  </View>
+                  <View style={styles.personInfo}>
+                    <Text style={styles.name} numberOfLines={1} ellipsizeMode="middle">
+                      {invite.email}
+                    </Text>
+                    <Text style={styles.email}>{papelLabel[invite.papel]} · aguardando aceite</Text>
+                  </View>
+                  <Pressable
+                    style={styles.moreButton}
+                    onPress={() => handleRevokeInvite(invite)}
+                    disabled={updatingId === invite.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Revogar convite de ${invite.email}`}
+                  >
+                    <X size={21} color={colors.danger} />
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          ) : null}
         />
       </View>
 
@@ -258,6 +327,19 @@ const styles = StyleSheet.create({
   sectionTitle: { ...typography.sectionTitle },
   helper: { color: colors.textMuted, lineHeight: 20, marginTop: spacing.xs },
   addForm: { gap: spacing.lg, marginTop: spacing.lg },
+  roleSelector: { flexDirection: "row", gap: spacing.sm },
+  roleOption: {
+    flex: 1,
+    minHeight: 46,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  roleOptionSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
+  roleOptionText: { color: colors.textMuted, fontWeight: "700" },
+  roleOptionTextSelected: { color: colors.surface },
   listHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -307,6 +389,16 @@ const styles = StyleSheet.create({
     marginLeft: spacing.sm,
   },
   roleText: { color: colors.primary, fontSize: 11, fontWeight: "700" },
+  invitesSection: { marginTop: spacing.xl },
+  inviteIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: colors.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: spacing.md,
+  },
   moreButton: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
 });
 
