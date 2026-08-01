@@ -67,3 +67,7 @@ app:
     region: ${AWS_DEFAULT_REGION:auto}
     url-style: ${AWS_S3_URL_STYLE:virtual}
     download-url-ttl: ${STORAGE_DOWNLOAD_URL_TTL:1h}
+
+logging:
+  pattern:
+    level: "%5p [requestId:%X{requestId:-none}]"

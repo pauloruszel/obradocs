@@ -21,6 +21,7 @@ import CategoriasObraScreen from "@screens/CategoriasObraScreen";
 import NotificacoesScreen from "@screens/NotificacoesScreen";
 import CodigoAcessoScreen from "@screens/CodigoAcessoScreen";
 import AprovacaoArquivoScreen from "@screens/AprovacaoArquivoScreen";
+import AdminMetricasScreen from "@screens/AdminMetricasScreen";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import React from "react";
 import { Papel } from "@models/models";
@@ -59,6 +60,7 @@ export type RootStackParamList = {
     origem?: "meu_plano" | "limite_obra" | "limite_armazenamento" | "limite_colaborador" | "limite_categoria";
   } | undefined;
   UpgradeInteresses: undefined;
+  AdminMetricas: undefined;
   TermsAcceptance: undefined;
   ReportContent: { targetType: "OBRA" | "ARQUIVO"; targetId: string; title: string };
 };
@@ -87,6 +89,7 @@ const AppNavigator = () => {
           <Stack.Screen name="MeuPlano" component={MeuPlanoScreen} options={{ title: "Meu Plano" }} />
           <Stack.Screen name="PlanoProfissional" component={PlanoProfissionalScreen} options={{ title: "Plano Profissional" }} />
           <Stack.Screen name="UpgradeInteresses" component={UpgradeInteressesScreen} options={{ title: "Interessados" }} />
+          <Stack.Screen name="AdminMetricas" component={AdminMetricasScreen} options={{ title: "Métricas do produto" }} />
           <Stack.Screen name="ReportContent" component={ReportContentScreen} options={{ title: "Denunciar conteúdo" }} />
           <Stack.Screen name="NovaObra" component={NovaObraScreen} options={{ title: "Nova obra" }} />
           <Stack.Screen name="EntrarObra" component={EntrarObraScreen} options={{ title: "Entrar em uma obra" }} />

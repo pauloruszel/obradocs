@@ -2,6 +2,8 @@ package br.com.obradocs.api.auth;
 
 import java.util.NoSuchElementException;
 
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +19,7 @@ import br.com.obradocs.api.auth.AuthService.PasswordChangeRequiredException;
 import br.com.obradocs.api.auth.AuthRateLimiter.TooManyRequestsException;
 
 @RestControllerAdvice
+@Order(Ordered.HIGHEST_PRECEDENCE)
 class ApiExceptionHandler {
 
 	@ExceptionHandler(EmailJaCadastradoException.class)

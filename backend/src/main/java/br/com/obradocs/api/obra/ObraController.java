@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import br.com.obradocs.api.PageResponse;
+
 import br.com.obradocs.api.auth.AuthRateLimiter;
 import br.com.obradocs.api.categoria.ObraTemplate;
 import org.springframework.http.HttpStatus;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.PutMapping;
 
@@ -147,6 +150,20 @@ class ObraController {
 		return service.listarHistorico(obraId, usuarioId(jwt)).stream()
 				.map(HistoricoResponse::from)
 				.toList();
+	}
+
+	@GetMapping("/{obraId}/historico/pagina")
+	PageResponse<HistoricoResponse> listarHistoricoPaginado(
+			@PathVariable UUID obraId,
+			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "20") int size,
+			@AuthenticationPrincipal Jwt jwt) {
+		return PageResponse.from(
+				service.listarHistoricoPaginado(
+						obraId,
+						usuarioId(jwt),
+						PageResponse.pageable(page, size)),
+				HistoricoResponse::from);
 	}
 
 	private UUID usuarioId(Jwt jwt) {

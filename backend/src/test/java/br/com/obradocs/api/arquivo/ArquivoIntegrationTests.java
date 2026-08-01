@@ -131,6 +131,19 @@ class ArquivoIntegrationTests {
         assertThat(listagem.size()).isEqualTo(1);
         assertThat(listagem.get(0).path("enviado_por_nome").stringValue()).isEqualTo("Owner Arquivo");
 
+        JsonNode pagina = json(get(
+                "/v1/obras/" + obraId + "/arquivos/pagina?tipo=PROJETO&page=0&size=1",
+                owner.token()));
+        assertThat(pagina.path("items")).hasSize(1);
+        assertThat(pagina.path("page").intValue()).isZero();
+        assertThat(pagina.path("size").intValue()).isEqualTo(1);
+        assertThat(pagina.path("total_items").longValue()).isEqualTo(1);
+        assertThat(pagina.path("total_pages").intValue()).isEqualTo(1);
+        assertThat(pagina.path("has_more").booleanValue()).isFalse();
+        assertThat(get(
+                "/v1/obras/" + obraId + "/arquivos/pagina?size=51",
+                owner.token()).statusCode()).isEqualTo(400);
+
         JsonNode download = json(get("/v1/arquivos/" + arquivoId + "/download-url", owner.token()));
         assertThat(Instant.parse(download.path("expires_at").stringValue())).isAfter(Instant.now());
         assertThat(download.path("url").stringValue()).contains("X-Amz-Expires=3600");

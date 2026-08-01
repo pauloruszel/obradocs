@@ -11,6 +11,8 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
@@ -73,6 +75,32 @@ class ArquivoService {
 				: resultado.stream()
 						.filter(item -> ambienteNormalizado.equalsIgnoreCase(item.getAmbiente()))
 						.toList();
+	}
+
+	@Transactional(readOnly = true)
+	Page<ArquivoDetalhado> listarPaginado(
+			UUID obraId,
+			UUID categoriaId,
+			ArquivoTipo tipo,
+			String busca,
+			String ambiente,
+			UUID usuarioId,
+			Pageable pageable) {
+		authorization.exigirLeitura(obraId, usuarioId);
+		String termo = busca == null || busca.isBlank() ? null : busca.trim();
+		if (termo != null && termo.length() > 100) {
+			throw new IllegalArgumentException("Busca muito longa; limite de 100 caracteres");
+		}
+		if (categoriaId != null) {
+			categorias.buscar(obraId, categoriaId);
+		}
+		return arquivos.listarPaginado(
+				obraId,
+				categoriaId,
+				tipo,
+				termo,
+				normalizarAmbiente(ambiente),
+				pageable);
 	}
 
 	@Transactional(readOnly = true)

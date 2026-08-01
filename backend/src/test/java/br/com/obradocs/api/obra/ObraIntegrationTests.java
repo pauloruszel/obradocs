@@ -92,6 +92,13 @@ class ObraIntegrationTests {
 		JsonNode historico = json(get("/v1/obras/" + obraId + "/historico", owner.token()));
 		assertThat(historico.size()).isEqualTo(1);
 		assertThat(historico.get(0).path("acao").stringValue()).isEqualTo("CRIACAO_OBRA");
+
+		JsonNode paginaHistorico = json(get(
+				"/v1/obras/" + obraId + "/historico/pagina?page=0&size=1",
+				owner.token()));
+		assertThat(paginaHistorico.path("items")).hasSize(1);
+		assertThat(paginaHistorico.path("total_items").longValue()).isEqualTo(1);
+		assertThat(paginaHistorico.path("has_more").booleanValue()).isFalse();
 	}
 
 	@Test
@@ -345,6 +352,11 @@ class ObraIntegrationTests {
 			assertThat(notificacao.path("autor_nome").stringValue()).isEqualTo("Owner Notificacoes");
 			assertThat(notificacao.path("lida_at").isNull()).isTrue();
 		});
+		JsonNode pagina = json(get("/v1/notificacoes/pagina?page=0&size=1", colaborador.token()));
+		assertThat(pagina.path("items")).hasSize(1);
+		assertThat(pagina.path("total_items").longValue()).isEqualTo(2);
+		assertThat(pagina.path("total_pages").intValue()).isEqualTo(2);
+		assertThat(pagina.path("has_more").booleanValue()).isTrue();
 		assertThat(json(get("/v1/notificacoes/nao-lidas/count", colaborador.token()))
 				.path("quantidade").intValue()).isEqualTo(2);
 
