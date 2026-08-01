@@ -1,5 +1,6 @@
 export type Papel = 'OWNER' | 'EDITOR' | 'VIEWER';
 export type ArquivoTipo = 'ORCAMENTO' | 'NOTA_FISCAL' | 'PROJETO' | 'FOTO';
+export type AprovacaoStatus = 'PENDING' | 'APPROVED' | 'CHANGES_REQUESTED';
 export type ObraTemplate =
   | 'GERAL'
   | 'ARQUITETURA'
@@ -98,6 +99,14 @@ export type Arquivo = {
   revisao: number;
   revisao_atual: number;
   atual: boolean;
+  revisao_aprovada?: number | null;
+  oficial_aprovada: boolean;
+  aprovacao_status?: AprovacaoStatus | null;
+  aprovacao_solicitada_por?: string | null;
+  aprovacao_solicitada_at?: string | null;
+  aprovacao_decidida_por?: string | null;
+  aprovacao_decidida_at?: string | null;
+  aprovacao_comentario?: string | null;
   storage_path: string;
   content_type: string;
   tamanho_bytes: number;

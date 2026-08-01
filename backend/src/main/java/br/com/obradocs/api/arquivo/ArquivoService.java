@@ -230,11 +230,13 @@ class ArquivoService {
 						"arquivoId", arquivo.getId(),
 						"documentoId", arquivo.getDocumentoId(),
 						"revisao", arquivo.getRevisao(),
+						"solicitanteId", arquivo.getAprovacaoSolicitadaPor(),
 						"comentario", arquivo.getAprovacaoComentario())
 				: Map.of(
 						"arquivoId", arquivo.getId(),
 						"documentoId", arquivo.getDocumentoId(),
-						"revisao", arquivo.getRevisao());
+						"revisao", arquivo.getRevisao(),
+						"solicitanteId", arquivo.getAprovacaoSolicitadaPor());
 		historico.registrar(
 				arquivo.getObraId(),
 				usuarioId,

@@ -256,6 +256,8 @@ class ArquivoIntegrationTests {
         assertThat(pendente.path("aprovacao_solicitada_por").stringValue()).isNotBlank();
         assertThat(pendente.path("aprovacao_solicitada_at").stringValue()).isNotBlank();
         assertThat(pendente.path("revisao_aprovada").isNull()).isTrue();
+        assertThat(json(get("/v1/notificacoes", owner.token())).toString())
+                .contains("APROVACAO_SOLICITADA");
 
         assertThat(post(
                 "/v1/arquivos/" + primeiraId + "/aprovacao/decidir",
@@ -275,6 +277,8 @@ class ArquivoIntegrationTests {
         assertThat(aprovada.path("oficial_aprovada").booleanValue()).isTrue();
         assertThat(aprovada.path("aprovacao_decidida_por").stringValue()).isNotBlank();
         assertThat(aprovada.path("aprovacao_decidida_at").stringValue()).isNotBlank();
+        assertThat(json(get("/v1/notificacoes", editor.token())).toString())
+                .contains("REVISAO_APROVADA");
         assertThat(post(
                 "/v1/arquivos/" + primeiraId + "/aprovacao/decidir",
                 "{\"decisao\":\"CHANGES_REQUESTED\",\"comentario\":\"Rever cotas\"}",
@@ -301,6 +305,8 @@ class ArquivoIntegrationTests {
         assertThat(alteracoes.path("aprovacao_status").stringValue()).isEqualTo("CHANGES_REQUESTED");
         assertThat(alteracoes.path("aprovacao_comentario").stringValue()).isEqualTo("Rever cotas");
         assertThat(alteracoes.path("revisao_aprovada").intValue()).isEqualTo(1);
+        assertThat(json(get("/v1/notificacoes", editor.token())).toString())
+                .contains("ALTERACOES_SOLICITADAS");
 
         Integer eventos = jdbc.queryForObject("""
                 select count(*) from historico

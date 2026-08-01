@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { FlatList, Linking, Pressable, StyleSheet, Text, View } from "react-native";
-import { CheckCircle2, Download, FileText } from "lucide-react-native";
+import { BadgeCheck, CheckCircle2, Clock3, Download, FileText, MessageSquareWarning } from "lucide-react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Arquivo } from "@models/models";
 import { RootStackParamList } from "@navigation/AppNavigator";
@@ -9,6 +9,11 @@ import ScreenState from "@components/ScreenState";
 import { formatDateTime, formatFileName } from "@utils/display";
 import { toastError } from "@utils/toast";
 import { colors, layout, radius, spacing } from "@theme/index";
+import {
+  AprovacaoFiltro,
+  aprovacaoLabel,
+  filtrarRevisoesPorAprovacao,
+} from "@utils/aprovacao";
 
 type Props = NativeStackScreenProps<RootStackParamList, "RevisoesArquivo">;
 
@@ -22,6 +27,7 @@ const RevisoesArquivoScreen = ({ route, navigation }: Props) => {
   const [revisions, setRevisions] = useState<Arquivo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<AprovacaoFiltro>("ALL");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -60,10 +66,18 @@ const RevisoesArquivoScreen = ({ route, navigation }: Props) => {
     );
   }
 
+  const filteredRevisions = filtrarRevisoesPorAprovacao(revisions, filter);
+  const filters: { value: AprovacaoFiltro; label: string }[] = [
+    { value: "ALL", label: "Todas" },
+    { value: "PENDING", label: "Pendentes" },
+    { value: "APPROVED", label: "Aprovadas" },
+    { value: "CHANGES_REQUESTED", label: "Com alterações" },
+  ];
+
   return (
     <View style={styles.screen}>
       <FlatList
-        data={revisions}
+        data={filteredRevisions}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.content}
         ListHeaderComponent={
@@ -74,6 +88,21 @@ const RevisoesArquivoScreen = ({ route, navigation }: Props) => {
             <Text style={styles.count}>
               {revisions.length} {revisions.length === 1 ? "revisão" : "revisões"}
             </Text>
+            <View style={styles.filters}>
+              {filters.map((item) => (
+                <Pressable
+                  key={item.value}
+                  onPress={() => setFilter(item.value)}
+                  style={[styles.filter, filter === item.value && styles.filterActive]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: filter === item.value }}
+                >
+                  <Text style={[styles.filterText, filter === item.value && styles.filterTextActive]}>
+                    {item.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
           </View>
         }
         renderItem={({ item }) => (
@@ -107,6 +136,19 @@ const RevisoesArquivoScreen = ({ route, navigation }: Props) => {
                   </View>
                 )}
               </View>
+              {!!item.aprovacao_status && (
+                <View style={styles.approvalRow}>
+                  {item.aprovacao_status === "APPROVED" ? (
+                    <BadgeCheck size={14} color={colors.success} />
+                  ) : item.aprovacao_status === "CHANGES_REQUESTED" ? (
+                    <MessageSquareWarning size={14} color={colors.danger} />
+                  ) : (
+                    <Clock3 size={14} color={colors.warning} />
+                  )}
+                  <Text style={styles.approvalText}>{aprovacaoLabel[item.aprovacao_status]}</Text>
+                  {item.oficial_aprovada && <Text style={styles.officialText}>· Oficial</Text>}
+                </View>
+              )}
               <Text style={styles.meta}>
                 {formatSize(item.tamanho_bytes)} · {formatDateTime(item.created_at)}
               </Text>
@@ -123,6 +165,13 @@ const RevisoesArquivoScreen = ({ route, navigation }: Props) => {
               <Download size={21} color={colors.primary} />
             </Pressable>
           </Pressable>
+        )}
+        ListEmptyComponent={(
+          <ScreenState
+            icon={<FileText size={42} color={colors.textMuted} />}
+            title="Nenhuma revisão neste filtro"
+            description="Escolha outro status ou solicite a aprovação de uma revisão disponível."
+          />
         )}
       />
     </View>
@@ -141,6 +190,11 @@ const styles = StyleSheet.create({
   header: { marginBottom: spacing.lg },
   documentName: { color: colors.text, fontSize: 20, fontWeight: "800" },
   count: { color: colors.textMuted, marginTop: spacing.xs },
+  filters: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.md },
+  filter: { minHeight: 40, justifyContent: "center", borderWidth: 1, borderColor: colors.borderStrong, borderRadius: radius.md, paddingHorizontal: spacing.md },
+  filterActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  filterText: { color: colors.textMuted, fontSize: 13, fontWeight: "700" },
+  filterTextActive: { color: colors.white },
   card: {
     minHeight: 92,
     flexDirection: "row",
@@ -176,6 +230,9 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   currentText: { color: colors.primary, fontSize: 12, fontWeight: "700" },
+  approvalRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: spacing.xs, marginTop: spacing.xs },
+  approvalText: { color: colors.text, fontSize: 12, fontWeight: "700" },
+  officialText: { color: colors.success, fontSize: 12, fontWeight: "700" },
   meta: { color: colors.textMuted, fontSize: 12, marginTop: spacing.xs },
   download: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
 });

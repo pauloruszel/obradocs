@@ -20,6 +20,7 @@ import RevisoesArquivoScreen from "@screens/RevisoesArquivoScreen";
 import CategoriasObraScreen from "@screens/CategoriasObraScreen";
 import NotificacoesScreen from "@screens/NotificacoesScreen";
 import CodigoAcessoScreen from "@screens/CodigoAcessoScreen";
+import AprovacaoArquivoScreen from "@screens/AprovacaoArquivoScreen";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import React from "react";
 import { Papel } from "@models/models";
@@ -47,6 +48,7 @@ export type RootStackParamList = {
   };
   ArquivoView: { arquivoId: string; obraId: string; path: string; nome: string; tipo: string; papel?: Papel };
   RevisoesArquivo: { arquivoId: string; obraId: string; nome: string; papel?: Papel };
+  AprovacaoArquivo: { arquivoId: string; obraId: string };
   CategoriasObra: { obraId: string };
   Historico: { obraId: string };
   Permissoes: { obraId: string; isOwner: boolean };
@@ -92,6 +94,7 @@ const AppNavigator = () => {
           <Stack.Screen name="UploadArquivo" component={UploadArquivoScreen} options={{ title: "Enviar arquivo" }} />
           <Stack.Screen name="ArquivoView" component={ArquivoViewScreen} options={{ title: "Arquivo" }} />
           <Stack.Screen name="RevisoesArquivo" component={RevisoesArquivoScreen} options={{ title: "Revisões" }} />
+          <Stack.Screen name="AprovacaoArquivo" component={AprovacaoArquivoScreen} options={{ title: "Aprovação" }} />
           <Stack.Screen name="CategoriasObra" component={CategoriasObraScreen} options={{ title: "Categorias" }} />
           <Stack.Screen name="Historico" component={HistoricoScreen} options={{ title: "Histórico" }} />
           <Stack.Screen name="Permissoes" component={PermissoesScreen} options={{ title: "Permissões" }} />

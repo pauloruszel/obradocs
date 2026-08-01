@@ -1,11 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { SectionList, StyleSheet, Text, View } from "react-native";
 import {
+  BadgeCheck,
+  Clock3,
   FilePenLine,
   FileUp,
   FolderPen,
   FolderPlus,
   LogIn,
+  MessageSquareWarning,
   Trash2,
 } from "lucide-react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -32,6 +35,9 @@ const actionLabels: Record<string, string> = {
   RENOMEAR_OBRA: "Obra renomeada",
   RENOMEAR_ARQUIVO: "Arquivo renomeado",
   EXCLUIR_OBRA: "Obra excluída",
+  APROVACAO_SOLICITADA: "Aprovação solicitada",
+  REVISAO_APROVADA: "Revisão aprovada",
+  ALTERACOES_SOLICITADAS: "Alterações solicitadas",
 };
 
 const actionIcons: Record<string, React.ElementType> = {
@@ -42,6 +48,9 @@ const actionIcons: Record<string, React.ElementType> = {
   RENOMEAR_OBRA: FolderPen,
   RENOMEAR_ARQUIVO: FilePenLine,
   EXCLUIR_OBRA: Trash2,
+  APROVACAO_SOLICITADA: Clock3,
+  REVISAO_APROVADA: BadgeCheck,
+  ALTERACOES_SOLICITADAS: MessageSquareWarning,
 };
 
 const formatAction = (action: string) =>
@@ -62,6 +71,12 @@ const formatDetails = (item: Historico): string | null => {
     const revision =
       typeof details.revisao === "number" ? `R${details.revisao}` : "";
     return [name, revision, type].filter(Boolean).join(" · ") || null;
+  }
+
+  if (["APROVACAO_SOLICITADA", "REVISAO_APROVADA", "ALTERACOES_SOLICITADAS"].includes(item.acao)) {
+    const revision = typeof details.revisao === "number" ? `R${details.revisao}` : "";
+    const comment = typeof details.comentario === "string" ? details.comentario : "";
+    return [revision, comment].filter(Boolean).join(" · ") || null;
   }
 
   const value = [

@@ -32,5 +32,17 @@ export const mensagemNotificacao = (item: Notificacao) => {
   if (item.acao === "ENTROU_OBRA") {
     return `${author} entrou na obra usando o código de compartilhamento.`;
   }
+  if (item.acao === "APROVACAO_SOLICITADA") {
+    const revision = detail(item, "revisao");
+    return `${author} solicitou aprovação${revision ? ` para a revisão R${revision}` : ""}.`;
+  }
+  if (item.acao === "REVISAO_APROVADA") {
+    const revision = detail(item, "revisao");
+    return `${author} aprovou${revision ? ` a revisão R${revision}` : " uma revisão"}.`;
+  }
+  if (item.acao === "ALTERACOES_SOLICITADAS") {
+    const revision = detail(item, "revisao");
+    return `${author} solicitou alterações${revision ? ` na revisão R${revision}` : ""}.`;
+  }
   return "Há uma nova atividade nesta obra.";
 };

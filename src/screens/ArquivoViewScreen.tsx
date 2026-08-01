@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import WebView from "react-native-webview";
-import { FileClock, FileText, MoreVertical, Pencil, ShieldAlert, Upload } from "lucide-react-native";
+import { FileCheck2, FileClock, FileText, MoreVertical, Pencil, ShieldAlert, Upload } from "lucide-react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Arquivo } from "@models/models";
 import { RootStackParamList } from "@navigation/AppNavigator";
@@ -25,6 +25,7 @@ import AppButton from "@components/AppButton";
 import RenameObraModal from "@components/RenameObraModal";
 import ScreenState from "@components/ScreenState";
 import { colors, radius, spacing } from "@theme/index";
+import { aprovacaoLabel } from "@utils/aprovacao";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ArquivoView">;
 
@@ -79,6 +80,10 @@ const ArquivoViewScreen = ({ route, navigation }: Props) => {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => navigation.addListener("focus", () => {
+    if (meta) buscarArquivo(arquivoId).then(setMeta).catch(() => undefined);
+  }), [arquivoId, meta, navigation]);
 
   const saveName = async (newName: string) => {
     const trimmed = newName.trim();
@@ -191,6 +196,25 @@ const ArquivoViewScreen = ({ route, navigation }: Props) => {
             />
           )}
         </View>
+        <View style={styles.approvalCard}>
+          <View style={styles.approvalText}>
+            <Text style={styles.approvalTitle}>
+              {meta.aprovacao_status ? aprovacaoLabel[meta.aprovacao_status] : "Sem aprovação solicitada"}
+            </Text>
+            <Text style={styles.approvalDescription}>
+              {meta.oficial_aprovada
+                ? "Esta é a revisão oficial aprovada."
+                : meta.aprovacao_comentario || "Acompanhe a validação desta revisão."}
+            </Text>
+          </View>
+          <AppButton
+            label={meta.aprovacao_status ? "Ver aprovação" : "Solicitar aprovação"}
+            variant="secondary"
+            icon={<FileCheck2 size={18} color={colors.primary} />}
+            onPress={() => navigation.navigate("AprovacaoArquivo", { arquivoId, obraId: meta.obra_id })}
+            style={styles.approvalButton}
+          />
+        </View>
       </View>
 
       <View style={styles.viewer}>
@@ -254,6 +278,20 @@ const styles = StyleSheet.create({
   author: { color: colors.textMuted, marginTop: spacing.xs, fontSize: 13 },
   actions: { flexDirection: "row", gap: spacing.sm, marginTop: spacing.md },
   action: { flex: 1 },
+  approvalCard: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: spacing.sm,
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginTop: spacing.md,
+  },
+  approvalText: { flex: 1, minWidth: 190 },
+  approvalTitle: { color: colors.text, fontSize: 14, fontWeight: "800" },
+  approvalDescription: { color: colors.textMuted, fontSize: 12, marginTop: spacing.xs },
+  approvalButton: { minHeight: 44, flexGrow: 1 },
   viewer: { flex: 1, backgroundColor: "#EEF2F6" },
   webView: { flex: 1, backgroundColor: "#EEF2F6" },
   image: { flex: 1, width: "100%", resizeMode: "contain" },

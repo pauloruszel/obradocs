@@ -21,8 +21,10 @@ public class HistoricoService {
 		Historico evento = historicos.save(new Historico(obraId, usuarioId, acao, detalhes));
 		List<UUID> destinatarios = switch (acao) {
 			case "UPLOAD_ARQUIVO", "NOVA_REVISAO" -> participantesExceto(obraId, usuarioId);
+			case "APROVACAO_SOLICITADA" -> ownersExceto(obraId, usuarioId);
+			case "REVISAO_APROVADA", "ALTERACOES_SOLICITADAS" -> usuarioDetalhes(detalhes, "solicitanteId", usuarioId);
 			case "ENTROU_OBRA" -> ownersExceto(obraId, usuarioId);
-			case "ACESSO_CONCEDIDO" -> convidado(detalhes, usuarioId);
+			case "ACESSO_CONCEDIDO" -> usuarioDetalhes(detalhes, "convidadoId", usuarioId);
 			default -> List.of();
 		};
 		notificacoes.saveAll(destinatarios.stream()
@@ -46,8 +48,8 @@ public class HistoricoService {
 				.toList();
 	}
 
-	private List<UUID> convidado(Map<String, Object> detalhes, UUID usuarioId) {
-		Object valor = detalhes.get("convidadoId");
+	private List<UUID> usuarioDetalhes(Map<String, Object> detalhes, String campo, UUID usuarioId) {
+		Object valor = detalhes.get(campo);
 		if (valor == null) {
 			return List.of();
 		}
