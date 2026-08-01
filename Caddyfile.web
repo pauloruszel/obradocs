@@ -1,0 +1,12 @@
+:{$PORT:80} {
+    root * /srv
+
+    handle / {
+        redir /obradocs/ 308
+    }
+
+    handle_path /obradocs/* {
+        try_files {path} /index.html
+        file_server
+    }
+}
