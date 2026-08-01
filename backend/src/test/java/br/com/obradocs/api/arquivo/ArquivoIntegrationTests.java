@@ -215,6 +215,102 @@ class ArquivoIntegrationTests {
     }
 
     @Test
+    void controlaSolicitacaoDecisaoERevisaoOficialAprovada() throws Exception {
+        UsuarioAutenticado owner = registrar("Owner Aprovacao", "owner-aprovacao@example.com");
+        UsuarioAutenticado editor = registrar("Editor Aprovacao", "editor-aprovacao@example.com");
+        JsonNode obra = criarObra(owner, "Obra com aprovacao");
+        String obraId = obra.path("id").stringValue();
+        String codigo = obra.path("codigo_compartilhamento").stringValue();
+        assertThat(post("/v1/obras/entrar", "{\"codigo\":\"" + codigo + "\"}", editor.token()).statusCode())
+                .isEqualTo(200);
+
+        byte[] r1 = "%PDF-1.4\nrevisao para aprovar".getBytes(StandardCharsets.UTF_8);
+        JsonNode primeira = json(upload(
+                obraId, "PROJETO", "projeto-r1.pdf", "application/pdf", r1, owner.token()));
+        String primeiraId = primeira.path("id").stringValue();
+
+        assertThat(post(
+                "/v1/arquivos/" + primeiraId + "/aprovacao/solicitar",
+                null,
+                editor.token()).statusCode()).isEqualTo(403);
+
+        JsonNode permissoes = json(get("/v1/obras/" + obraId + "/permissoes", owner.token()));
+        String editorPermissaoId = null;
+        for (JsonNode permissao : permissoes) {
+            if (editor.email().equals(permissao.path("profiles").path("email").stringValue())) {
+                editorPermissaoId = permissao.path("id").stringValue();
+                break;
+            }
+        }
+        assertThat(editorPermissaoId).isNotNull();
+        assertThat(patch(
+                "/v1/obras/" + obraId + "/permissoes/" + editorPermissaoId,
+                "{\"papel\":\"EDITOR\"}",
+                owner.token()).statusCode()).isEqualTo(200);
+
+        JsonNode pendente = json(post(
+                "/v1/arquivos/" + primeiraId + "/aprovacao/solicitar",
+                null,
+                editor.token()));
+        assertThat(pendente.path("aprovacao_status").stringValue()).isEqualTo("PENDING");
+        assertThat(pendente.path("aprovacao_solicitada_por").stringValue()).isNotBlank();
+        assertThat(pendente.path("aprovacao_solicitada_at").stringValue()).isNotBlank();
+        assertThat(pendente.path("revisao_aprovada").isNull()).isTrue();
+
+        assertThat(post(
+                "/v1/arquivos/" + primeiraId + "/aprovacao/decidir",
+                "{\"decisao\":\"APPROVED\"}",
+                editor.token()).statusCode()).isEqualTo(403);
+        assertThat(post(
+                "/v1/arquivos/" + primeiraId + "/aprovacao/decidir",
+                "{\"decisao\":\"CHANGES_REQUESTED\"}",
+                owner.token()).statusCode()).isEqualTo(400);
+
+        JsonNode aprovada = json(post(
+                "/v1/arquivos/" + primeiraId + "/aprovacao/decidir",
+                "{\"decisao\":\"APPROVED\"}",
+                owner.token()));
+        assertThat(aprovada.path("aprovacao_status").stringValue()).isEqualTo("APPROVED");
+        assertThat(aprovada.path("revisao_aprovada").intValue()).isEqualTo(1);
+        assertThat(aprovada.path("oficial_aprovada").booleanValue()).isTrue();
+        assertThat(aprovada.path("aprovacao_decidida_por").stringValue()).isNotBlank();
+        assertThat(aprovada.path("aprovacao_decidida_at").stringValue()).isNotBlank();
+        assertThat(post(
+                "/v1/arquivos/" + primeiraId + "/aprovacao/decidir",
+                "{\"decisao\":\"CHANGES_REQUESTED\",\"comentario\":\"Rever cotas\"}",
+                owner.token()).statusCode()).isEqualTo(400);
+
+        byte[] r2 = "%PDF-1.4\nnova revisao ainda nao aprovada".getBytes(StandardCharsets.UTF_8);
+        JsonNode segunda = json(uploadRevisao(
+                primeiraId, "projeto-r2.pdf", "application/pdf", r2, editor.token()));
+        assertThat(segunda.path("revisao").intValue()).isEqualTo(2);
+        assertThat(segunda.path("atual").booleanValue()).isTrue();
+        assertThat(segunda.path("revisao_aprovada").intValue()).isEqualTo(1);
+        assertThat(segunda.path("oficial_aprovada").booleanValue()).isFalse();
+        assertThat(segunda.path("aprovacao_status").isNull()).isTrue();
+
+        String segundaId = segunda.path("id").stringValue();
+        json(post(
+                "/v1/arquivos/" + segundaId + "/aprovacao/solicitar",
+                null,
+                editor.token()));
+        JsonNode alteracoes = json(post(
+                "/v1/arquivos/" + segundaId + "/aprovacao/decidir",
+                "{\"decisao\":\"CHANGES_REQUESTED\",\"comentario\":\"Rever cotas\"}",
+                owner.token()));
+        assertThat(alteracoes.path("aprovacao_status").stringValue()).isEqualTo("CHANGES_REQUESTED");
+        assertThat(alteracoes.path("aprovacao_comentario").stringValue()).isEqualTo("Rever cotas");
+        assertThat(alteracoes.path("revisao_aprovada").intValue()).isEqualTo(1);
+
+        Integer eventos = jdbc.queryForObject("""
+                select count(*) from historico
+                where obra_id = ?
+                  and acao in ('APROVACAO_SOLICITADA', 'REVISAO_APROVADA', 'ALTERACOES_SOLICITADAS')
+                """, Integer.class, UUID.fromString(obraId));
+        assertThat(eventos).isEqualTo(4);
+    }
+
+    @Test
     void pesquisaArquivosPorNomeEmTodasAsCategorias() throws Exception {
         UsuarioAutenticado owner = registrar("Owner Pesquisa", "owner-pesquisa-arquivo@example.com");
         String obraId = criarObra(owner, "Obra pesquisa arquivos").path("id").stringValue();

@@ -54,6 +54,25 @@ class Arquivo {
 	@Column(name = "enviado_por", updatable = false)
 	private UUID enviadoPor;
 
+	@Enumerated(EnumType.STRING)
+	@Column(name = "aprovacao_status", length = 30)
+	private AprovacaoStatus aprovacaoStatus;
+
+	@Column(name = "aprovacao_solicitada_por")
+	private UUID aprovacaoSolicitadaPor;
+
+	@Column(name = "aprovacao_solicitada_at")
+	private Instant aprovacaoSolicitadaAt;
+
+	@Column(name = "aprovacao_decidida_por")
+	private UUID aprovacaoDecididaPor;
+
+	@Column(name = "aprovacao_decidida_at")
+	private Instant aprovacaoDecididaAt;
+
+	@Column(name = "aprovacao_comentario", length = 1000)
+	private String aprovacaoComentario;
+
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt;
 
@@ -81,6 +100,32 @@ class Arquivo {
 	@PrePersist
 	void onCreate() {
 		createdAt = Instant.now();
+	}
+
+	void solicitarAprovacao(UUID usuarioId) {
+		if (aprovacaoStatus != null) {
+			throw new IllegalArgumentException("A aprovação desta revisão já foi solicitada");
+		}
+		aprovacaoStatus = AprovacaoStatus.PENDING;
+		aprovacaoSolicitadaPor = usuarioId;
+		aprovacaoSolicitadaAt = Instant.now();
+	}
+
+	void decidirAprovacao(AprovacaoStatus decisao, String comentario, UUID usuarioId) {
+		if (aprovacaoStatus != AprovacaoStatus.PENDING) {
+			throw new IllegalArgumentException("Esta revisão não possui aprovação pendente");
+		}
+		if (decisao == AprovacaoStatus.PENDING) {
+			throw new IllegalArgumentException("Decisão de aprovação inválida");
+		}
+		String comentarioNormalizado = comentario == null || comentario.isBlank() ? null : comentario.trim();
+		if (decisao == AprovacaoStatus.CHANGES_REQUESTED && comentarioNormalizado == null) {
+			throw new IllegalArgumentException("Informe o comentário das alterações solicitadas");
+		}
+		aprovacaoStatus = decisao;
+		aprovacaoComentario = comentarioNormalizado;
+		aprovacaoDecididaPor = usuarioId;
+		aprovacaoDecididaAt = Instant.now();
 	}
 
 }
