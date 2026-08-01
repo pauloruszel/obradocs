@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PutMapping;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -27,6 +28,8 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -84,6 +87,20 @@ class ObraController {
 				10,
 				Duration.ofMinutes(5));
 		return ObraResponse.from(service.entrarPorCodigo(request.codigo(), usuarioId(jwt)));
+	}
+
+	@PutMapping("/{obraId}/codigo-compartilhamento")
+	ObraResponse configurarCodigo(
+			@PathVariable UUID obraId,
+			@Valid @RequestBody ConfigurarCodigoRequest request,
+			@AuthenticationPrincipal Jwt jwt) {
+		return ObraResponse.from(service.configurarCodigo(
+				obraId,
+				request.ativo(),
+				request.papel(),
+				request.validadeDias(),
+				request.regenerar(),
+				usuarioId(jwt)));
 	}
 
 	@GetMapping("/{obraId}/permissoes")
@@ -148,6 +165,13 @@ class ObraController {
 	record EntrarObraRequest(@NotBlank @Size(max = 20) String codigo) {
 	}
 
+	record ConfigurarCodigoRequest(
+			boolean ativo,
+			@NotNull Papel papel,
+			@Min(1) @Max(365) Integer validadeDias,
+			boolean regenerar) {
+	}
+
 	record AdicionarPermissaoRequest(
 			@NotBlank @Email @Size(max = 320) String email,
 			@NotNull Papel papel) {
@@ -164,6 +188,9 @@ class ObraController {
 			Instant deletedAt,
 			UUID deletedBy,
 			ObraTemplate templateCodigo,
+			boolean codigoCompartilhamentoAtivo,
+			Instant codigoCompartilhamentoExpiraEm,
+			Papel codigoCompartilhamentoPapel,
 			Instant createdAt) {
 
 		static ObraResponse from(Obra obra) {
@@ -175,6 +202,9 @@ class ObraController {
 					obra.getDeletedAt(),
 					obra.getDeletedBy(),
 					obra.getTemplateCodigo(),
+					obra.isCodigoCompartilhamentoAtivo(),
+					obra.getCodigoCompartilhamentoExpiraEm(),
+					obra.getCodigoCompartilhamentoPapel(),
 					obra.getCreatedAt());
 		}
 	}

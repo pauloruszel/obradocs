@@ -1,4 +1,4 @@
-import { Obra, ObraTemplate } from "@models/models";
+import { Obra, ObraTemplate, Papel } from "@models/models";
 import { apiRequest } from "./apiClient";
 
 export const listObrasDoUsuario = (): Promise<Obra[]> => apiRequest("/v1/obras");
@@ -20,6 +20,25 @@ export const entrarPorCodigo = (codigo: string): Promise<Obra> =>
   });
 
 export const fetchObra = (id: string): Promise<Obra> => apiRequest(`/v1/obras/${id}`);
+
+export const configurarCodigoAcesso = (
+  obraId: string,
+  configuracao: {
+    ativo: boolean;
+    papel: Exclude<Papel, "OWNER">;
+    validadeDias: number | null;
+    regenerar: boolean;
+  },
+): Promise<Obra> =>
+  apiRequest(`/v1/obras/${obraId}/codigo-compartilhamento`, {
+    method: "PUT",
+    body: JSON.stringify({
+      ativo: configuracao.ativo,
+      papel: configuracao.papel,
+      validade_dias: configuracao.validadeDias,
+      regenerar: configuracao.regenerar,
+    }),
+  });
 
 export const renomearObra = (obraId: string, nome: string): Promise<Obra> =>
   apiRequest(`/v1/obras/${obraId}`, {

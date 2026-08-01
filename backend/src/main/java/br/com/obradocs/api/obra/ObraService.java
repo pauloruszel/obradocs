@@ -1,6 +1,8 @@
 package br.com.obradocs.api.obra;
 
 import java.security.SecureRandom;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -78,17 +80,47 @@ class ObraService {
 	@Transactional
 	Obra entrarPorCodigo(String codigo, UUID usuarioId) {
 		Obra obra = obras.findByCodigoCompartilhamentoAndDeletedAtIsNull(normalizarCodigo(codigo))
-				.orElseThrow(() -> new NoSuchElementException("Obra não encontrada"));
+				.filter(item -> item.aceitaCodigo(Instant.now()))
+				.orElseThrow(() -> new NoSuchElementException("Código de acesso inválido ou expirado"));
 
 		if (permissoes.findByObraIdAndUserId(obra.getId(), usuarioId).isEmpty()) {
 			limitesPlano.validarNovoColaborador(obra.getId(), usuarioId);
-			permissoes.save(new Permissao(obra.getId(), usuarioId, Papel.VIEWER));
+			permissoes.save(new Permissao(
+					obra.getId(), usuarioId, obra.getCodigoCompartilhamentoPapel()));
 			historico.registrar(
 					obra.getId(),
 					usuarioId,
 					"ENTROU_OBRA",
-					Map.of("codigo", obra.getCodigoCompartilhamento()));
+					Map.of("papel", obra.getCodigoCompartilhamentoPapel().name()));
 		}
+		return obra;
+	}
+
+	@Transactional
+	Obra configurarCodigo(
+			UUID obraId,
+			boolean ativo,
+			Papel papel,
+			Integer validadeDias,
+			boolean regenerar,
+			UUID usuarioId) {
+		Obra obra = buscarAtiva(obraId);
+		authorization.exigirOwner(obraId, usuarioId);
+		if (papel == Papel.OWNER) {
+			throw new IllegalArgumentException("O código não pode conceder acesso de proprietário");
+		}
+		Instant expiraEm = !ativo || validadeDias == null
+				? null
+				: Instant.now().plus(Duration.ofDays(validadeDias));
+		obra.configurarCodigo(
+				regenerar ? gerarCodigoUnico() : obra.getCodigoCompartilhamento(),
+				ativo,
+				papel,
+				expiraEm);
+		historico.registrar(obraId, usuarioId, "CONFIGURAR_CODIGO_ACESSO", Map.of(
+				"ativo", ativo,
+				"papel", papel.name(),
+				"regenerado", regenerar));
 		return obra;
 	}
 

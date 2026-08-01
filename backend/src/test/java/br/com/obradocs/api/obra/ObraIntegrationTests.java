@@ -225,6 +225,46 @@ class ObraIntegrationTests {
 	}
 
 	@Test
+	void ownerRevogaRegeneraEEscolhePapelDoCodigo() throws Exception {
+		UsuarioAutenticado owner = registrar("Owner Codigo", "owner-codigo@example.com");
+		UsuarioAutenticado convidado = registrar("Convidado Codigo", "convidado-codigo@example.com");
+		JsonNode obra = criarObra(owner, "Obra com codigo controlado");
+		String obraId = obra.path("id").stringValue();
+		String codigoAntigo = obra.path("codigo_compartilhamento").stringValue();
+
+		assertThat(put("/v1/obras/" + obraId + "/codigo-compartilhamento", """
+				{"ativo":false,"papel":"VIEWER","regenerar":false}
+				""", convidado.token()).statusCode()).isEqualTo(403);
+		assertThat(put("/v1/obras/" + obraId + "/codigo-compartilhamento", """
+				{"ativo":false,"papel":"VIEWER","regenerar":false}
+				""", owner.token()).statusCode()).isEqualTo(200);
+		assertThat(post("/v1/obras/entrar", """
+				{"codigo":"%s"}
+				""".formatted(codigoAntigo), convidado.token()).statusCode()).isEqualTo(404);
+
+		JsonNode atualizado = json(put(
+				"/v1/obras/" + obraId + "/codigo-compartilhamento",
+				"""
+				{"ativo":true,"papel":"EDITOR","validade_dias":7,"regenerar":true}
+				""",
+				owner.token()));
+		String codigoNovo = atualizado.path("codigo_compartilhamento").stringValue();
+		assertThat(codigoNovo).isNotEqualTo(codigoAntigo);
+		assertThat(atualizado.path("codigo_compartilhamento_papel").stringValue())
+				.isEqualTo("EDITOR");
+		assertThat(atualizado.path("codigo_compartilhamento_expira_em").isTextual()).isTrue();
+
+		assertThat(post("/v1/obras/entrar", """
+				{"codigo":"%s"}
+				""".formatted(codigoNovo), convidado.token()).statusCode()).isEqualTo(200);
+		JsonNode permissoes = json(get("/v1/obras/" + obraId + "/permissoes", owner.token()));
+		assertThat(permissoes).anySatisfy(permissao -> {
+			assertThat(permissao.path("user_id").stringValue()).isEqualTo(convidado.id().toString());
+			assertThat(permissao.path("papel").stringValue()).isEqualTo("EDITOR");
+		});
+	}
+
+	@Test
 	void listaContaEMarcaSomenteAsNotificacoesDoUsuario() throws Exception {
 		UsuarioAutenticado owner = registrar("Owner Notificacoes", "owner-notificacoes@example.com");
 		tornarPro(owner.id());
@@ -420,6 +460,10 @@ class ObraIntegrationTests {
 
 	private HttpResponse<String> post(String path, String body, String token) throws Exception {
 		return send(path, token, "POST", body);
+	}
+
+	private HttpResponse<String> put(String path, String body, String token) throws Exception {
+		return send(path, token, "PUT", body);
 	}
 
 	private HttpResponse<String> patch(String path, String body, String token) throws Exception {

@@ -19,6 +19,7 @@ import ReportContentScreen from "@screens/ReportContentScreen";
 import RevisoesArquivoScreen from "@screens/RevisoesArquivoScreen";
 import CategoriasObraScreen from "@screens/CategoriasObraScreen";
 import NotificacoesScreen from "@screens/NotificacoesScreen";
+import CodigoAcessoScreen from "@screens/CodigoAcessoScreen";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import React from "react";
 import { Papel } from "@models/models";
@@ -49,6 +50,7 @@ export type RootStackParamList = {
   CategoriasObra: { obraId: string };
   Historico: { obraId: string };
   Permissoes: { obraId: string; isOwner: boolean };
+  CodigoAcesso: { obraId: string; nome: string };
   Account: undefined;
   MeuPlano: undefined;
   PlanoProfissional: {
@@ -93,6 +95,7 @@ const AppNavigator = () => {
           <Stack.Screen name="CategoriasObra" component={CategoriasObraScreen} options={{ title: "Categorias" }} />
           <Stack.Screen name="Historico" component={HistoricoScreen} options={{ title: "Histórico" }} />
           <Stack.Screen name="Permissoes" component={PermissoesScreen} options={{ title: "Permissões" }} />
+          <Stack.Screen name="CodigoAcesso" component={CodigoAcessoScreen} options={{ title: "Código de acesso" }} />
           <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} options={{ headerShown: false, presentation: "modal" }} />
         </>
       )}

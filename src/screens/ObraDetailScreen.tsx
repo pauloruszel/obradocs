@@ -15,6 +15,7 @@ import {
   Camera,
   FileText,
   History,
+  KeyRound,
   MoreVertical,
   Pencil,
   ReceiptText,
@@ -303,6 +304,11 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
         }),
     });
     if (papel === "OWNER") {
+      items.push({
+        label: "Código de acesso",
+        icon: <KeyRound size={20} color={colors.text} />,
+        onPress: () => navigation.navigate("CodigoAcesso", { obraId, nome: obraNome }),
+      });
       items.push({
         label: "Excluir obra",
         icon: <Trash2 size={20} color={colors.danger} />,

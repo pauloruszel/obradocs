@@ -58,6 +58,9 @@ export type Obra = {
   deleted_by?: string | null;
   created_at?: string;
   template_codigo?: ObraTemplate;
+  codigo_compartilhamento_ativo: boolean;
+  codigo_compartilhamento_expira_em?: string | null;
+  codigo_compartilhamento_papel: Exclude<Papel, "OWNER">;
 };
 
 export type Permissao = {
