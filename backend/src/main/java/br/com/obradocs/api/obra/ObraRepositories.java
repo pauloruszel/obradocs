@@ -5,6 +5,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -61,6 +63,8 @@ interface PermissaoRepository extends JpaRepository<Permissao, UUID> {
 interface HistoricoRepository extends JpaRepository<Historico, UUID> {
 
 	List<Historico> findAllByObraIdOrderByCreatedAtDesc(UUID obraId);
+
+	Page<Historico> findAllByObraIdOrderByCreatedAtDesc(UUID obraId, Pageable pageable);
 }
 
 interface ObraConviteRepository extends JpaRepository<ObraConvite, UUID> {
@@ -81,6 +85,8 @@ interface ObraConviteRepository extends JpaRepository<ObraConvite, UUID> {
 interface NotificacaoRepository extends JpaRepository<Notificacao, UUID> {
 
 	List<Notificacao> findTop50ByUsuarioIdOrderByCreatedAtDesc(UUID usuarioId);
+
+	Page<Notificacao> findAllByUsuarioIdOrderByCreatedAtDesc(UUID usuarioId, Pageable pageable);
 
 	Optional<Notificacao> findByIdAndUsuarioId(UUID id, UUID usuarioId);
 

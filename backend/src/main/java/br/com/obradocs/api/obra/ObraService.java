@@ -10,6 +10,8 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -212,6 +214,21 @@ class ObraService {
 								? null
 								: permissoes.buscarUsuario(historico.getUserId()).orElse(null)))
 				.toList();
+	}
+
+	@Transactional(readOnly = true)
+	Page<HistoricoDetalhado> listarHistoricoPaginado(
+			UUID obraId,
+			UUID usuarioId,
+			Pageable pageable) {
+		buscarAtiva(obraId);
+		authorization.exigirLeitura(obraId, usuarioId);
+		return historicos.findAllByObraIdOrderByCreatedAtDesc(obraId, pageable)
+				.map(historico -> new HistoricoDetalhado(
+						historico,
+						historico.getUserId() == null
+								? null
+								: permissoes.buscarUsuario(historico.getUserId()).orElse(null)));
 	}
 
 	private Obra buscarAtiva(UUID obraId) {

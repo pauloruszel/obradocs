@@ -12,9 +12,11 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import lombok.RequiredArgsConstructor;
+import br.com.obradocs.api.PageResponse;
 
 @RestController
 @RequestMapping("/v1/notificacoes")
@@ -26,6 +28,16 @@ class NotificacaoController {
 	@GetMapping
 	List<NotificacaoResponse> listar(@AuthenticationPrincipal Jwt jwt) {
 		return service.listar(usuarioId(jwt)).stream().map(NotificacaoResponse::from).toList();
+	}
+
+	@GetMapping("/pagina")
+	PageResponse<NotificacaoResponse> listarPaginado(
+			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "20") int size,
+			@AuthenticationPrincipal Jwt jwt) {
+		return PageResponse.from(
+				service.listarPaginado(usuarioId(jwt), PageResponse.pageable(page, size)),
+				NotificacaoResponse::from);
 	}
 
 	@GetMapping("/nao-lidas/count")

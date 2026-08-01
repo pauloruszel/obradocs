@@ -7,6 +7,8 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,12 @@ class NotificacaoService {
 		return notificacoes.findTop50ByUsuarioIdOrderByCreatedAtDesc(usuarioId).stream()
 				.map(this::detalhar)
 				.toList();
+	}
+
+	@Transactional(readOnly = true)
+	Page<Detalhe> listarPaginado(UUID usuarioId, Pageable pageable) {
+		return notificacoes.findAllByUsuarioIdOrderByCreatedAtDesc(usuarioId, pageable)
+				.map(this::detalhar);
 	}
 
 	@Transactional(readOnly = true)
