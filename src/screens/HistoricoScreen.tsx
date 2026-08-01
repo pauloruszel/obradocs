@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { SectionList, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, SectionList, StyleSheet, Text, View } from "react-native";
 import {
   BadgeCheck,
   Clock3,
@@ -13,7 +13,7 @@ import {
 } from "lucide-react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "@navigation/AppNavigator";
-import { listarHistorico } from "@services/historicoService";
+import { listarHistoricoPagina } from "@services/historicoService";
 import { ArquivoTipo, Historico } from "@models/models";
 import {
   arquivoTipoLabel,
@@ -101,13 +101,28 @@ const HistoricoScreen = ({ route }: Props) => {
   const { obraId, clientPortal = false } = route.params;
   const [logs, setLogs] = useState<Historico[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+
+  const load = useCallback((nextPage = 0) => {
+    if (nextPage > 0) setLoadingMore(true);
+    return listarHistoricoPagina(obraId, nextPage)
+      .then((response) => {
+        setLogs((current) => nextPage === 0 ? response.items : [...current, ...response.items]);
+        setPage(response.page);
+        setHasMore(response.has_more);
+      })
+      .catch((error) => toastError("Não foi possível carregar o histórico", (error as Error).message))
+      .finally(() => {
+        setLoading(false);
+        setLoadingMore(false);
+      });
+  }, [obraId]);
 
   useEffect(() => {
-    listarHistorico(obraId)
-      .then(setLogs)
-      .catch((error) => toastError("Não foi possível carregar o histórico", (error as Error).message))
-      .finally(() => setLoading(false));
-  }, [obraId]);
+    load().catch(() => undefined);
+  }, [load]);
 
   const sections = useMemo(() => {
     const groups = new Map<string, Historico[]>();
@@ -129,6 +144,11 @@ const HistoricoScreen = ({ route }: Props) => {
         stickySectionHeadersEnabled={false}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={sections.length === 0 ? styles.emptyContent : styles.content}
+        onEndReached={() => {
+          if (hasMore && !loadingMore) load(page + 1).catch(() => undefined);
+        }}
+        onEndReachedThreshold={0.3}
+        ListFooterComponent={loadingMore ? <ActivityIndicator color={colors.primary} /> : null}
         renderSectionHeader={({ section }) => <Text style={styles.dateHeader}>{section.title}</Text>}
         renderItem={({ item, index, section }) => {
           const Icon = actionIcons[item.acao] || FilePenLine;

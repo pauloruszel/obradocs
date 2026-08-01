@@ -1,4 +1,5 @@
 node_modules
+graphify-out/
 .expo
 .expo-shared
 dist

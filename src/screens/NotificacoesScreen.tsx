@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { BadgeCheck, Bell, CheckCheck, Clock3, FileUp, LogIn, MessageSquareWarning, RefreshCw, UserRoundPlus } from "lucide-react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "@navigation/AppNavigator";
 import {
-  listarNotificacoes,
+  listarNotificacoesPagina,
+  contarNotificacoesNaoLidas,
   marcarNotificacaoComoLida,
   marcarTodasNotificacoesComoLidas,
   Notificacao,
@@ -33,17 +34,29 @@ const NotificacoesScreen = ({ navigation }: Props) => {
   const [refreshing, setRefreshing] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
   const [error, setError] = useState(false);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
-  const load = useCallback(async (refresh = false) => {
+  const load = useCallback(async (refresh = false, nextPage = 0) => {
     if (refresh) {
       setRefreshing(true);
+    } else if (nextPage > 0) {
+      setLoadingMore(true);
     } else {
       setLoading(true);
     }
     setError(false);
     try {
-      const notifications = await listarNotificacoes();
-      setItems([...notifications].sort((a, b) => b.created_at.localeCompare(a.created_at)));
+      const [response, count] = await Promise.all([
+        listarNotificacoesPagina(nextPage),
+        nextPage === 0 ? contarNotificacoesNaoLidas() : Promise.resolve(null),
+      ]);
+      setItems((current) => nextPage === 0 ? response.items : [...current, ...response.items]);
+      setPage(response.page);
+      setHasMore(response.has_more);
+      if (count != null) setUnreadCount(count);
     } catch (requestError) {
       setError(true);
       if (refresh) {
@@ -52,6 +65,7 @@ const NotificacoesScreen = ({ navigation }: Props) => {
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setLoadingMore(false);
     }
   }, []);
 
@@ -59,14 +73,14 @@ const NotificacoesScreen = ({ navigation }: Props) => {
     load().catch(() => undefined);
   }, [load]);
 
-  const unreadCount = items.filter((item) => !item.lida_at).length;
-
   const openNotification = (item: Notificacao) => {
     if (!item.lida_at) {
       const readAt = new Date().toISOString();
       setItems((current) => current.map((entry) => entry.id === item.id ? { ...entry, lida_at: readAt } : entry));
+      setUnreadCount((current) => Math.max(0, current - 1));
       marcarNotificacaoComoLida(item.id).catch((requestError) => {
         setItems((current) => current.map((entry) => entry.id === item.id ? { ...entry, lida_at: null } : entry));
+        setUnreadCount((current) => current + 1);
         toastError("Não foi possível marcar como lida", (requestError as Error).message);
       });
     }
@@ -97,6 +111,7 @@ const NotificacoesScreen = ({ navigation }: Props) => {
       await marcarTodasNotificacoesComoLidas();
       const readAt = new Date().toISOString();
       setItems((current) => current.map((item) => ({ ...item, lida_at: item.lida_at || readAt })));
+      setUnreadCount(0);
       toastSuccess("Notificações marcadas como lidas");
     } catch (requestError) {
       toastError("Não foi possível concluir", (requestError as Error).message || "Tente novamente.");
@@ -160,6 +175,11 @@ const NotificacoesScreen = ({ navigation }: Props) => {
             />
           )}
           contentContainerStyle={items.length === 0 ? styles.emptyList : styles.list}
+          onEndReached={() => {
+            if (hasMore && !loadingMore) load(false, page + 1).catch(() => undefined);
+          }}
+          onEndReachedThreshold={0.3}
+          ListFooterComponent={loadingMore ? <ActivityIndicator color={colors.primary} /> : null}
           renderItem={({ item }) => {
             const unread = !item.lida_at;
             const Icon = iconFor(item.acao);

@@ -1,6 +1,18 @@
 import { AprovacaoStatus, Arquivo, ArquivoTipo } from "@models/models";
 import { Platform } from "react-native";
-import { apiRequest } from "./apiClient";
+import { apiRequest, PageResponse } from "./apiClient";
+
+const arquivosQuery = (
+  tipo?: ArquivoTipo,
+  busca?: string,
+  categoriaId?: string,
+  ambiente?: string,
+) => [
+  categoriaId && `categoriaId=${encodeURIComponent(categoriaId)}`,
+  tipo && `tipo=${encodeURIComponent(tipo)}`,
+  busca?.trim() && `busca=${encodeURIComponent(busca.trim())}`,
+  ambiente?.trim() && `ambiente=${encodeURIComponent(ambiente.trim())}`,
+].filter(Boolean);
 
 export const listarArquivos = (
   obraId: string,
@@ -9,15 +21,20 @@ export const listarArquivos = (
   categoriaId?: string,
   ambiente?: string,
 ): Promise<Arquivo[]> => {
-  const query = [
-    categoriaId && `categoriaId=${encodeURIComponent(categoriaId)}`,
-    tipo && `tipo=${encodeURIComponent(tipo)}`,
-    busca?.trim() && `busca=${encodeURIComponent(busca.trim())}`,
-    ambiente?.trim() && `ambiente=${encodeURIComponent(ambiente.trim())}`,
-  ]
-    .filter(Boolean)
-    .join("&");
+  const query = arquivosQuery(tipo, busca, categoriaId, ambiente).join("&");
   return apiRequest(`/v1/obras/${obraId}/arquivos${query ? `?${query}` : ""}`);
+};
+
+export const listarArquivosPagina = (
+  obraId: string,
+  page: number,
+  tipo?: ArquivoTipo,
+  busca?: string,
+  categoriaId?: string,
+  ambiente?: string,
+): Promise<PageResponse<Arquivo>> => {
+  const query = [...arquivosQuery(tipo, busca, categoriaId, ambiente), `page=${page}`, "size=20"];
+  return apiRequest(`/v1/obras/${obraId}/arquivos/pagina?${query.join("&")}`);
 };
 
 export const buscarArquivo = (arquivoId: string): Promise<Arquivo> =>

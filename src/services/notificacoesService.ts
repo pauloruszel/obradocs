@@ -1,4 +1,4 @@
-import { apiRequest } from "./apiClient";
+import { apiRequest, PageResponse } from "./apiClient";
 
 export type Notificacao = {
   id: string;
@@ -15,6 +15,9 @@ export type Notificacao = {
 
 export const listarNotificacoes = () =>
   apiRequest<Notificacao[]>("/v1/notificacoes");
+
+export const listarNotificacoesPagina = (page: number) =>
+  apiRequest<PageResponse<Notificacao>>(`/v1/notificacoes/pagina?page=${page}&size=20`);
 
 export const contarNotificacoesNaoLidas = async () => {
   const response = await apiRequest<{ quantidade: number }>("/v1/notificacoes/nao-lidas/count");

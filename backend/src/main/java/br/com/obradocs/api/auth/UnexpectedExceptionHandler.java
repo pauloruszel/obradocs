@@ -27,7 +27,7 @@ class UnexpectedExceptionHandler {
 	@ExceptionHandler(Exception.class)
 	ProblemDetail handle(Exception exception) {
 		String requestId = MDC.get("requestId");
-		log.error("unhandled_exception", exception);
+		log.error("unhandled_exception type={}", exception.getClass().getSimpleName());
 		ProblemDetail detail = ProblemDetail.forStatusAndDetail(
 				HttpStatus.INTERNAL_SERVER_ERROR,
 				"Erro interno. Tente novamente mais tarde");

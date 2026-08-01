@@ -48,9 +48,7 @@ public class StorageDeletionQueue {
 			storage.excluir(pending.path());
 			jdbc.update("delete from storage_deletion_queue where id = ?", pending.id());
 		} catch (RuntimeException exception) {
-			String error = exception.getMessage() == null
-					? exception.getClass().getSimpleName()
-					: exception.getMessage();
+			String error = exception.getClass().getSimpleName();
 			jdbc.update("""
 					update storage_deletion_queue
 					set attempts = attempts + 1,
@@ -58,7 +56,7 @@ public class StorageDeletionQueue {
 					    last_error = ?
 					where id = ?
 					""", error.substring(0, Math.min(error.length(), 1000)), pending.id());
-			log.warn("Falha ao excluir objeto pendente {}", pending.id(), exception);
+			log.warn("Falha ao excluir objeto pendente {} type={}", pending.id(), error);
 		}
 	}
 
