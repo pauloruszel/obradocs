@@ -82,7 +82,7 @@ class ObraService {
 
 		if (permissoes.findByObraIdAndUserId(obra.getId(), usuarioId).isEmpty()) {
 			limitesPlano.validarNovoColaborador(obra.getId(), usuarioId);
-			permissoes.save(new Permissao(obra.getId(), usuarioId, Papel.EDITOR));
+			permissoes.save(new Permissao(obra.getId(), usuarioId, Papel.VIEWER));
 			historico.registrar(
 					obra.getId(),
 					usuarioId,
@@ -106,7 +106,7 @@ class ObraService {
 	@Transactional
 	void excluir(UUID obraId, UUID usuarioId) {
 		Obra obra = buscarAtiva(obraId);
-		authorization.exigirEdicao(obraId, usuarioId);
+		authorization.exigirOwner(obraId, usuarioId);
 		deletionQueue.enqueue(jdbc.queryForList(
 				"select storage_path from arquivos where obra_id = ?",
 				String.class,

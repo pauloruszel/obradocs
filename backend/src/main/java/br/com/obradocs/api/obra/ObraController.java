@@ -1,10 +1,12 @@
 package br.com.obradocs.api.obra;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import br.com.obradocs.api.auth.AuthRateLimiter;
 import br.com.obradocs.api.categoria.ObraTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -32,6 +35,7 @@ import lombok.RequiredArgsConstructor;
 class ObraController {
 
 	private final ObraService service;
+	private final AuthRateLimiter rateLimiter;
 
 	@GetMapping
 	List<ObraResponse> listar(@AuthenticationPrincipal Jwt jwt) {
@@ -73,7 +77,12 @@ class ObraController {
 	@PostMapping("/entrar")
 	ObraResponse entrar(
 			@Valid @RequestBody EntrarObraRequest request,
-			@AuthenticationPrincipal Jwt jwt) {
+			@AuthenticationPrincipal Jwt jwt,
+			HttpServletRequest httpRequest) {
+		rateLimiter.check(
+				"obras:entrar:ip:" + httpRequest.getRemoteAddr(),
+				10,
+				Duration.ofMinutes(5));
 		return ObraResponse.from(service.entrarPorCodigo(request.codigo(), usuarioId(jwt)));
 	}
 

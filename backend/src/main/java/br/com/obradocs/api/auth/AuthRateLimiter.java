@@ -27,7 +27,7 @@ public class AuthRateLimiter {
 		this.clock = clock;
 	}
 
-	void check(String key, int limit, Duration duration) {
+	public void check(String key, int limit, Duration duration) {
 		Instant now = clock.instant();
 		if (requests.incrementAndGet() % 100 == 0 || windows.size() > MAX_KEYS) {
 			windows.entrySet().removeIf(entry -> !entry.getValue().expiresAt().isAfter(now));

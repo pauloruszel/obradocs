@@ -302,7 +302,7 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
           title: obraNome,
         }),
     });
-    if (canEdit) {
+    if (papel === "OWNER") {
       items.push({
         label: "Excluir obra",
         icon: <Trash2 size={20} color={colors.danger} />,

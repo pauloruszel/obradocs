@@ -247,20 +247,32 @@ class ArquivoIntegrationTests {
         assertThat(entrada.statusCode()).isEqualTo(200);
 
         byte[] jpeg = {(byte) 0xff, (byte) 0xd8, (byte) 0xff, (byte) 0xe0, 1, 2, 3};
-        HttpResponse<String> editorUpload = upload(
-                obraId, "FOTO", "foto.jpg", "image/jpeg", jpeg, colaborador.token());
-        assertThat(editorUpload.statusCode()).isEqualTo(201);
-        String arquivoId = json(editorUpload).path("id").stringValue();
+        assertThat(upload(
+                obraId, "FOTO", "bloqueado.jpg", "image/jpeg", jpeg, colaborador.token()).statusCode())
+                .isEqualTo(403);
 
         JsonNode permissoes = json(get("/v1/obras/" + obraId + "/permissoes", owner.token()));
         String colaboradorPermissaoId = null;
         for (JsonNode permissao : permissoes) {
-            if ("EDITOR".equals(permissao.path("papel").stringValue())) {
+            if (colaborador.email().equals(
+                    permissao.path("profiles").path("email").stringValue())) {
+                assertThat(permissao.path("papel").stringValue()).isEqualTo("VIEWER");
                 colaboradorPermissaoId = permissao.path("id").stringValue();
                 break;
             }
         }
         assertThat(colaboradorPermissaoId).isNotNull();
+
+        HttpResponse<String> promocao = patch(
+                "/v1/obras/" + obraId + "/permissoes/" + colaboradorPermissaoId,
+                "{\"papel\":\"EDITOR\"}",
+                owner.token());
+        assertThat(promocao.statusCode()).isEqualTo(200);
+
+        HttpResponse<String> editorUpload = upload(
+                obraId, "FOTO", "foto.jpg", "image/jpeg", jpeg, colaborador.token());
+        assertThat(editorUpload.statusCode()).isEqualTo(201);
+        String arquivoId = json(editorUpload).path("id").stringValue();
 
         HttpResponse<String> alteracao = patch(
                 "/v1/obras/" + obraId + "/permissoes/" + colaboradorPermissaoId,
