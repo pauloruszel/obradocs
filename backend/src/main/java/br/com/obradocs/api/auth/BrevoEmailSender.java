@@ -13,12 +13,13 @@ import org.springframework.web.util.HtmlUtils;
 
 import br.com.obradocs.api.config.SecurityConfig.BrevoProperties;
 import br.com.obradocs.api.config.SecurityConfig.PasswordResetProperties;
+import br.com.obradocs.api.obra.Papel;
 import lombok.RequiredArgsConstructor;
 import tools.jackson.databind.ObjectMapper;
 
 @Component
 @RequiredArgsConstructor
-class BrevoEmailSender {
+public class BrevoEmailSender {
 
 	private final ObjectMapper json;
 	private final BrevoProperties properties;
@@ -118,6 +119,34 @@ class BrevoEmailSender {
 
 						Se você não solicitou a redefinição, ignore esta mensagem.
 						""".formatted(usuario.getNome(), expiration, link));
+		enviar(email);
+	}
+
+	public void enviarConvite(String destinatario, String obraNome, Papel papel, String link) {
+		String safeObra = HtmlUtils.htmlEscape(obraNome);
+		String safeLink = HtmlUtils.htmlEscape(link);
+		String papelNome = papel == Papel.EDITOR ? "Editor" : "Visualizador";
+		Map<String, Object> email = Map.of(
+				"sender", Map.of("email", passwordResetProperties.from(), "name", "Obradocs"),
+				"to", List.of(Map.of("email", destinatario)),
+				"subject", "Convite para a obra " + obraNome + " | Obradocs",
+				"htmlContent", """
+						<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+						<body style="margin:0;padding:24px;background:#f4f6f8;font-family:Arial,sans-serif;color:#172033">
+						<table role="presentation" width="100%%"><tr><td align="center"><table role="presentation" width="100%%" style="max-width:560px;background:#fff;border:1px solid #dfe4ea;border-radius:8px">
+						<tr><td style="padding:24px 32px;background:#0c5baa;color:#fff;font-size:20px;font-weight:700">Obradocs</td></tr>
+						<tr><td style="padding:32px"><h1 style="margin:0 0 16px;font-size:24px">Você recebeu um convite</h1>
+						<p style="color:#445066;line-height:1.6">Você foi convidado para acessar <strong>%s</strong> como <strong>%s</strong>.</p>
+						<a href="%s" style="display:inline-block;margin-top:12px;padding:14px 22px;background:#0c5baa;color:#fff;text-decoration:none;border-radius:6px;font-weight:700">Aceitar convite</a>
+						<p style="margin-top:24px;color:#667085;font-size:13px">Entre ou crie sua conta com este mesmo e-mail para concluir.</p></td></tr>
+						</table></td></tr></table></body></html>
+						""".formatted(safeObra, papelNome, safeLink),
+				"textContent", "Você foi convidado para acessar a obra %s como %s. Aceite em: %s"
+						.formatted(obraNome, papelNome, link));
+		enviar(email);
+	}
+
+	private void enviar(Map<String, Object> email) {
 		try {
 			HttpRequest request = HttpRequest.newBuilder(properties.apiUrl())
 					.timeout(Duration.ofSeconds(15))

@@ -31,6 +31,16 @@ class Obra {
 	@Column(name = "codigo_compartilhamento", nullable = false, unique = true, length = 9)
 	private String codigoCompartilhamento;
 
+	@Column(name = "codigo_compartilhamento_ativo", nullable = false)
+	private boolean codigoCompartilhamentoAtivo = true;
+
+	@Column(name = "codigo_compartilhamento_expira_em")
+	private Instant codigoCompartilhamentoExpiraEm;
+
+	@jakarta.persistence.Enumerated(jakarta.persistence.EnumType.STRING)
+	@Column(name = "codigo_compartilhamento_papel", nullable = false, length = 20)
+	private Papel codigoCompartilhamentoPapel = Papel.VIEWER;
+
 	@Column(name = "created_by", updatable = false)
 	private UUID createdBy;
 
@@ -66,5 +76,18 @@ class Obra {
 	void excluir(UUID usuarioId) {
 		deletedAt = Instant.now();
 		deletedBy = usuarioId;
+	}
+
+	boolean aceitaCodigo(Instant agora) {
+		return codigoCompartilhamentoAtivo
+				&& (codigoCompartilhamentoExpiraEm == null
+						|| codigoCompartilhamentoExpiraEm.isAfter(agora));
+	}
+
+	void configurarCodigo(String codigo, boolean ativo, Papel papel, Instant expiraEm) {
+		codigoCompartilhamento = codigo;
+		codigoCompartilhamentoAtivo = ativo;
+		codigoCompartilhamentoPapel = papel;
+		codigoCompartilhamentoExpiraEm = expiraEm;
 	}
 }

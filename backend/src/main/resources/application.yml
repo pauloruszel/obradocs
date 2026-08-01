@@ -53,6 +53,9 @@ app:
     url: ${PASSWORD_RESET_URL:http://localhost:8080/reset-password.html}
     token-ttl: ${PASSWORD_RESET_TOKEN_TTL:30m}
     from: ${PASSWORD_RESET_FROM:nao-responda@obradocs.app}
+  invitation:
+    url: ${INVITATION_URL:http://localhost:8081/?invite=}
+    token-ttl: ${INVITATION_TOKEN_TTL:7d}
   brevo:
     api-url: ${BREVO_API_URL:https://api.brevo.com/v3/smtp/email}
     api-key: ${BREVO_API_KEY}

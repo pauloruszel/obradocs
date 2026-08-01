@@ -5,9 +5,12 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
+import jakarta.persistence.LockModeType;
 
 interface ObraRepository extends JpaRepository<Obra, UUID> {
 
@@ -58,6 +61,21 @@ interface PermissaoRepository extends JpaRepository<Permissao, UUID> {
 interface HistoricoRepository extends JpaRepository<Historico, UUID> {
 
 	List<Historico> findAllByObraIdOrderByCreatedAtDesc(UUID obraId);
+}
+
+interface ObraConviteRepository extends JpaRepository<ObraConvite, UUID> {
+
+	List<ObraConvite> findAllByObraIdOrderByCreatedAtDesc(UUID obraId);
+
+	Optional<ObraConvite> findByObraIdAndEmailIgnoreCaseAndStatus(
+			UUID obraId,
+			String email,
+			ObraConvite.Status status);
+
+	Optional<ObraConvite> findByIdAndObraId(UUID id, UUID obraId);
+
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	Optional<ObraConvite> findByTokenHash(String tokenHash);
 }
 
 interface NotificacaoRepository extends JpaRepository<Notificacao, UUID> {

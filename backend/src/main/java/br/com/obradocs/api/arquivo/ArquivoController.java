@@ -2,6 +2,7 @@ package br.com.obradocs.api.arquivo;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -72,6 +73,25 @@ class ArquivoController {
 				.body(ArquivoResponse.from(service.enviarRevisao(arquivoId, arquivo, usuarioId(jwt))));
 	}
 
+	@PostMapping("/arquivos/{arquivoId}/aprovacao/solicitar")
+	ArquivoResponse solicitarAprovacao(
+			@PathVariable UUID arquivoId,
+			@AuthenticationPrincipal Jwt jwt) {
+		return ArquivoResponse.from(service.solicitarAprovacao(arquivoId, usuarioId(jwt)));
+	}
+
+	@PostMapping("/arquivos/{arquivoId}/aprovacao/decidir")
+	ArquivoResponse decidirAprovacao(
+			@PathVariable UUID arquivoId,
+			@Valid @RequestBody DecidirAprovacaoRequest request,
+			@AuthenticationPrincipal Jwt jwt) {
+		return ArquivoResponse.from(service.decidirAprovacao(
+				arquivoId,
+				request.decisao(),
+				request.comentario(),
+				usuarioId(jwt)));
+	}
+
 	@PatchMapping("/arquivos/{arquivoId}")
 	ArquivoResponse renomear(
 			@PathVariable UUID arquivoId,
@@ -93,6 +113,11 @@ class ArquivoController {
 	record RenomearArquivoRequest(@NotBlank @Size(max = 255) String nome) {
 	}
 
+	record DecidirAprovacaoRequest(
+			@NotNull AprovacaoStatus decisao,
+			@Size(max = 1000) String comentario) {
+	}
+
 	record ArquivoResponse(
 			UUID id,
 			UUID obraId,
@@ -111,6 +136,14 @@ class ArquivoController {
 			int revisao,
 			int revisaoAtual,
 			boolean atual,
+			Integer revisaoAprovada,
+			boolean oficialAprovada,
+			AprovacaoStatus aprovacaoStatus,
+			UUID aprovacaoSolicitadaPor,
+			Instant aprovacaoSolicitadaAt,
+			UUID aprovacaoDecididaPor,
+			Instant aprovacaoDecididaAt,
+			String aprovacaoComentario,
 			Instant createdAt) {
 
 		static ArquivoResponse from(ArquivoDetalhado detalhe) {
@@ -133,6 +166,15 @@ class ArquivoController {
 					arquivo.getRevisao(),
 					detalhe.getRevisaoAtual(),
 					arquivo.getRevisao() == detalhe.getRevisaoAtual(),
+					detalhe.getRevisaoAprovada(),
+					detalhe.getRevisaoAprovada() != null
+							&& arquivo.getRevisao() == detalhe.getRevisaoAprovada(),
+					arquivo.getAprovacaoStatus(),
+					arquivo.getAprovacaoSolicitadaPor(),
+					arquivo.getAprovacaoSolicitadaAt(),
+					arquivo.getAprovacaoDecididaPor(),
+					arquivo.getAprovacaoDecididaAt(),
+					arquivo.getAprovacaoComentario(),
 					arquivo.getCreatedAt());
 		}
 	}

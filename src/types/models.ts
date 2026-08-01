@@ -1,5 +1,6 @@
 export type Papel = 'OWNER' | 'EDITOR' | 'VIEWER';
 export type ArquivoTipo = 'ORCAMENTO' | 'NOTA_FISCAL' | 'PROJETO' | 'FOTO';
+export type AprovacaoStatus = 'PENDING' | 'APPROVED' | 'CHANGES_REQUESTED';
 export type ObraTemplate =
   | 'GERAL'
   | 'ARQUITETURA'
@@ -58,6 +59,9 @@ export type Obra = {
   deleted_by?: string | null;
   created_at?: string;
   template_codigo?: ObraTemplate;
+  codigo_compartilhamento_ativo: boolean;
+  codigo_compartilhamento_expira_em?: string | null;
+  codigo_compartilhamento_papel: Exclude<Papel, "OWNER">;
 };
 
 export type Permissao = {
@@ -67,6 +71,19 @@ export type Permissao = {
   papel: Papel;
   created_at?: string;
   profiles?: Profile;
+};
+
+export type ObraConvite = {
+  id: string;
+  obra_id: string;
+  email: string;
+  papel: Exclude<Papel, "OWNER">;
+  status: "PENDING" | "ACCEPTED" | "EXPIRED" | "REVOKED";
+  expires_at: string;
+  invited_by: string;
+  accepted_by?: string | null;
+  created_at: string;
+  accepted_at?: string | null;
 };
 
 export type Arquivo = {
@@ -82,6 +99,14 @@ export type Arquivo = {
   revisao: number;
   revisao_atual: number;
   atual: boolean;
+  revisao_aprovada?: number | null;
+  oficial_aprovada: boolean;
+  aprovacao_status?: AprovacaoStatus | null;
+  aprovacao_solicitada_por?: string | null;
+  aprovacao_solicitada_at?: string | null;
+  aprovacao_decidida_por?: string | null;
+  aprovacao_decidida_at?: string | null;
+  aprovacao_comentario?: string | null;
   storage_path: string;
   content_type: string;
   tamanho_bytes: number;

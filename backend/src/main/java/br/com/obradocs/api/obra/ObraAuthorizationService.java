@@ -29,7 +29,7 @@ public class ObraAuthorizationService {
 		}
 	}
 
-	void exigirOwner(UUID obraId, UUID usuarioId) {
+	public void exigirOwner(UUID obraId, UUID usuarioId) {
 		if (buscarPermissaoAtiva(obraId, usuarioId).getPapel() != Papel.OWNER) {
 			throw new AccessDeniedException("Somente o proprietário pode executar esta ação");
 		}

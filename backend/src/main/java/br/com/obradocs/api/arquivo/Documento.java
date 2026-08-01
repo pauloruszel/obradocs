@@ -45,6 +45,9 @@ class Documento {
 	@Column(name = "revisao_atual", nullable = false)
 	private int revisaoAtual = 1;
 
+	@Column(name = "revisao_aprovada")
+	private Integer revisaoAprovada;
+
 	@Column(name = "created_at", nullable = false, updatable = false)
 	private Instant createdAt;
 
@@ -67,5 +70,12 @@ class Documento {
 
 	void renomear(String nome) {
 		this.nome = nome;
+	}
+
+	void aprovarRevisao(int revisao) {
+		if (revisaoAprovada != null && revisao < revisaoAprovada) {
+			throw new IllegalArgumentException("Uma revisão anterior não pode substituir a revisão oficial");
+		}
+		revisaoAprovada = revisao;
 	}
 }

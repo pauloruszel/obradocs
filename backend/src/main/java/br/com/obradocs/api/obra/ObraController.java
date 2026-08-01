@@ -1,10 +1,12 @@
 package br.com.obradocs.api.obra;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import br.com.obradocs.api.auth.AuthRateLimiter;
 import br.com.obradocs.api.categoria.ObraTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,12 +20,16 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PutMapping;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -32,6 +38,7 @@ import lombok.RequiredArgsConstructor;
 class ObraController {
 
 	private final ObraService service;
+	private final AuthRateLimiter rateLimiter;
 
 	@GetMapping
 	List<ObraResponse> listar(@AuthenticationPrincipal Jwt jwt) {
@@ -73,8 +80,27 @@ class ObraController {
 	@PostMapping("/entrar")
 	ObraResponse entrar(
 			@Valid @RequestBody EntrarObraRequest request,
-			@AuthenticationPrincipal Jwt jwt) {
+			@AuthenticationPrincipal Jwt jwt,
+			HttpServletRequest httpRequest) {
+		rateLimiter.check(
+				"obras:entrar:ip:" + httpRequest.getRemoteAddr(),
+				10,
+				Duration.ofMinutes(5));
 		return ObraResponse.from(service.entrarPorCodigo(request.codigo(), usuarioId(jwt)));
+	}
+
+	@PutMapping("/{obraId}/codigo-compartilhamento")
+	ObraResponse configurarCodigo(
+			@PathVariable UUID obraId,
+			@Valid @RequestBody ConfigurarCodigoRequest request,
+			@AuthenticationPrincipal Jwt jwt) {
+		return ObraResponse.from(service.configurarCodigo(
+				obraId,
+				request.ativo(),
+				request.papel(),
+				request.validadeDias(),
+				request.regenerar(),
+				usuarioId(jwt)));
 	}
 
 	@GetMapping("/{obraId}/permissoes")
@@ -139,6 +165,13 @@ class ObraController {
 	record EntrarObraRequest(@NotBlank @Size(max = 20) String codigo) {
 	}
 
+	record ConfigurarCodigoRequest(
+			boolean ativo,
+			@NotNull Papel papel,
+			@Min(1) @Max(365) Integer validadeDias,
+			boolean regenerar) {
+	}
+
 	record AdicionarPermissaoRequest(
 			@NotBlank @Email @Size(max = 320) String email,
 			@NotNull Papel papel) {
@@ -155,6 +188,9 @@ class ObraController {
 			Instant deletedAt,
 			UUID deletedBy,
 			ObraTemplate templateCodigo,
+			boolean codigoCompartilhamentoAtivo,
+			Instant codigoCompartilhamentoExpiraEm,
+			Papel codigoCompartilhamentoPapel,
 			Instant createdAt) {
 
 		static ObraResponse from(Obra obra) {
@@ -166,6 +202,9 @@ class ObraController {
 					obra.getDeletedAt(),
 					obra.getDeletedBy(),
 					obra.getTemplateCodigo(),
+					obra.isCodigoCompartilhamentoAtivo(),
+					obra.getCodigoCompartilhamentoExpiraEm(),
+					obra.getCodigoCompartilhamentoPapel(),
 					obra.getCreatedAt());
 		}
 	}

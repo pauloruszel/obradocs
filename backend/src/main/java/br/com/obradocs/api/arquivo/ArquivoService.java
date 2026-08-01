@@ -193,6 +193,58 @@ class ArquivoService {
 		return arquivos.listarRevisoes(arquivo.getDocumentoId());
 	}
 
+	@Transactional
+	ArquivoDetalhado solicitarAprovacao(UUID arquivoId, UUID usuarioId) {
+		Arquivo arquivo = arquivos.findByIdForUpdate(arquivoId)
+				.orElseThrow(() -> new NoSuchElementException("Arquivo não encontrado"));
+		authorization.exigirEdicao(arquivo.getObraId(), usuarioId);
+		arquivo.solicitarAprovacao(usuarioId);
+		historico.registrar(
+				arquivo.getObraId(),
+				usuarioId,
+				"APROVACAO_SOLICITADA",
+				Map.of(
+						"arquivoId", arquivo.getId(),
+						"documentoId", arquivo.getDocumentoId(),
+						"revisao", arquivo.getRevisao()));
+		return buscarDetalhadoPorId(arquivoId);
+	}
+
+	@Transactional
+	ArquivoDetalhado decidirAprovacao(
+			UUID arquivoId,
+			AprovacaoStatus decisao,
+			String comentario,
+			UUID usuarioId) {
+		Arquivo arquivo = arquivos.findByIdForUpdate(arquivoId)
+				.orElseThrow(() -> new NoSuchElementException("Arquivo não encontrado"));
+		authorization.exigirOwner(arquivo.getObraId(), usuarioId);
+		arquivo.decidirAprovacao(decisao, comentario, usuarioId);
+		if (decisao == AprovacaoStatus.APPROVED) {
+			Documento documento = documentos.findByIdForUpdate(arquivo.getDocumentoId())
+					.orElseThrow(() -> new NoSuchElementException("Documento não encontrado"));
+			documento.aprovarRevisao(arquivo.getRevisao());
+		}
+		Map<String, Object> detalhes = decisao == AprovacaoStatus.CHANGES_REQUESTED
+				? Map.of(
+						"arquivoId", arquivo.getId(),
+						"documentoId", arquivo.getDocumentoId(),
+						"revisao", arquivo.getRevisao(),
+						"solicitanteId", arquivo.getAprovacaoSolicitadaPor(),
+						"comentario", arquivo.getAprovacaoComentario())
+				: Map.of(
+						"arquivoId", arquivo.getId(),
+						"documentoId", arquivo.getDocumentoId(),
+						"revisao", arquivo.getRevisao(),
+						"solicitanteId", arquivo.getAprovacaoSolicitadaPor());
+		historico.registrar(
+				arquivo.getObraId(),
+				usuarioId,
+				decisao == AprovacaoStatus.APPROVED ? "REVISAO_APROVADA" : "ALTERACOES_SOLICITADAS",
+				detalhes);
+		return buscarDetalhadoPorId(arquivoId);
+	}
+
 	@Transactional(readOnly = true)
 	S3Storage.DownloadTemporario criarDownload(UUID arquivoId, UUID usuarioId) {
 		Arquivo arquivo = buscarDetalhadoPorId(arquivoId).getArquivo();

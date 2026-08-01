@@ -1,4 +1,4 @@
-import { Arquivo, ArquivoTipo } from "@models/models";
+import { AprovacaoStatus, Arquivo, ArquivoTipo } from "@models/models";
 import { Platform } from "react-native";
 import { apiRequest } from "./apiClient";
 
@@ -25,6 +25,19 @@ export const buscarArquivo = (arquivoId: string): Promise<Arquivo> =>
 
 export const listarRevisoes = (arquivoId: string): Promise<Arquivo[]> =>
   apiRequest(`/v1/arquivos/${arquivoId}/revisoes`);
+
+export const solicitarAprovacao = (arquivoId: string): Promise<Arquivo> =>
+  apiRequest(`/v1/arquivos/${arquivoId}/aprovacao/solicitar`, { method: "POST" });
+
+export const decidirAprovacao = (
+  arquivoId: string,
+  decisao: Exclude<AprovacaoStatus, "PENDING">,
+  comentario?: string,
+): Promise<Arquivo> =>
+  apiRequest(`/v1/arquivos/${arquivoId}/aprovacao/decidir`, {
+    method: "POST",
+    body: JSON.stringify({ decisao, comentario: comentario?.trim() || null }),
+  });
 
 const uploadMultipart = async ({
   path,

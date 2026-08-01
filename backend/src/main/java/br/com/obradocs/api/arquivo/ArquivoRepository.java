@@ -12,6 +12,10 @@ import java.util.UUID;
 
 interface ArquivoRepository extends JpaRepository<Arquivo, UUID> {
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select a from Arquivo a where a.id = :id")
+    Optional<Arquivo> findByIdForUpdate(@Param("id") UUID id);
+
     @Query("""
             select a as arquivo,
                    u.nome as enviadoPorNome,
@@ -19,7 +23,8 @@ interface ArquivoRepository extends JpaRepository<Arquivo, UUID> {
                    d.categoriaId as categoriaId,
                    c.nome as categoriaNome,
                    d.ambiente as ambiente,
-                   d.revisaoAtual as revisaoAtual
+                   d.revisaoAtual as revisaoAtual,
+                   d.revisaoAprovada as revisaoAprovada
             from Arquivo a
             join Documento d on d.id = a.documentoId
             join CategoriaObra c on c.id = d.categoriaId
@@ -37,7 +42,8 @@ interface ArquivoRepository extends JpaRepository<Arquivo, UUID> {
                    d.categoriaId as categoriaId,
                    c.nome as categoriaNome,
                    d.ambiente as ambiente,
-                   d.revisaoAtual as revisaoAtual
+                   d.revisaoAtual as revisaoAtual,
+                   d.revisaoAprovada as revisaoAprovada
             from Arquivo a
             join Documento d on d.id = a.documentoId
             join CategoriaObra c on c.id = d.categoriaId
@@ -58,7 +64,8 @@ interface ArquivoRepository extends JpaRepository<Arquivo, UUID> {
                    d.categoriaId as categoriaId,
                    c.nome as categoriaNome,
                    d.ambiente as ambiente,
-                   d.revisaoAtual as revisaoAtual
+                   d.revisaoAtual as revisaoAtual,
+                   d.revisaoAprovada as revisaoAprovada
             from Arquivo a
             join Documento d on d.id = a.documentoId
             join CategoriaObra c on c.id = d.categoriaId
@@ -79,7 +86,8 @@ interface ArquivoRepository extends JpaRepository<Arquivo, UUID> {
                    d.categoriaId as categoriaId,
                    c.nome as categoriaNome,
                    d.ambiente as ambiente,
-                   d.revisaoAtual as revisaoAtual
+                   d.revisaoAtual as revisaoAtual,
+                   d.revisaoAprovada as revisaoAprovada
             from Arquivo a
             join Documento d on d.id = a.documentoId
             join CategoriaObra c on c.id = d.categoriaId
@@ -100,7 +108,8 @@ interface ArquivoRepository extends JpaRepository<Arquivo, UUID> {
                    d.categoriaId as categoriaId,
                    c.nome as categoriaNome,
                    d.ambiente as ambiente,
-                   d.revisaoAtual as revisaoAtual
+                   d.revisaoAtual as revisaoAtual,
+                   d.revisaoAprovada as revisaoAprovada
             from Arquivo a
             join Documento d on d.id = a.documentoId
             join CategoriaObra c on c.id = d.categoriaId
@@ -123,7 +132,8 @@ interface ArquivoRepository extends JpaRepository<Arquivo, UUID> {
                    d.categoriaId as categoriaId,
                    c.nome as categoriaNome,
                    d.ambiente as ambiente,
-                   d.revisaoAtual as revisaoAtual
+                   d.revisaoAtual as revisaoAtual,
+                   d.revisaoAprovada as revisaoAprovada
             from Arquivo a
             join Documento d on d.id = a.documentoId
             join CategoriaObra c on c.id = d.categoriaId
@@ -146,7 +156,8 @@ interface ArquivoRepository extends JpaRepository<Arquivo, UUID> {
                    d.categoriaId as categoriaId,
                    c.nome as categoriaNome,
                    d.ambiente as ambiente,
-                   d.revisaoAtual as revisaoAtual
+                   d.revisaoAtual as revisaoAtual,
+                   d.revisaoAprovada as revisaoAprovada
             from Arquivo a
             join Documento d on d.id = a.documentoId
             join CategoriaObra c on c.id = d.categoriaId
@@ -162,7 +173,8 @@ interface ArquivoRepository extends JpaRepository<Arquivo, UUID> {
                    d.categoriaId as categoriaId,
                    c.nome as categoriaNome,
                    d.ambiente as ambiente,
-                   d.revisaoAtual as revisaoAtual
+                   d.revisaoAtual as revisaoAtual,
+                   d.revisaoAprovada as revisaoAprovada
             from Arquivo a
             join Documento d on d.id = a.documentoId
             join CategoriaObra c on c.id = d.categoriaId
@@ -181,6 +193,7 @@ interface ArquivoDetalhado {
     String getCategoriaNome();
     String getAmbiente();
     int getRevisaoAtual();
+    Integer getRevisaoAprovada();
 }
 
 interface DocumentoRepository extends JpaRepository<Documento, UUID> {

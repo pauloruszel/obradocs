@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
-import { Bell, CheckCheck, FileUp, LogIn, RefreshCw, UserRoundPlus } from "lucide-react-native";
+import { BadgeCheck, Bell, CheckCheck, Clock3, FileUp, LogIn, MessageSquareWarning, RefreshCw, UserRoundPlus } from "lucide-react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "@navigation/AppNavigator";
 import {
@@ -21,6 +21,9 @@ type Props = NativeStackScreenProps<RootStackParamList, "Notificacoes">;
 const iconFor = (action: string) => {
   if (action === "ENTROU_OBRA") return LogIn;
   if (action === "ACESSO_CONCEDIDO") return UserRoundPlus;
+  if (action === "APROVACAO_SOLICITADA") return Clock3;
+  if (action === "REVISAO_APROVADA") return BadgeCheck;
+  if (action === "ALTERACOES_SOLICITADAS") return MessageSquareWarning;
   return FileUp;
 };
 
@@ -70,6 +73,16 @@ const NotificacoesScreen = ({ navigation }: Props) => {
 
     if (item.acao === "ENTROU_OBRA") {
       navigation.navigate("Permissoes", { obraId: item.obra_id, isOwner: true });
+      return;
+    }
+    if (
+      ["APROVACAO_SOLICITADA", "REVISAO_APROVADA", "ALTERACOES_SOLICITADAS"].includes(item.acao)
+      && typeof item.detalhes?.arquivoId === "string"
+    ) {
+      navigation.navigate("AprovacaoArquivo", {
+        arquivoId: item.detalhes.arquivoId,
+        obraId: item.obra_id,
+      });
       return;
     }
     navigation.navigate("ObraDetail", {
@@ -183,7 +196,7 @@ const NotificacoesScreen = ({ navigation }: Props) => {
             <ScreenState
               icon={<Bell size={42} color={colors.textMuted} />}
               title="Nenhuma notificação"
-              description="Novos arquivos, revisões e alterações de acesso aparecerão aqui."
+              description="Novos arquivos, aprovações, revisões e alterações de acesso aparecerão aqui."
             />
           )}
         />

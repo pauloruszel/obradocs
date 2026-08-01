@@ -1,11 +1,16 @@
 package br.com.obradocs.api.obra;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.startsWith;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 
@@ -21,10 +26,12 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
+import org.mockito.ArgumentCaptor;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import br.com.obradocs.api.auth.AuthRateLimiter;
+import br.com.obradocs.api.auth.BrevoEmailSender;
 
 @Testcontainers
 @ActiveProfiles("test")
@@ -56,6 +63,9 @@ class ObraIntegrationTests {
 	@MockitoBean
 	AuthRateLimiter rateLimiter;
 
+	@MockitoBean
+	BrevoEmailSender emailSender;
+
 	private final HttpClient http = HttpClient.newHttpClient();
 
 	@Test
@@ -82,6 +92,59 @@ class ObraIntegrationTests {
 		JsonNode historico = json(get("/v1/obras/" + obraId + "/historico", owner.token()));
 		assertThat(historico.size()).isEqualTo(1);
 		assertThat(historico.get(0).path("acao").stringValue()).isEqualTo("CRIACAO_OBRA");
+	}
+
+	@Test
+	void conviteProtegeEmailExpiracaoDuplicidadeEReutilizacao() throws Exception {
+		UsuarioAutenticado owner = registrar("Owner Convite", "owner-convite@example.com");
+		UsuarioAutenticado convidado = registrar("Pessoa Convidada", "convidado@example.com");
+		UsuarioAutenticado outro = registrar("Outro Usuario", "outro-convite@example.com");
+		JsonNode obra = criarObra(owner, "Obra com convite");
+		String obraId = obra.path("id").stringValue();
+
+		assertThat(post("/v1/obras/" + obraId + "/convites", """
+				{"email":"convidado@example.com","papel":"VIEWER"}
+				""", owner.token()).statusCode()).isEqualTo(201);
+		assertThat(post("/v1/obras/" + obraId + "/convites", """
+				{"email":"convidado@example.com","papel":"EDITOR"}
+				""", owner.token()).statusCode()).isEqualTo(409);
+
+		ArgumentCaptor<String> links = ArgumentCaptor.forClass(String.class);
+		verify(emailSender).enviarConvite(
+				eq("convidado@example.com"), eq("Obra com convite"), eq(Papel.VIEWER), links.capture());
+		String token = links.getValue().substring(links.getValue().indexOf("?invite=") + 8);
+
+		assertThat(post("/v1/convites/aceitar", """
+				{"token":"%s"}
+				""".formatted(token), outro.token()).statusCode()).isEqualTo(403);
+		assertThat(post("/v1/convites/aceitar", """
+				{"token":"%s"}
+				""".formatted(token), convidado.token()).statusCode()).isEqualTo(200);
+		assertThat(post("/v1/convites/aceitar", """
+				{"token":"%s"}
+				""".formatted(token), convidado.token()).statusCode()).isEqualTo(409);
+
+		UsuarioAutenticado expirado = registrar("Convite Expirado", "expirado@example.com");
+		assertThat(post("/v1/obras/" + obraId + "/convites", """
+				{"email":"expirado@example.com","papel":"EDITOR"}
+				""", owner.token()).statusCode()).isEqualTo(201);
+		verify(emailSender, times(2)).enviarConvite(
+				org.mockito.ArgumentMatchers.anyString(),
+				org.mockito.ArgumentMatchers.anyString(),
+				org.mockito.ArgumentMatchers.any(),
+				links.capture());
+		String expiredToken = links.getAllValues().getLast();
+		expiredToken = expiredToken.substring(expiredToken.indexOf("?invite=") + 8);
+		jdbc.update(
+				"update obra_convites set expires_at = now() - interval '1 minute' where email = ?",
+				"expirado@example.com");
+
+		assertThat(post("/v1/convites/aceitar", """
+				{"token":"%s"}
+				""".formatted(expiredToken), expirado.token()).statusCode()).isEqualTo(410);
+		assertThat(jdbc.queryForObject(
+				"select status from obra_convites where email = ?", String.class, "expirado@example.com"))
+				.isEqualTo("EXPIRED");
 	}
 
 	@Test
@@ -182,9 +245,9 @@ class ObraIntegrationTests {
 	}
 
 	@Test
-	void entradaPorCodigoConcedeEditorSemDuplicarPermissaoOuHistorico() throws Exception {
+	void entradaPorCodigoConcedeViewerSemDuplicarPermissaoOuHistorico() throws Exception {
 		UsuarioAutenticado owner = registrar("Owner Entrada", "owner-entrada@example.com");
-		UsuarioAutenticado editor = registrar("Editor Entrada", "editor-entrada@example.com");
+		UsuarioAutenticado viewer = registrar("Viewer Entrada", "viewer-entrada@example.com");
 		JsonNode obra = criarObra(owner, "Obra compartilhada");
 		String obraId = obra.path("id").stringValue();
 		String codigoSemHifen = obra.path("codigo_compartilhamento").stringValue()
@@ -193,23 +256,70 @@ class ObraIntegrationTests {
 
 		assertThat(post("/v1/obras/entrar", """
 				{"codigo":"%s"}
-				""".formatted(codigoSemHifen), editor.token()).statusCode()).isEqualTo(200);
+				""".formatted(codigoSemHifen), viewer.token()).statusCode()).isEqualTo(200);
 		assertThat(post("/v1/obras/entrar", """
 				{"codigo":"%s"}
-				""".formatted(codigoSemHifen), editor.token()).statusCode()).isEqualTo(200);
+				""".formatted(codigoSemHifen), viewer.token()).statusCode()).isEqualTo(200);
 
 		JsonNode permissoes = json(get("/v1/obras/" + obraId + "/permissoes", owner.token()));
 		assertThat(permissoes.size()).isEqualTo(2);
 		assertThat(permissoes).anySatisfy(permissao -> {
-			assertThat(permissao.path("user_id").stringValue()).isEqualTo(editor.id().toString());
-			assertThat(permissao.path("papel").stringValue()).isEqualTo("EDITOR");
+			assertThat(permissao.path("user_id").stringValue()).isEqualTo(viewer.id().toString());
+			assertThat(permissao.path("papel").stringValue()).isEqualTo("VIEWER");
 		});
+		assertThat(patch(
+				"/v1/obras/" + obraId,
+				"{\"nome\":\"Alteracao bloqueada\"}",
+				viewer.token()).statusCode()).isEqualTo(403);
+		assertThat(delete("/v1/obras/" + obraId, viewer.token()).statusCode()).isEqualTo(403);
+		verify(rateLimiter, times(2)).check(
+				startsWith("obras:entrar:ip:"), eq(10), eq(Duration.ofMinutes(5)));
 
 		JsonNode historico = json(get("/v1/obras/" + obraId + "/historico", owner.token()));
 		assertThat(historico).filteredOn(item -> "ENTROU_OBRA".equals(item.path("acao").stringValue()))
 				.hasSize(1);
 		assertThat(contarNotificacoes(owner.id(), "ENTROU_OBRA")).isEqualTo(1);
-		assertThat(contarNotificacoes(editor.id(), "ENTROU_OBRA")).isZero();
+		assertThat(contarNotificacoes(viewer.id(), "ENTROU_OBRA")).isZero();
+	}
+
+	@Test
+	void ownerRevogaRegeneraEEscolhePapelDoCodigo() throws Exception {
+		UsuarioAutenticado owner = registrar("Owner Codigo", "owner-codigo@example.com");
+		UsuarioAutenticado convidado = registrar("Convidado Codigo", "convidado-codigo@example.com");
+		JsonNode obra = criarObra(owner, "Obra com codigo controlado");
+		String obraId = obra.path("id").stringValue();
+		String codigoAntigo = obra.path("codigo_compartilhamento").stringValue();
+
+		assertThat(put("/v1/obras/" + obraId + "/codigo-compartilhamento", """
+				{"ativo":false,"papel":"VIEWER","regenerar":false}
+				""", convidado.token()).statusCode()).isEqualTo(403);
+		assertThat(put("/v1/obras/" + obraId + "/codigo-compartilhamento", """
+				{"ativo":false,"papel":"VIEWER","regenerar":false}
+				""", owner.token()).statusCode()).isEqualTo(200);
+		assertThat(post("/v1/obras/entrar", """
+				{"codigo":"%s"}
+				""".formatted(codigoAntigo), convidado.token()).statusCode()).isEqualTo(404);
+
+		JsonNode atualizado = json(put(
+				"/v1/obras/" + obraId + "/codigo-compartilhamento",
+				"""
+				{"ativo":true,"papel":"EDITOR","validade_dias":7,"regenerar":true}
+				""",
+				owner.token()));
+		String codigoNovo = atualizado.path("codigo_compartilhamento").stringValue();
+		assertThat(codigoNovo).isNotEqualTo(codigoAntigo);
+		assertThat(atualizado.path("codigo_compartilhamento_papel").stringValue())
+				.isEqualTo("EDITOR");
+		assertThat(atualizado.path("codigo_compartilhamento_expira_em").isTextual()).isTrue();
+
+		assertThat(post("/v1/obras/entrar", """
+				{"codigo":"%s"}
+				""".formatted(codigoNovo), convidado.token()).statusCode()).isEqualTo(200);
+		JsonNode permissoes = json(get("/v1/obras/" + obraId + "/permissoes", owner.token()));
+		assertThat(permissoes).anySatisfy(permissao -> {
+			assertThat(permissao.path("user_id").stringValue()).isEqualTo(convidado.id().toString());
+			assertThat(permissao.path("papel").stringValue()).isEqualTo("EDITOR");
+		});
 	}
 
 	@Test
@@ -329,7 +439,8 @@ class ObraIntegrationTests {
 				) values (?, ?, ?, 1, 'PROJETO', 'arquivo.pdf', ?, 'application/pdf', 100, ?)
 				""", UUID.randomUUID(), obraId, documentoId, storagePath, owner.id());
 
-		assertThat(delete("/v1/obras/" + obraId, editor.token()).statusCode()).isEqualTo(204);
+		assertThat(delete("/v1/obras/" + obraId, editor.token()).statusCode()).isEqualTo(403);
+		assertThat(delete("/v1/obras/" + obraId, owner.token()).statusCode()).isEqualTo(204);
 		assertThat(get("/v1/obras/" + obraId, owner.token()).statusCode()).isEqualTo(404);
 		assertThat(json(get("/v1/obras", owner.token())).isEmpty()).isTrue();
 		assertThat(obras.findById(obraId)).isEmpty();
@@ -407,6 +518,10 @@ class ObraIntegrationTests {
 
 	private HttpResponse<String> post(String path, String body, String token) throws Exception {
 		return send(path, token, "POST", body);
+	}
+
+	private HttpResponse<String> put(String path, String body, String token) throws Exception {
+		return send(path, token, "PUT", body);
 	}
 
 	private HttpResponse<String> patch(String path, String body, String token) throws Exception {
