@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import {
+  BarChart3,
   ChevronDown,
   ChevronRight,
   CircleHelp,
@@ -78,12 +79,6 @@ const AccountScreen = () => {
       onPress: () => navigation.navigate("MeuPlano"),
       role: "button" as const,
     },
-    ...(isAdmin ? [{
-      label: "Interessados no Profissional",
-      icon: UsersRound,
-      onPress: () => navigation.navigate("UpgradeInteresses"),
-      role: "button" as const,
-    }] : []),
     {
       label: "Política de Privacidade",
       icon: ShieldCheck,
@@ -92,6 +87,21 @@ const AccountScreen = () => {
     },
     { label: "Termos de Uso", icon: FileText, onPress: () => open("/terms.html"), role: "link" as const },
     { label: "Ajuda e contato", icon: CircleHelp, onPress: () => open("/support.html"), role: "link" as const },
+  ];
+
+  const adminLinks = [
+    {
+      label: "Métricas do produto",
+      icon: BarChart3,
+      onPress: () => navigation.navigate("AdminMetricas"),
+      role: "button" as const,
+    },
+    {
+      label: "Interessados no Profissional",
+      icon: UsersRound,
+      onPress: () => navigation.navigate("UpgradeInteresses"),
+      role: "button" as const,
+    },
   ];
 
   return (
@@ -119,6 +129,26 @@ const AccountScreen = () => {
           </Pressable>
         ))}
       </View>
+
+      {isAdmin && (
+        <>
+          <Text style={[styles.sectionTitle, styles.adminTitle]}>Administração</Text>
+          <View style={styles.linkGroup}>
+            {adminLinks.map(({ label, icon: Icon, onPress, role }, index) => (
+              <Pressable
+                key={label}
+                style={({ pressed }) => [styles.linkRow, index < adminLinks.length - 1 && styles.linkBorder, pressed && styles.pressed]}
+                onPress={onPress}
+                accessibilityRole={role}
+              >
+                <View style={styles.linkIcon}><Icon size={20} color={colors.primary} /></View>
+                <Text style={styles.linkText}>{label}</Text>
+                <ChevronRight size={19} color={colors.textMuted} />
+              </Pressable>
+            ))}
+          </View>
+        </>
+      )}
 
       <AppButton label="Sair da conta" variant="secondary" icon={<LogOut size={19} color={colors.primary} />} onPress={signOut} style={styles.signOut} />
 
@@ -151,6 +181,7 @@ const styles = StyleSheet.create({
   name: { color: colors.text, fontSize: 19, fontWeight: "800" },
   email: { color: colors.textMuted, marginTop: spacing.xs },
   sectionTitle: { ...typography.sectionTitle, marginBottom: spacing.md },
+  adminTitle: { marginTop: spacing.xl },
   linkGroup: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, overflow: "hidden" },
   linkRow: { minHeight: 58, flexDirection: "row", alignItems: "center", paddingHorizontal: spacing.md },
   linkBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },

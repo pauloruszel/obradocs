@@ -1,14 +1,9 @@
 package br.com.obradocs.api.plano;
 
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
-import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -33,9 +28,7 @@ import lombok.RequiredArgsConstructor;
 class UpgradeInterestController {
 
     private final JdbcTemplate jdbc;
-
-    @Value("${app.admin.emails}")
-    private String adminEmails;
+    private final AdminAuthorizationService adminAuthorization;
 
     @PostMapping
     @Transactional
@@ -102,7 +95,7 @@ class UpgradeInterestController {
 
     @GetMapping("/admin")
     List<AdminUpgradeInterestResponse> listar(@AuthenticationPrincipal Jwt jwt) {
-        exigirAdministrador(jwt);
+        adminAuthorization.exigirAdministrador(jwt);
 
         return jdbc.query("""
                 select id, usuario_id, nome, email, telefone, empresa, status, origem, created_at, updated_at
@@ -131,9 +124,7 @@ class UpgradeInterestController {
 
     @GetMapping("/admin-capability")
     AdminCapabilityResponse capacidadeAdministrativa(@AuthenticationPrincipal Jwt jwt) {
-        UsuarioResumo usuario = buscarUsuario(UUID.fromString(jwt.getSubject()));
-        return new AdminCapabilityResponse(
-                emailsAdministradores().contains(usuario.email().toLowerCase(Locale.ROOT)));
+        return new AdminCapabilityResponse(adminAuthorization.isAdministrador(jwt));
     }
 
     @PatchMapping("/admin/{id}/status")
@@ -142,7 +133,7 @@ class UpgradeInterestController {
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable UUID id,
             @Valid @RequestBody AdminStatusRequest request) {
-        exigirAdministrador(jwt);
+        adminAuthorization.exigirAdministrador(jwt);
         UUID adminId = UUID.fromString(jwt.getSubject());
         LeadStatus atual = jdbc.query("""
                 select usuario_id, status
@@ -210,13 +201,6 @@ class UpgradeInterestController {
         }
     }
 
-    private void exigirAdministrador(Jwt jwt) {
-        UsuarioResumo usuario = buscarUsuario(UUID.fromString(jwt.getSubject()));
-        if (!emailsAdministradores().contains(usuario.email().toLowerCase(Locale.ROOT))) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Acesso restrito");
-        }
-    }
-
     private UsuarioResumo buscarUsuario(UUID usuarioId) {
         List<UsuarioResumo> usuarios = jdbc.query(
                 "select nome, email from usuarios where id = ? and ativo = true",
@@ -224,14 +208,6 @@ class UpgradeInterestController {
                 usuarioId);
         return usuarios.stream().findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Usuário inválido"));
-    }
-
-    private Set<String> emailsAdministradores() {
-        return Arrays.stream(adminEmails.split(","))
-                .map(String::trim)
-                .filter(value -> !value.isBlank())
-                .map(value -> value.toLowerCase(Locale.ROOT))
-                .collect(Collectors.toSet());
     }
 
     private String normalizarOpcional(String value) {
