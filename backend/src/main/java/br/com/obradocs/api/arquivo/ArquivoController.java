@@ -18,6 +18,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
+import br.com.obradocs.api.PageResponse;
+
 @RestController
 @RequestMapping("/v1")
 @RequiredArgsConstructor
@@ -36,6 +38,28 @@ class ArquivoController {
 		return service.listar(obraId, categoriaId, tipo, busca, ambiente, usuarioId(jwt)).stream()
 				.map(ArquivoResponse::from)
 				.toList();
+	}
+
+	@GetMapping("/obras/{obraId}/arquivos/pagina")
+	PageResponse<ArquivoResponse> listarPaginado(
+			@PathVariable UUID obraId,
+			@RequestParam(required = false) UUID categoriaId,
+			@RequestParam(required = false) ArquivoTipo tipo,
+			@RequestParam(required = false) String busca,
+			@RequestParam(required = false) String ambiente,
+			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "20") int size,
+			@AuthenticationPrincipal Jwt jwt) {
+		return PageResponse.from(
+				service.listarPaginado(
+						obraId,
+						categoriaId,
+						tipo,
+						busca,
+						ambiente,
+						usuarioId(jwt),
+						PageResponse.pageable(page, size)),
+				ArquivoResponse::from);
 	}
 
 	@GetMapping("/arquivos/{arquivoId}")

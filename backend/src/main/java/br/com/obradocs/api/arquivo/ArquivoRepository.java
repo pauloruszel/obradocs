@@ -1,6 +1,8 @@
 package br.com.obradocs.api.arquivo;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,6 +13,45 @@ import java.util.Optional;
 import java.util.UUID;
 
 interface ArquivoRepository extends JpaRepository<Arquivo, UUID> {
+
+    @Query(value = """
+            select a as arquivo,
+                   u.nome as enviadoPorNome,
+                   d.nome as documentoNome,
+                   d.categoriaId as categoriaId,
+                   c.nome as categoriaNome,
+                   d.ambiente as ambiente,
+                   d.revisaoAtual as revisaoAtual,
+                   d.revisaoAprovada as revisaoAprovada
+            from Arquivo a
+            join Documento d on d.id = a.documentoId
+            join CategoriaObra c on c.id = d.categoriaId
+            left join Usuario u on u.id = a.enviadoPor
+            where a.obraId = :obraId
+              and a.revisao = d.revisaoAtual
+              and (:categoriaId is null or d.categoriaId = :categoriaId)
+              and (:tipo is null or a.tipo = :tipo)
+              and (:busca is null or lower(d.nome) like lower(concat('%', cast(:busca as string), '%')))
+              and (:ambiente is null or lower(d.ambiente) = lower(cast(:ambiente as string)))
+            order by a.createdAt desc
+            """, countQuery = """
+            select count(a)
+            from Arquivo a
+            join Documento d on d.id = a.documentoId
+            where a.obraId = :obraId
+              and a.revisao = d.revisaoAtual
+              and (:categoriaId is null or d.categoriaId = :categoriaId)
+              and (:tipo is null or a.tipo = :tipo)
+              and (:busca is null or lower(d.nome) like lower(concat('%', cast(:busca as string), '%')))
+              and (:ambiente is null or lower(d.ambiente) = lower(cast(:ambiente as string)))
+            """)
+    Page<ArquivoDetalhado> listarPaginado(
+            @Param("obraId") UUID obraId,
+            @Param("categoriaId") UUID categoriaId,
+            @Param("tipo") ArquivoTipo tipo,
+            @Param("busca") String busca,
+            @Param("ambiente") String ambiente,
+            Pageable pageable);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select a from Arquivo a where a.id = :id")
