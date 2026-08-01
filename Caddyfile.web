@@ -1,4 +1,4 @@
-:{$PORT:80} {
+:80 {
     root * /srv
 
     handle / {
