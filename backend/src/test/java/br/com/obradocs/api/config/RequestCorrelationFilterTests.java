@@ -29,6 +29,16 @@ class RequestCorrelationFilterTests {
 				.isEqualTo("request-12345678");
 	}
 
+	@Test
+	void substituiIdentificadorInvalido() throws Exception {
+		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/health");
+		request.addHeader(RequestCorrelationFilter.HEADER, "token=segredo");
+
+		assertThat(execute(request).getHeader(RequestCorrelationFilter.HEADER))
+				.isNotEqualTo("token=segredo")
+				.matches("[A-Za-z0-9._-]{8,64}");
+	}
+
 	private MockHttpServletResponse execute(MockHttpServletRequest request) throws Exception {
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		filter.doFilter(request, response, new MockFilterChain());

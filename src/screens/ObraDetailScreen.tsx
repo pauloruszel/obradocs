@@ -32,7 +32,7 @@ import {
 } from "lucide-react-native";
 import { RootStackParamList } from "@navigation/AppNavigator";
 import { Arquivo, ArquivoTipo, CategoriaObra, Papel } from "@models/models";
-import { gerarUrlTemporaria, listarArquivos, listarRevisoes } from "@services/arquivosService";
+import { gerarUrlTemporaria, listarArquivosPagina, listarRevisoes } from "@services/arquivosService";
 import { listarCategorias } from "@services/categoriasService";
 import { listarPermissoes } from "@services/permissoesService";
 import { useAuth } from "@context/AuthContext";
@@ -81,6 +81,11 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
   const [deleteVisible, setDeleteVisible] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [pageByCategory, setPageByCategory] = useState<Record<string, number>>({});
+  const [hasMoreByCategory, setHasMoreByCategory] = useState<Record<string, boolean>>({});
+  const [searchPage, setSearchPage] = useState(0);
+  const [searchHasMore, setSearchHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const canEdit = papel === "OWNER" || papel === "EDITOR";
   const clientPortal = papel === "VIEWER";
@@ -161,20 +166,24 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
     }))).filter((item): item is Arquivo => item != null), []);
 
   const loadFiles = useCallback(
-    async (category: CategoriaObra, role: Papel) => {
+    async (category: CategoriaObra, role: Papel, nextPage = 0) => {
+      if (nextPage > 0) setLoadingMore(true);
       try {
-        const result = await listarArquivos(obraId, undefined, undefined, category.id);
-        const visible = role === "VIEWER" ? await resolveClientFiles(result) : result;
+        const response = await listarArquivosPagina(obraId, nextPage, undefined, undefined, category.id);
+        const visible = role === "VIEWER" ? await resolveClientFiles(response.items) : response.items;
         setFilesByCategory((current) => ({
           ...current,
-          [category.id]: visible,
+          [category.id]: nextPage === 0 ? visible : [...(current[category.id] || []), ...visible],
         }));
         setPendingByCategory((current) => ({
           ...current,
-          [category.id]: role === "VIEWER"
-            ? result.filter((item) => item.aprovacao_status === "PENDING")
-            : [],
+          [category.id]: role === "VIEWER" ? [
+            ...(nextPage === 0 ? [] : current[category.id] || []),
+            ...response.items.filter((item) => item.aprovacao_status === "PENDING"),
+          ] : [],
         }));
+        setPageByCategory((current) => ({ ...current, [category.id]: response.page }));
+        setHasMoreByCategory((current) => ({ ...current, [category.id]: response.has_more }));
       } catch (error) {
         const offline = /network|fetch/i.test((error as Error)?.message || "");
         toastError(
@@ -183,6 +192,7 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
         );
       } finally {
         setLoadingCategory((current) => (current === category.id ? null : current));
+        setLoadingMore(false);
       }
     },
     [obraId, resolveClientFiles],
@@ -215,9 +225,13 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
     setSearching(true);
     const timeout = setTimeout(async () => {
       try {
-        const result = await listarArquivos(obraId, undefined, term);
-        const visible = clientPortal ? await resolveClientFiles(result) : result;
-        if (active) setSearchResults(visible);
+        const response = await listarArquivosPagina(obraId, 0, undefined, term);
+        const visible = clientPortal ? await resolveClientFiles(response.items) : response.items;
+        if (active) {
+          setSearchResults(visible);
+          setSearchPage(response.page);
+          setSearchHasMore(response.has_more);
+        }
       } catch (error) {
         if (!active) return;
         const offline = /network|fetch/i.test((error as Error)?.message || "");
@@ -251,11 +265,13 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
     setRefreshing(true);
     if (searchActive) {
       try {
-        const [role, result] = await Promise.all([
+        const [role, response] = await Promise.all([
           loadPermission(),
-          listarArquivos(obraId, undefined, query),
+          listarArquivosPagina(obraId, 0, undefined, query),
         ]);
-        setSearchResults(role === "VIEWER" ? await resolveClientFiles(result) : result);
+        setSearchResults(role === "VIEWER" ? await resolveClientFiles(response.items) : response.items);
+        setSearchPage(response.page);
+        setSearchHasMore(response.has_more);
       } catch {
         toastError("Não foi possível atualizar a busca", "Tente novamente.");
       }
@@ -432,6 +448,26 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
     loadingCategory === selectedCategory.id &&
     filesByCategory[selectedCategory.id] === undefined;
 
+  const loadMore = async () => {
+    if (loadingMore) return;
+    if (searchActive && searchHasMore) {
+      setLoadingMore(true);
+      try {
+        const response = await listarArquivosPagina(obraId, searchPage + 1, undefined, query);
+        const visible = clientPortal ? await resolveClientFiles(response.items) : response.items;
+        setSearchResults((current) => [...current, ...visible]);
+        setSearchPage(response.page);
+        setSearchHasMore(response.has_more);
+      } finally {
+        setLoadingMore(false);
+      }
+      return;
+    }
+    if (selectedCategory && hasMoreByCategory[selectedCategory.id]) {
+      await loadFiles(selectedCategory, papel, (pageByCategory[selectedCategory.id] || 0) + 1);
+    }
+  };
+
   return (
     <View style={styles.screen}>
       <View style={styles.content}>
@@ -439,6 +475,9 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
           data={categoryLoading ? [] : displayedFiles}
           keyExtractor={(item) => item.id}
           renderItem={renderFile}
+          onEndReached={() => loadMore().catch(() => undefined)}
+          onEndReachedThreshold={0.3}
+          ListFooterComponent={loadingMore ? <ActivityIndicator color={colors.primary} /> : null}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[
             categoryLoading || displayedFiles.length === 0 ? styles.emptyList : styles.list,

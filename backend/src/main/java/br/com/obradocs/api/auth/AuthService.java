@@ -177,7 +177,8 @@ class AuthService {
 		try {
 			emailSender.enviarRedefinicao(usuario, link);
 		} catch (BrevoEmailSender.EmailDeliveryException exception) {
-			log.error("Falha ao enviar redefinição de senha para usuário {}", usuario.getId(), exception);
+			log.error("Falha ao enviar redefinição de senha para usuário {} type={}",
+					usuario.getId(), exception.getClass().getSimpleName());
 		}
 	}
 

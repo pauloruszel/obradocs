@@ -12,6 +12,15 @@ type ApiOptions = RequestInit & {
   timeoutMs?: number;
 };
 
+export type PageResponse<T> = {
+  items: T[];
+  page: number;
+  size: number;
+  total_items: number;
+  total_pages: number;
+  has_more: boolean;
+};
+
 const DEFAULT_TIMEOUT_MS = 20_000;
 let refreshPromise: Promise<Session> | null = null;
 let unauthorizedHandler: (() => void) | null = null;
@@ -59,11 +68,12 @@ const readError = async (response: Response): Promise<ApiErrorBody> => {
 
 const apiError = async (response: Response) => {
   const body = await readError(response);
+  const requestId = response.headers.get("X-Request-ID");
   return new ApiError(
     body.detail || body.title || body.message || `Erro HTTP ${response.status}`,
     response.status,
     body.code,
-    body.details,
+    requestId ? { ...body.details, request_id: requestId } : body.details,
   );
 };
 
