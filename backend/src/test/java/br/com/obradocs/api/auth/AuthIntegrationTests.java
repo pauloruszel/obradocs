@@ -261,6 +261,21 @@ class AuthIntegrationTests {
 	}
 
 	@Test
+	void permitePreflightPutDaAplicacaoWebConfigurada() throws Exception {
+		HttpRequest request = HttpRequest.newBuilder(uri("/v1/obras/00000000-0000-0000-0000-000000000000/codigo-compartilhamento"))
+				.header("Origin", "http://localhost:8081")
+				.header("Access-Control-Request-Method", "PUT")
+				.method("OPTIONS", HttpRequest.BodyPublishers.noBody())
+				.build();
+
+		HttpResponse<String> response = http.send(request, HttpResponse.BodyHandlers.ofString());
+
+		assertThat(response.statusCode()).isEqualTo(200);
+		assertThat(response.headers().firstValue("Access-Control-Allow-Methods"))
+				.hasValueSatisfying(methods -> assertThat(methods).contains("PUT"));
+	}
+
+	@Test
 	void abrePaginaPublicaDeRedefinicaoDeSenha() throws Exception {
 		HttpResponse<String> response = get("/reset-password.html", null);
 
