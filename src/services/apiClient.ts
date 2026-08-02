@@ -149,5 +149,6 @@ export const apiRequest = async <T>(path: string, options: ApiOptions = {}): Pro
   if (response.status === 204) {
     return undefined as T;
   }
-  return (await response.json()) as T;
+  const body = await response.text();
+  return (body.trim() ? JSON.parse(body) : undefined) as T;
 };
