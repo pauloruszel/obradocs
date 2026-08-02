@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  Alert,
   Linking,
   Pressable,
   RefreshControl,
@@ -12,6 +11,7 @@ import {
 import { Building2, Mail, Phone, UsersRound } from "lucide-react-native";
 import ScreenState from "@components/ScreenState";
 import AppButton from "@components/AppButton";
+import ConfirmDialog from "@components/ConfirmDialog";
 import {
   AdminUpgradeInterest,
   atualizarStatusInteresse,
@@ -44,6 +44,7 @@ const UpgradeInteressesScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [conversionItem, setConversionItem] = useState<AdminUpgradeInterest | null>(null);
   const [error, setError] = useState(false);
 
   const load = useCallback(async (refresh = false) => {
@@ -90,15 +91,12 @@ const UpgradeInteressesScreen = () => {
     }
   };
 
-  const confirmConversion = (item: AdminUpgradeInterest) =>
-    Alert.alert(
-      "Ativar Plano Profissional?",
-      `Confirme somente após validar a contratação de ${item.nome}. A ação ficará registrada.`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        { text: "Ativar plano", onPress: () => updateStatus(item, "CONVERTED") },
-      ],
-    );
+  const confirmConversion = () => {
+    if (!conversionItem) return;
+    const item = conversionItem;
+    setConversionItem(null);
+    updateStatus(item, "CONVERTED").catch(() => undefined);
+  };
 
   if (loading) return <ScreenState loading title="Carregando interessados" />;
   if (error) {
@@ -189,7 +187,7 @@ const UpgradeInteressesScreen = () => {
               )}
               <AppButton
                 label="Ativar PRO"
-                onPress={() => confirmConversion(item)}
+                onPress={() => setConversionItem(item)}
                 disabled={updatingId === item.id}
                 style={styles.action}
               />
@@ -204,6 +202,15 @@ const UpgradeInteressesScreen = () => {
           )}
         </View>
       ))}
+
+      <ConfirmDialog
+        visible={!!conversionItem}
+        title="Ativar Plano Profissional?"
+        message={`Confirme somente após validar a contratação de ${conversionItem?.nome ?? "este usuário"}. A ação ficará registrada.`}
+        confirmLabel="Ativar plano"
+        onCancel={() => setConversionItem(null)}
+        onConfirm={confirmConversion}
+      />
     </ScrollView>
   );
 };
