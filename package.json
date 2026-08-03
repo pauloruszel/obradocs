@@ -9,9 +9,13 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "web:build": "expo export --platform web && node scripts/prepare-web.mjs",
+    "web:serve": "node scripts/serve-dist.mjs",
+    "e2e:web": "playwright test",
+    "e2e:web:report": "playwright show-report",
+    "e2e:mobile": "maestro test .maestro",
     "lint": "eslint ./src --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run src"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
@@ -40,6 +44,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
+    "@playwright/test": "^1.62.1",
     "@types/node": "^24.10.1",
     "@types/react": "~19.1.10",
     "@types/react-dom": "~19.1.7",

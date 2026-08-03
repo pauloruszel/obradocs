@@ -8,6 +8,9 @@ build
 expo-debug.log
 expo-error.log
 coverage
+playwright-report/
+test-results/
+.maestro/artifacts/
 android
 ios
 .env

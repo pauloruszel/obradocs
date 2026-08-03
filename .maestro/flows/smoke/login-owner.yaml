@@ -1,0 +1,11 @@
+appId: com.pauloruszel.obradocs
+tags:
+  - smoke
+---
+- launchApp:
+    clearState: true
+- assertVisible: "Acessar sua conta"
+- runFlow:
+    file: ../../shared/login.yaml
+- runFlow:
+    file: ../../shared/logout.yaml

@@ -1,0 +1,8 @@
+appId: com.pauloruszel.obradocs
+---
+- tapOn: "E-mail"
+- inputText: ${E2E_OWNER_EMAIL}
+- tapOn: "Senha"
+- inputText: ${E2E_OWNER_PASSWORD}
+- tapOn: "Entrar"
+- assertVisible: "Nova obra"

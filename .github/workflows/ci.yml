@@ -19,7 +19,8 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
-      - run: npm run web:build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e:web
       # Avisos altos restantes pertencem ao toolchain do Expo 54 e exigem upgrade quebrador do SDK.
       - run: npm audit --omit=dev --audit-level=critical
 
