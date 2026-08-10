@@ -14,7 +14,7 @@ type Props = {
 
 const variantColor: Record<Variant, string> = {
   primary: colors.primary,
-  monochrome: "#0A1F3D",
+  monochrome: colors.brandNavy,
   negative: colors.white,
 };
 
