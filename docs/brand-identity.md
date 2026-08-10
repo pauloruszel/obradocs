@@ -17,9 +17,10 @@ A geometria oficial desta implementação está centralizada em `src/components/
 | Azul principal | `#0C5BAA` |
 | Azul escuro da assinatura | `#0A1F3D` |
 | Cinza médio | `#5A6472` |
+| Cinza claro | `#E6E9EE` |
 | Branco / versão negativa | `#FFFFFF` |
 
-O azul principal permanece o mesmo já utilizado pelo tema do aplicativo.
+Essas cores também estão centralizadas em `src/theme/index.ts`. O azul principal permanece o mesmo já utilizado pelo aplicativo.
 
 ## Variações
 
