@@ -1,6 +1,5 @@
 import React, { useCallback, useState } from "react";
 import {
-  Image,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -18,11 +17,11 @@ import { Check, Eye, EyeOff } from "lucide-react-native";
 import { useAuth } from "@context/AuthContext";
 import { toastError } from "@utils/toast";
 import { RootStackParamList } from "@navigation/AppNavigator";
-import logo from "../../assets/logo-obradocs.png";
 import { validateEmail, validateNewPassword } from "@utils/validation";
 import { publicApiUrl } from "@services/apiClient";
 import AppButton from "@components/AppButton";
 import AppInput from "@components/AppInput";
+import ObradocsLogo from "@components/motion/ObradocsLogo";
 import { colors, radius, spacing } from "@theme/index";
 
 const LoginScreen = () => {
@@ -106,12 +105,7 @@ const LoginScreen = () => {
         >
           <View style={styles.header}>
             <View style={styles.logoWrapper}>
-              <Image
-                source={logo}
-                style={styles.logo}
-                resizeMode="contain"
-                accessibilityIgnoresInvertColors
-              />
+              <ObradocsLogo size={70} animated />
             </View>
             <Text style={styles.title}>Obradocs</Text>
             <Text style={styles.subtitle}>Documentos de obra, organizados.</Text>
@@ -252,7 +246,6 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.2)",
     overflow: "hidden",
   },
-  logo: { width: 70, height: 70, borderRadius: 35 },
   title: { fontSize: 32, fontWeight: "800", color: colors.white },
   subtitle: { fontSize: 15, color: "rgba(255,255,255,0.88)", marginTop: spacing.xs },
   card: {
