@@ -1,7 +1,8 @@
 import React, { ReactNode } from "react";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { colors, spacing, typography } from "@theme/index";
 import AppButton from "@components/AppButton";
+import ObradocsLoader from "@components/motion/ObradocsLoader";
 
 type Props = {
   title?: string;
@@ -21,7 +22,7 @@ const ScreenState = ({
   onAction,
 }: Props) => (
   <View style={styles.container}>
-    {loading ? <ActivityIndicator size="large" color={colors.primary} /> : icon}
+    {loading ? <ObradocsLoader accessibilityLabel={title || "Carregando"} /> : icon}
     {!!title && <Text style={styles.title}>{title}</Text>}
     {!!description && <Text style={styles.description}>{description}</Text>}
     {!!actionLabel && !!onAction && (
