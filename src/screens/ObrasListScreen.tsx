@@ -11,7 +11,6 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import {
   Building2,
-  Bell,
   ChevronRight,
   CircleUserRound,
   KeyRound,
@@ -25,6 +24,7 @@ import { toastError } from "@utils/toast";
 import AppButton from "@components/AppButton";
 import SearchField from "@components/SearchField";
 import ScreenState from "@components/ScreenState";
+import AnimatedBell from "@components/motion/AnimatedBell";
 import { colors, layout, radius, spacing } from "@theme/index";
 import { contarNotificacoesNaoLidas } from "@services/notificacoesService";
 import { notificationBadgeLabel } from "@utils/notificacoes";
@@ -67,7 +67,7 @@ const ObrasListScreen = () => {
             accessibilityRole="button"
             accessibilityLabel={`Abrir notificações${unreadNotifications ? `. ${unreadNotifications} não lidas` : ""}`}
           >
-            <Bell size={23} color={colors.primary} />
+            <AnimatedBell trigger={unreadNotifications} />
             {badgeLabel && (
               <View style={styles.notificationBadge}>
                 <Text style={styles.notificationBadgeText}>{badgeLabel}</Text>

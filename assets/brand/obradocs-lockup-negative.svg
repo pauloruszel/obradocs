@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 150" role="img" aria-labelledby="title desc">
+  <title id="title">Obradocs</title>
+  <desc id="desc">Documentos de obra, organizados.</desc>
+  <rect width="640" height="150" fill="#0C5BAA"/>
+  <g transform="translate(10 18) scale(1.15)" fill="none" stroke="#FFFFFF" stroke-width="5.5" stroke-linejoin="miter" stroke-linecap="square">
+    <path d="M25 79V34L49 16L79 39V79H25Z"/>
+    <path d="M49 16V79"/>
+    <path d="M11 79V49L29 38V79"/>
+    <path d="M20 79V57L38 46V79"/>
+  </g>
+  <text x="130" y="74" font-family="Inter, Arial, sans-serif" font-size="54" font-weight="800" letter-spacing="1" fill="#FFFFFF">OBRADOCS</text>
+  <text x="132" y="108" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="400" fill="#FFFFFF">Documentos de obra, organizados.</text>
+</svg>

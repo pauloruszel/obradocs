@@ -32,6 +32,7 @@ import { arquivoTipoLabel, formatFileName } from "@utils/display";
 import AppButton from "@components/AppButton";
 import AppInput from "@components/AppInput";
 import UpgradeLimitDialog from "@components/UpgradeLimitDialog";
+import ObradocsLoader from "@components/motion/ObradocsLoader";
 import { colors, layout, radius, spacing, typography } from "@theme/index";
 
 type Props = NativeStackScreenProps<RootStackParamList, "UploadArquivo">;
@@ -356,6 +357,22 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: spacing.lg + insets.bottom }]}>
+        {uploading && (
+          <View style={styles.uploadingFeedback} accessibilityLiveRegion="polite">
+            <ObradocsLoader
+              size={50}
+              accessibilityLabel={isRevision ? "Enviando revisão" : "Enviando arquivo"}
+            />
+            <View style={styles.uploadingText}>
+              <Text style={styles.uploadingTitle}>
+                {isRevision ? "Enviando nova revisão" : "Enviando arquivo"}
+              </Text>
+              {!!file?.name && (
+                <Text style={styles.uploadingFile} numberOfLines={1}>{file.name}</Text>
+              )}
+            </View>
+          </View>
+        )}
         <AppButton
           label={isRevision ? "Enviar revisão" : "Enviar arquivo"}
           icon={<Upload size={19} color={colors.white} />}
@@ -460,6 +477,18 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     paddingBottom: spacing.lg,
   },
+  uploadingFeedback: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    marginBottom: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.primarySoft,
+  },
+  uploadingText: { flex: 1, minWidth: 0 },
+  uploadingTitle: { color: colors.text, fontWeight: "700" },
+  uploadingFile: { color: colors.textMuted, fontSize: 13, marginTop: spacing.xs },
 });
 
 export default UploadArquivoScreen;
