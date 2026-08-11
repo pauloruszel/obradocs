@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef } from "react";
 import { Animated, Easing, StyleSheet, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import ObradocsLogo from "@components/motion/ObradocsLogo";
+import useReducedMotion from "../../hooks/useReducedMotion";
 import { colors } from "@theme/index";
 
 type Props = {
@@ -15,10 +16,17 @@ const ObradocsLoader = ({
 }: Props) => {
   const rotation = useRef(new Animated.Value(0)).current;
   const pulse = useRef(new Animated.Value(0)).current;
+  const reduceMotion = useReducedMotion();
   const radius = size * 0.44;
   const circumference = useMemo(() => 2 * Math.PI * radius, [radius]);
 
   useEffect(() => {
+    if (reduceMotion !== false) {
+      rotation.setValue(0);
+      pulse.setValue(0);
+      return;
+    }
+
     const spinAnimation = Animated.loop(
       Animated.timing(rotation, {
         toValue: 1,
@@ -51,7 +59,7 @@ const ObradocsLoader = ({
       spinAnimation.stop();
       pulseAnimation.stop();
     };
-  }, [pulse, rotation]);
+  }, [pulse, reduceMotion, rotation]);
 
   const spin = rotation.interpolate({
     inputRange: [0, 1],
@@ -59,7 +67,7 @@ const ObradocsLoader = ({
   });
   const logoScale = pulse.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.98, 1.03],
+    outputRange: [1, 1.03],
   });
 
   return (

@@ -105,7 +105,7 @@ const LoginScreen = () => {
         >
           <View style={styles.header}>
             <View style={styles.logoWrapper}>
-              <ObradocsLogo size={70} animated variant="negative" />
+              <ObradocsLogo size={70} animated accessible={false} variant="negative" />
             </View>
             <Text style={styles.title}>Obradocs</Text>
             <Text style={styles.subtitle}>Documentos de obra, organizados.</Text>

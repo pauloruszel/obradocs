@@ -1,7 +1,9 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Easing } from "react-native";
 import { Bell } from "lucide-react-native";
+import useReducedMotion from "../../hooks/useReducedMotion";
 import { colors } from "@theme/index";
+import { shouldAnimateBell } from "@utils/motion";
 
 type Props = {
   trigger: number;
@@ -10,9 +12,14 @@ type Props = {
 
 const AnimatedBell = ({ trigger, size = 23 }: Props) => {
   const swing = useRef(new Animated.Value(0)).current;
+  const previousTrigger = useRef(trigger);
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
-    if (trigger <= 0) {
+    const previous = previousTrigger.current;
+    previousTrigger.current = trigger;
+
+    if (reduceMotion !== false || !shouldAnimateBell(previous, trigger)) {
       swing.setValue(0);
       return;
     }
@@ -53,7 +60,7 @@ const AnimatedBell = ({ trigger, size = 23 }: Props) => {
     animation.start();
 
     return () => animation.stop();
-  }, [swing, trigger]);
+  }, [reduceMotion, swing, trigger]);
 
   const rotate = swing.interpolate({
     inputRange: [-1, 0, 1],

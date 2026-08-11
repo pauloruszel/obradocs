@@ -1,4 +1,5 @@
 import React from "react";
+import { Animated } from "react-native";
 import Svg, { G, Path } from "react-native-svg";
 import { colors } from "@theme/index";
 
@@ -10,7 +11,10 @@ type Props = {
   variant?: Variant;
   layer?: Layer;
   accessible?: boolean;
+  structureProgress?: Animated.Value;
 };
+
+const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 const variantColor: Record<Variant, string> = {
   primary: colors.primary,
@@ -30,6 +34,7 @@ const ObradocsBrandMark = ({
   variant = "primary",
   layer = "all",
   accessible = true,
+  structureProgress,
 }: Props) => {
   const stroke = variantColor[variant];
   const showStructure = layer === "all" || layer === "structure";
@@ -52,8 +57,22 @@ const ObradocsBrandMark = ({
       >
         {showStructure && (
           <>
-            <Path d="M25 79V34L49 16L79 39V79H25Z" />
-            <Path d="M49 16V79" />
+            <AnimatedPath
+              d="M25 79V34L49 16L79 39V79H25Z"
+              strokeDasharray="220 220"
+              strokeDashoffset={structureProgress?.interpolate({
+                inputRange: [0, 1],
+                outputRange: [220, 0],
+              })}
+            />
+            <AnimatedPath
+              d="M49 16V79"
+              strokeDasharray="63 63"
+              strokeDashoffset={structureProgress?.interpolate({
+                inputRange: [0, 1],
+                outputRange: [63, 0],
+              })}
+            />
           </>
         )}
 

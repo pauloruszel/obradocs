@@ -32,7 +32,7 @@ import { arquivoTipoLabel, formatFileName } from "@utils/display";
 import AppButton from "@components/AppButton";
 import AppInput from "@components/AppInput";
 import UpgradeLimitDialog from "@components/UpgradeLimitDialog";
-import ObradocsLoader from "@components/motion/ObradocsLoader";
+import ObradocsUploadMotion from "@components/motion/ObradocsUploadMotion";
 import { colors, layout, radius, spacing, typography } from "@theme/index";
 
 type Props = NativeStackScreenProps<RootStackParamList, "UploadArquivo">;
@@ -359,7 +359,7 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
       <View style={[styles.footer, { paddingBottom: spacing.lg + insets.bottom }]}>
         {uploading && (
           <View style={styles.uploadingFeedback} accessibilityLiveRegion="polite">
-            <ObradocsLoader
+            <ObradocsUploadMotion
               size={50}
               accessibilityLabel={isRevision ? "Enviando revisão" : "Enviando arquivo"}
             />
@@ -377,8 +377,7 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
           label={isRevision ? "Enviar revisão" : "Enviar arquivo"}
           icon={<Upload size={19} color={colors.white} />}
           onPress={handleUpload}
-          loading={uploading}
-          disabled={!file}
+          disabled={!file || uploading}
         />
       </View>
       <UpgradeLimitDialog

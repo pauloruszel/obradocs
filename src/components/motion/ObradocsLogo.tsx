@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from "react";
 import { Animated, Easing, StyleSheet, ViewStyle } from "react-native";
 import ObradocsBrandMark from "@components/brand/ObradocsBrandMark";
+import useReducedMotion from "../../hooks/useReducedMotion";
 
 type Variant = "primary" | "monochrome" | "negative";
 
@@ -22,14 +23,16 @@ const ObradocsLogo = ({
   const structure = useRef(new Animated.Value(animated ? 0 : 1)).current;
   const document = useRef(new Animated.Value(animated ? 0 : 1)).current;
   const reveal = useRef(new Animated.Value(animated ? 0 : 1)).current;
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
-    if (!animated) {
+    if (!animated || reduceMotion === true) {
       structure.setValue(1);
       document.setValue(1);
       reveal.setValue(1);
       return;
     }
+    if (reduceMotion === null) return;
 
     structure.setValue(0);
     document.setValue(0);
@@ -38,9 +41,9 @@ const ObradocsLogo = ({
     const animation = Animated.sequence([
       Animated.timing(structure, {
         toValue: 1,
-        duration: 260,
+        duration: 420,
         easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
       Animated.parallel([
         Animated.timing(document, {
@@ -60,7 +63,7 @@ const ObradocsLogo = ({
 
     animation.start();
     return () => animation.stop();
-  }, [animated, document, reveal, structure]);
+  }, [animated, document, reduceMotion, reveal, structure]);
 
   const scale = reveal.interpolate({
     inputRange: [0, 1],
@@ -80,6 +83,7 @@ const ObradocsLogo = ({
           variant={variant}
           layer="structure"
           accessible={false}
+          structureProgress={structure}
         />
       </Animated.View>
       <Animated.View

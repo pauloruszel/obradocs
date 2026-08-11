@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import {
-  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -15,10 +14,10 @@ import { Check, CheckCircle2, Eye, EyeOff } from "lucide-react-native";
 import { redefinirSenha } from "@services/authService";
 import { RootStackParamList } from "@navigation/AppNavigator";
 import { useAuth } from "@context/AuthContext";
-import logo from "../../assets/logo-obradocs.png";
 import { validateNewPassword } from "@utils/validation";
 import AppButton from "@components/AppButton";
 import AppInput from "@components/AppInput";
+import ObradocsLogo from "@components/motion/ObradocsLogo";
 import { colors, radius, spacing } from "@theme/index";
 import { toastError } from "@utils/toast";
 
@@ -97,7 +96,7 @@ const ResetPasswordScreen = ({ route, navigation }: Props) => {
           bounces={false}
         >
           <View style={styles.brand}>
-            <Image source={logo} style={styles.logo} accessibilityIgnoresInvertColors />
+            <ObradocsLogo size={42} accessible={false} />
             <Text style={styles.brandName}>Obradocs</Text>
           </View>
 
@@ -188,7 +187,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   brand: { flexDirection: "row", alignItems: "center", gap: spacing.sm, marginBottom: spacing.xl },
-  logo: { width: 42, height: 42, borderRadius: 21 },
   brandName: { color: colors.text, fontSize: 20, fontWeight: "800" },
   card: {
     width: "100%",
