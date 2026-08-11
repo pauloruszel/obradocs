@@ -1,11 +1,13 @@
+import React from "react";
 import { showMessage, hideMessage } from "react-native-flash-message";
+import ObradocsSuccessIcon from "@components/motion/ObradocsSuccessIcon";
 
 export const toastSuccess = (title: string, description?: string) =>
   showMessage({
     message: title,
     description,
     type: "success",        // verde
-    icon: "success",
+    icon: React.createElement(ObradocsSuccessIcon),
     floating: true,         // card "solto" do topo
     duration: 3000,
   });

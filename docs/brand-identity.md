@@ -33,17 +33,20 @@ Arquivos prontos para uso externo:
 
 - `assets/brand/obradocs-symbol.svg`
 - `assets/brand/obradocs-lockup.svg`
+- `assets/brand/obradocs-lockup-monochrome.svg`
 - `assets/brand/obradocs-lockup-negative.svg`
 
 ## Motion
 
 O símbolo foi separado em duas camadas sem alterar sua geometria:
 
-1. **estrutura** aparece primeiro;
+1. **estrutura** é desenhada progressivamente;
 2. **documento** entra em seguida;
 3. **revelação** finaliza com pequena expansão.
 
 O loader usa o mesmo símbolo com uma órbita SVG. A animação comunica carregamento sem girar ou deformar a própria marca.
+
+Durante uploads, o documento entra na estrutura. Feedbacks de sucesso usam um check com expansão curta, e o sino balança somente quando a contagem de notificações aumenta.
 
 ## Regras de uso
 
@@ -55,4 +58,4 @@ O loader usa o mesmo símbolo com uma órbita SVG. A animação comunica carrega
 
 ## Observação sobre tipografia
 
-O símbolo é 100% independente de fonte. Os lockups SVG usam `Inter, Arial, sans-serif` como fallback para a assinatura textual; no aplicativo, o wordmark continua sendo renderizado pelo sistema tipográfico da interface para preservar consistência entre Web, Android e iOS.
+O símbolo e os lockups SVG são independentes de fontes instaladas: a assinatura textual dos arquivos externos foi convertida em paths. No aplicativo, o wordmark continua sendo renderizado pelo sistema tipográfico da interface para preservar consistência entre Web, Android e iOS.
