@@ -10,17 +10,17 @@
   "theme_color": "#0C5BAA",
   "icons": [
     {
-      "src": "/obradocs/pwa-icon-192.png",
+      "src": "/obradocs/pwa-icon-192-v2.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/obradocs/pwa-icon-512.png",
+      "src": "/obradocs/pwa-icon-512-v2.png",
       "sizes": "512x512",
       "type": "image/png"
     },
     {
-      "src": "/obradocs/pwa-icon-512.png",
+      "src": "/obradocs/pwa-icon-512-v2.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"

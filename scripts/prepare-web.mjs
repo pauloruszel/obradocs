@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 const indexPath = "dist/index.html";
 const favicon = '<link rel="icon" href="/obradocs/favicon.ico" />';
 const metadata = `${favicon}
-    <link rel="apple-touch-icon" sizes="180x180" href="/obradocs/apple-touch-icon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/obradocs/apple-touch-icon-v2.png" />
     <link rel="manifest" href="/obradocs/manifest.webmanifest" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Obradocs" />
