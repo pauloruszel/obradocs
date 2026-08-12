@@ -64,6 +64,12 @@ export const uploadErrorFeedback = (
       message: "O arquivo ultrapassa o limite permitido para esse formato.",
     };
   }
+  if (code === "FILE_FORMATS_EXTENDED_DISABLED") {
+    return {
+      title: "Formato ainda indisponível",
+      message: "Este formato ainda não foi liberado. Use PDF ou JPEG por enquanto.",
+    };
+  }
   if (code === "INVALID_REQUEST") {
     return {
       title: "Arquivo não aceito",

@@ -34,6 +34,10 @@ describe("uploadFormats", () => {
     expect(uploadErrorFeedback("UPLOAD_TOO_LARGE")).toMatchObject({
       title: "Arquivo muito grande",
     });
+    expect(uploadErrorFeedback("FILE_FORMATS_EXTENDED_DISABLED")).toEqual({
+      title: "Formato ainda indisponível",
+      message: "Este formato ainda não foi liberado. Use PDF ou JPEG por enquanto.",
+    });
     expect(uploadErrorFeedback("INVALID_REQUEST", "Conteúdo incompatível")).toEqual({
       title: "Arquivo não aceito",
       message: "Conteúdo incompatível",

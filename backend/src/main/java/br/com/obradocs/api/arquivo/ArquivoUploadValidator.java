@@ -17,6 +17,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.multipart.MultipartFile;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -25,6 +26,13 @@ import org.xml.sax.SAXException;
 
 @Component
 class ArquivoUploadValidator {
+
+    private final boolean formatosExpandidosHabilitados;
+
+    ArquivoUploadValidator(
+            @Value("${app.files.formats-extended-enabled:false}") boolean formatosExpandidosHabilitados) {
+        this.formatosExpandidosHabilitados = formatosExpandidosHabilitados;
+    }
 
     private static final byte[] PDF_HEADER = {'%', 'P', 'D', 'F', '-'};
     private static final byte[] JPEG_HEADER = {(byte) 0xff, (byte) 0xd8, (byte) 0xff};
@@ -71,6 +79,11 @@ class ArquivoUploadValidator {
         String nome = validarNome(multipart.getOriginalFilename());
         ArquivoFormato formato = ArquivoFormato.porNomeArquivo(nome)
                 .orElseThrow(() -> extensaoNaoPermitida(nome));
+        if (!formatosExpandidosHabilitados
+                && formato != ArquivoFormato.JPEG
+                && formato != ArquivoFormato.PDF) {
+            throw new FormatosExpandidosDesabilitadosException();
+        }
         if (multipart.getSize() > formato.getLimiteBytes()) {
             throw new IllegalArgumentException(
                     "Arquivo muito grande; limite de " + formato.getLimiteBytes() / 1024 / 1024 + " MB");

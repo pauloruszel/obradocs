@@ -24,7 +24,19 @@ import org.springframework.web.multipart.MultipartFile;
 
 class ArquivoUploadValidatorTests {
 
-    private final ArquivoUploadValidator validator = new ArquivoUploadValidator();
+    private final ArquivoUploadValidator validator = new ArquivoUploadValidator(true);
+
+    @Test
+    void flagDesligadaMantemPdfEJpegEBloqueiaFormatosExpandidos() {
+        ArquivoUploadValidator legado = new ArquivoUploadValidator(false);
+
+        assertThat(legado.validar(arquivo("projeto.pdf", null, pdf())).formato())
+                .isEqualTo(ArquivoFormato.PDF);
+        assertThat(legado.validar(arquivo("foto.jpg", null, jpeg())).formato())
+                .isEqualTo(ArquivoFormato.JPEG);
+        assertThatThrownBy(() -> legado.validar(arquivo("imagem.png", null, png())))
+                .isInstanceOf(FormatosExpandidosDesabilitadosException.class);
+    }
 
     @ParameterizedTest
     @MethodSource("arquivosValidos")

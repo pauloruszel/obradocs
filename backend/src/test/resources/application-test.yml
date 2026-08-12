@@ -1,4 +1,6 @@
 app:
+  files:
+    formats-extended-enabled: true
   brevo:
     api-key: test-api-key
   storage:
