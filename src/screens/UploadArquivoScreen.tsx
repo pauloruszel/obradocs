@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   Image,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,6 +11,7 @@ import {
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import {
+  Building2,
   Camera,
   FileCheck2,
   FileText,
@@ -17,12 +19,13 @@ import {
   ReceiptText,
   Trash2,
   Upload,
+  Plus,
 } from "lucide-react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { RootStackParamList } from "@navigation/AppNavigator";
 import { ArquivoTipo, CategoriaObra } from "@models/models";
-import { uploadArquivo, uploadRevisao } from "@services/arquivosService";
+import { listarAmbientes, uploadArquivo, uploadRevisao } from "@services/arquivosService";
 import { listarCategorias } from "@services/categoriasService";
 import { ApiError } from "@services/apiClient";
 import { useAuth } from "@context/AuthContext";
@@ -38,11 +41,15 @@ import {
 } from "@utils/uploadFormats";
 import AppButton from "@components/AppButton";
 import AppInput from "@components/AppInput";
+import ConfirmDialog from "@components/ConfirmDialog";
 import UpgradeLimitDialog from "@components/UpgradeLimitDialog";
 import ObradocsUploadMotion from "@components/motion/ObradocsUploadMotion";
 import { colors, layout, radius, spacing, typography } from "@theme/index";
 
 type Props = NativeStackScreenProps<RootStackParamList, "UploadArquivo">;
+
+const WHOLE_WORK = "__whole_work__";
+const NEW_ENVIRONMENT = "__new_environment__";
 
 const typeIcon: Record<ArquivoTipo, React.ElementType> = {
   ORCAMENTO: ReceiptText,
@@ -68,7 +75,10 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
   const [tipo, setTipo] = useState<ArquivoTipo>(tipoInicial || "FOTO");
   const [categorias, setCategorias] = useState<CategoriaObra[]>([]);
   const [categoriaId, setCategoriaId] = useState<string | undefined>(categoriaIdInicial);
-  const [ambiente, setAmbiente] = useState("");
+  const [ambientes, setAmbientes] = useState<string[]>([]);
+  const [destino, setDestino] = useState<string | null>(null);
+  const [novoAmbiente, setNovoAmbiente] = useState("");
+  const [confirmWholeWork, setConfirmWholeWork] = useState(false);
   const [file, setFile] = useState<{
     uri: string;
     name: string;
@@ -86,10 +96,11 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
   useEffect(() => {
     if (isRevision) return;
     let active = true;
-    listarCategorias(obraId)
-      .then((result) => {
+    Promise.all([listarCategorias(obraId), listarAmbientes(obraId).catch(() => [])])
+      .then(([result, existingEnvironments]) => {
         if (!active) return;
         setCategorias(result);
+        setAmbientes(existingEnvironments);
         const current =
           result.find((item) => item.id === categoriaIdInicial)
           || result.find((item) => item.tipo === (tipoInicial || "FOTO"))
@@ -167,8 +178,47 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
     }
   };
 
-  const handleUpload = async () => {
+  const selectDroppedFile = (browserFile: File) => {
+    if (!validateFile(browserFile.name, browserFile.size)) return;
+    setFile({
+      uri: URL.createObjectURL(browserFile),
+      name: formatFileName(browserFile.name),
+      mime: browserFile.type || undefined,
+      size: browserFile.size,
+    });
+  };
+
+  const webDropHandlers = Platform.OS === "web"
+    ? {
+        onDragOver: (event: { preventDefault: () => void }) => event.preventDefault(),
+        onDrop: (event: {
+          preventDefault: () => void;
+          dataTransfer?: { files?: ArrayLike<File> };
+        }) => {
+          event.preventDefault();
+          const droppedFile = event.dataTransfer?.files?.[0];
+          if (droppedFile) selectDroppedFile(droppedFile);
+        },
+      }
+    : {};
+
+  const handleUpload = async (wholeWorkConfirmed = false) => {
     if (uploadLockRef.current || !user || !file) return;
+    if (!arquivoId && !destino) {
+      toastError(
+        "Escolha onde organizar o arquivo",
+        "Selecione Toda a obra, um ambiente existente ou crie um novo ambiente.",
+      );
+      return;
+    }
+    if (!arquivoId && destino === NEW_ENVIRONMENT && !novoAmbiente.trim()) {
+      toastError("Informe o novo ambiente", "Use um nome como Cozinha, Suíte ou Recepção.");
+      return;
+    }
+    if (!arquivoId && destino === WHOLE_WORK && !wholeWorkConfirmed) {
+      setConfirmWholeWork(true);
+      return;
+    }
     uploadLockRef.current = true;
     setUploading(true);
     try {
@@ -193,6 +243,16 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
         });
         return;
       } else {
+        const typedEnvironment = novoAmbiente.trim();
+        const existingEnvironment = ambientes.find(
+          (item) => item.localeCompare(typedEnvironment, "pt-BR", { sensitivity: "base" }) === 0,
+        );
+        const ambiente =
+          destino === NEW_ENVIRONMENT
+            ? existingEnvironment || typedEnvironment
+          : destino === WHOLE_WORK
+            ? undefined
+            : destino || undefined;
         await uploadArquivo({
           obraId,
           categoriaId,
@@ -290,15 +350,61 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
                 );
               })}
             </View>
-            <AppInput
-              label="Ambiente (opcional)"
-              value={ambiente}
-              onChangeText={setAmbiente}
-              placeholder="Ex.: Cozinha, suíte ou recepção"
-              maxLength={80}
-              editable={!uploading}
-              autoCapitalize="words"
-            />
+            <Text style={styles.sectionTitle}>Onde este arquivo será usado?</Text>
+            <Text style={styles.helper}>
+              Escolha Toda a obra ou associe o documento a um ambiente específico.
+            </Text>
+            <View style={styles.destinationGrid} accessibilityRole="radiogroup">
+              <Pressable
+                style={[styles.destination, destino === WHOLE_WORK && styles.destinationActive]}
+                onPress={() => setDestino(WHOLE_WORK)}
+                disabled={uploading}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: destino === WHOLE_WORK }}
+              >
+                <Building2 size={18} color={destino === WHOLE_WORK ? colors.white : colors.primary} />
+                <Text style={[styles.destinationText, destino === WHOLE_WORK && styles.destinationTextActive]}>
+                  Toda a obra
+                </Text>
+              </Pressable>
+              {ambientes.map((item) => (
+                <Pressable
+                  key={item}
+                  style={[styles.destination, destino === item && styles.destinationActive]}
+                  onPress={() => setDestino(item)}
+                  disabled={uploading}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: destino === item }}
+                >
+                  <Text style={[styles.destinationText, destino === item && styles.destinationTextActive]}>
+                    {item}
+                  </Text>
+                </Pressable>
+              ))}
+              <Pressable
+                style={[styles.destination, destino === NEW_ENVIRONMENT && styles.destinationActive]}
+                onPress={() => setDestino(NEW_ENVIRONMENT)}
+                disabled={uploading}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: destino === NEW_ENVIRONMENT }}
+              >
+                <Plus size={18} color={destino === NEW_ENVIRONMENT ? colors.white : colors.primary} />
+                <Text style={[styles.destinationText, destino === NEW_ENVIRONMENT && styles.destinationTextActive]}>
+                  Novo ambiente
+                </Text>
+              </Pressable>
+            </View>
+            {destino === NEW_ENVIRONMENT && (
+              <AppInput
+                label="Nome do novo ambiente"
+                value={novoAmbiente}
+                onChangeText={setNovoAmbiente}
+                placeholder="Ex.: Cozinha, suíte ou recepção"
+                maxLength={80}
+                editable={!uploading}
+                autoCapitalize="words"
+              />
+            )}
           </>
         )}
 
@@ -334,10 +440,14 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
             </Pressable>
           </View>
         ) : (
-          <View style={styles.emptyFile}>
+          <View style={styles.emptyFile} {...webDropHandlers}>
             <Upload size={34} color={colors.primary} />
             <Text style={styles.emptyFileTitle}>Selecione um arquivo</Text>
-            <Text style={styles.emptyFileText}>Escolha um documento ou tire uma foto agora.</Text>
+            <Text style={styles.emptyFileText}>
+              {Platform.OS === "web"
+                ? "Arraste um arquivo aqui ou selecione abaixo."
+                : "Escolha um documento ou tire uma foto agora."}
+            </Text>
           </View>
         )}
 
@@ -396,6 +506,18 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
           navigation.navigate("PlanoProfissional", { origem: "limite_armazenamento" });
         }}
       />
+      <ConfirmDialog
+        visible={confirmWholeWork}
+        title="Salvar em Toda a obra?"
+        message="Este arquivo ficará em “Toda a obra” e não será associado a um ambiente específico."
+        confirmLabel="Salvar em Toda a obra"
+        loading={uploading}
+        onCancel={() => setConfirmWholeWork(false)}
+        onConfirm={() => {
+          setConfirmWholeWork(false);
+          handleUpload(true);
+        }}
+      />
     </View>
   );
 };
@@ -429,6 +551,27 @@ const styles = StyleSheet.create({
   categoryActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   categoryText: { color: colors.text, fontWeight: "700" },
   categoryTextActive: { color: colors.white },
+  destinationGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  destination: {
+    minHeight: 46,
+    maxWidth: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    backgroundColor: colors.surface,
+  },
+  destinationActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  destinationText: { color: colors.text, fontWeight: "700", flexShrink: 1 },
+  destinationTextActive: { color: colors.white },
   revisionSummary: {
     backgroundColor: colors.surface,
     borderWidth: 1,

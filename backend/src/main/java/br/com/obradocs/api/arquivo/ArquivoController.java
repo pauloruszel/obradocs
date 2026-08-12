@@ -75,6 +75,13 @@ class ArquivoController {
 		return ArquivoResponse.from(service.buscar(arquivoId, formatosExpandidos(formatos), usuarioId(jwt)));
 	}
 
+	@GetMapping("/obras/{obraId}/arquivos/ambientes")
+	List<String> listarAmbientes(
+			@PathVariable UUID obraId,
+			@AuthenticationPrincipal Jwt jwt) {
+		return service.listarAmbientes(obraId, usuarioId(jwt));
+	}
+
 	@GetMapping("/arquivos/{arquivoId}/revisoes")
 	List<ArquivoResponse> listarRevisoes(
 			@PathVariable UUID arquivoId,

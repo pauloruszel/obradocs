@@ -107,6 +107,12 @@ class ArquivoService {
 		return detalhe;
 	}
 
+	@Transactional(readOnly = true)
+	List<String> listarAmbientes(UUID obraId, UUID usuarioId) {
+		authorization.exigirLeitura(obraId, usuarioId);
+		return documentos.listarAmbientes(obraId);
+	}
+
 	ArquivoDetalhado enviar(
 			UUID obraId,
 			UUID categoriaId,

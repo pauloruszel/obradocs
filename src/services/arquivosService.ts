@@ -43,6 +43,9 @@ export const buscarArquivo = (arquivoId: string): Promise<Arquivo> =>
 export const listarRevisoes = (arquivoId: string): Promise<Arquivo[]> =>
   apiRequest(`/v1/arquivos/${arquivoId}/revisoes`);
 
+export const listarAmbientes = (obraId: string): Promise<string[]> =>
+  apiRequest(`/v1/obras/${obraId}/arquivos/ambientes`);
+
 export const solicitarAprovacao = (arquivoId: string): Promise<Arquivo> =>
   apiRequest(`/v1/arquivos/${arquivoId}/aprovacao/solicitar`, { method: "POST" });
 

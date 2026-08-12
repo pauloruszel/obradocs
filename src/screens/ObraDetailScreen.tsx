@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   BadgeCheck,
   Camera,
+  CheckCircle2,
   Clock3,
   Download,
   FileText,
@@ -58,6 +59,8 @@ const categoryIcon: Record<ArquivoTipo, React.ElementType> = {
   FOTO: Camera,
 };
 
+const UNASSIGNED_ENVIRONMENT = "__unassigned_environment__";
+
 const ObraDetailScreen = ({ route, navigation }: Props) => {
   const insets = useSafeAreaInsets();
   const { obraId, nome } = route.params;
@@ -96,15 +99,22 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
   const ambientes = Array.from(
     new Set(arquivos.map((item) => item.ambiente?.trim()).filter(Boolean) as string[]),
   ).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const hasUnassignedEnvironment = arquivos.some((item) => !item.ambiente?.trim());
   const displayedFiles = searchActive
     ? searchResults
-    : ambienteFiltro
+    : ambienteFiltro === UNASSIGNED_ENVIRONMENT
+      ? arquivos.filter((item) => !item.ambiente?.trim())
+      : ambienteFiltro
       ? arquivos.filter((item) => item.ambiente === ambienteFiltro)
       : arquivos;
+  const selectedCategoryHasDocuments =
+    (selectedCategory?.documentos || 0) > 0 || arquivos.length > 0 || pendingFiles.length > 0;
+  const showEmptyCategoryAction =
+    !searchActive && !ambienteFiltro && selectedCategory != null && !selectedCategoryHasDocuments;
   const categoriasPreenchidas = categorias.filter((item) => item.documentos > 0).length;
-  const completude = categorias.length
-    ? Math.round((categoriasPreenchidas / categorias.length) * 100)
-    : 0;
+  const categoryOrganizationText = categoriasPreenchidas === 1
+    ? `1 de ${categorias.length} categorias possui arquivos`
+    : `${categoriasPreenchidas} de ${categorias.length} categorias possuem arquivos`;
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -412,11 +422,9 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
               <Text style={styles.officialText}>Revisão oficial aprovada</Text>
             </View>
           )}
-          {!!item.ambiente && (
-            <Text style={styles.fileAuthor} numberOfLines={1}>
-              Ambiente: {item.ambiente}
-            </Text>
-          )}
+          <Text style={styles.fileAuthor} numberOfLines={1}>
+            Ambiente: {item.ambiente?.trim() || "Sem ambiente"}
+          </Text>
           {!!item.enviado_por_nome && (
             <Text style={styles.fileAuthor} numberOfLines={1}>
               Enviado por {item.enviado_por_nome}
@@ -447,6 +455,15 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
     selectedCategory != null &&
     loadingCategory === selectedCategory.id &&
     filesByCategory[selectedCategory.id] === undefined;
+
+  const openUpload = () => {
+    navigation.navigate("UploadArquivo", {
+      obraId,
+      categoriaId: selectedCategory?.id,
+      categoriaNome: selectedCategory?.nome,
+      tipo: selectedCategory?.tipo,
+    });
+  };
 
   const loadMore = async () => {
     if (loadingMore) return;
@@ -526,9 +543,18 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
                         accessibilityState={{ selected: active }}
                       >
                         <Icon size={17} color={active ? colors.white : colors.textMuted} />
-                        <Text style={[styles.categoryText, active && styles.categoryTextActive]}>
-                          {category.nome}
+                        <Text
+                          style={[styles.categoryText, active && styles.categoryTextActive]}
+                          numberOfLines={1}
+                        >
+                          {category.nome} · {category.documentos}
                         </Text>
+                        {category.documentos > 0 && (
+                          <CheckCircle2
+                            size={14}
+                            color={active ? colors.white : colors.success}
+                          />
+                        )}
                       </Pressable>
                     );
                   })}
@@ -537,27 +563,26 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
 
               {!clientPortal && !searchActive && categorias.length > 0 && (
                 <View style={styles.completeness}>
-                  <View style={styles.completenessHeader}>
-                    <Text style={styles.completenessTitle}>Documentação da obra</Text>
-                    <Text style={styles.completenessValue}>{completude}%</Text>
-                  </View>
-                  <View style={styles.progressTrack}>
-                    <View style={[styles.progressValue, { width: `${completude}%` }]} />
-                  </View>
+                  <Text style={styles.completenessTitle}>Organização dos documentos</Text>
+                  <Text style={styles.organizationCount}>{categoryOrganizationText}</Text>
                   <Text style={styles.completenessHint}>
-                    {categoriasPreenchidas} de {categorias.length} categorias com documentos
+                    Este indicador mostra apenas como os documentos estão distribuídos.
                   </Text>
                 </View>
               )}
 
-              {!searchActive && ambientes.length > 0 && (
+              {!searchActive && (ambientes.length > 0 || hasUnassignedEnvironment) && (
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
                   style={styles.roomsScroll}
                   contentContainerStyle={styles.rooms}
                 >
-                  {[null, ...ambientes].map((ambiente) => {
+                  {[
+                    null,
+                    ...ambientes,
+                    ...(hasUnassignedEnvironment ? [UNASSIGNED_ENVIRONMENT] : []),
+                  ].map((ambiente) => {
                     const active = ambienteFiltro === ambiente;
                     return (
                       <Pressable
@@ -568,7 +593,9 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
                         accessibilityState={{ selected: active }}
                       >
                         <Text style={[styles.roomText, active && styles.roomTextActive]}>
-                          {ambiente || "Todos os ambientes"}
+                          {ambiente === UNASSIGNED_ENVIRONMENT
+                            ? "Sem ambiente"
+                            : ambiente || "Todos os ambientes"}
                         </Text>
                       </Pressable>
                     );
@@ -652,27 +679,26 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
                 title={clientPortal ? "Nenhum documento aprovado nesta categoria" : "Nenhum arquivo nesta categoria"}
                 description={
                   canEdit
-                    ? "Envie o primeiro documento para começar a organizar esta obra."
+                    ? showEmptyCategoryAction
+                      ? "Adicione o primeiro documento desta categoria. Não existe quantidade mínima para usar a obra."
+                      : "Não há documentos para o ambiente selecionado."
                     : "Assim que uma revisão for aprovada, ela ficará disponível aqui."
                 }
+                actionLabel={canEdit && selectedCategory && showEmptyCategoryAction
+                  ? `Enviar arquivo em ${selectedCategory.nome}`
+                  : undefined}
+                onAction={canEdit && selectedCategory && showEmptyCategoryAction ? openUpload : undefined}
               />
             )
           }
         />
       </View>
 
-      {canEdit && (
+      {canEdit && selectedCategory && !showEmptyCategoryAction && (
         <AppButton
           label="Enviar arquivo"
           icon={<Upload size={19} color={colors.white} />}
-          onPress={() =>
-            navigation.navigate("UploadArquivo", {
-              obraId,
-              categoriaId: selectedCategory?.id,
-              categoriaNome: selectedCategory?.nome,
-              tipo: selectedCategory?.tipo,
-            })
-          }
+          onPress={openUpload}
           style={{ ...styles.floatingAction, bottom: spacing.lg + insets.bottom }}
         />
       )}
@@ -761,7 +787,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
   },
   categoryActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  categoryText: { color: colors.textMuted, fontWeight: "700" },
+  categoryText: { color: colors.textMuted, fontWeight: "700", flexShrink: 1 },
   categoryTextActive: { color: colors.white },
   completeness: {
     backgroundColor: colors.surface,
@@ -771,17 +797,8 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.md,
   },
-  completenessHeader: { flexDirection: "row", justifyContent: "space-between" },
   completenessTitle: { color: colors.text, fontSize: 13, fontWeight: "700" },
-  completenessValue: { color: colors.primary, fontSize: 13, fontWeight: "800" },
-  progressTrack: {
-    height: 6,
-    backgroundColor: colors.primarySoft,
-    borderRadius: radius.sm,
-    overflow: "hidden",
-    marginTop: spacing.sm,
-  },
-  progressValue: { height: "100%", backgroundColor: colors.primary },
+  organizationCount: { color: colors.primary, fontSize: 14, fontWeight: "800", marginTop: spacing.sm },
   completenessHint: { color: colors.textMuted, fontSize: 12, marginTop: spacing.sm },
   roomsScroll: { flexGrow: 0, flexShrink: 0, height: 44, marginBottom: spacing.md },
   rooms: { alignItems: "center", gap: spacing.sm },
