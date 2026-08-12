@@ -3,10 +3,12 @@ package br.com.obradocs.api.arquivo;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -15,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.multipart.MultipartFile;
 
 import br.com.obradocs.api.obra.HistoricoService;
 import br.com.obradocs.api.obra.ObraAuthorizationService;
@@ -48,6 +51,18 @@ class ArquivoServiceListagemTests {
     @Mock
     private CategoriaObraService categorias;
 
+    @Mock
+    private ArquivoUploadValidator uploadValidator;
+
+    @Mock
+    private MultipartFile multipart;
+
+    @Mock
+    private ArquivoDetalhado detalhe;
+
+    @Mock
+    private Arquivo arquivo;
+
     private ArquivoService service;
 
     private final UUID obraId = UUID.randomUUID();
@@ -63,7 +78,8 @@ class ArquivoServiceListagemTests {
                 storage,
                 transactions,
                 limites,
-                categorias);
+                categorias,
+                uploadValidator);
     }
 
     @Test
@@ -133,5 +149,56 @@ class ArquivoServiceListagemTests {
 
         verify(authorization).exigirLeitura(obraId, usuarioId);
         verifyNoMoreInteractions(arquivos);
+    }
+
+    @Test
+    void validaPrimeiroUploadAntesDeReservarCotaOuAcessarStorage() {
+        when(uploadValidator.validar(multipart))
+                .thenThrow(new IllegalArgumentException("Arquivo inválido"));
+
+        assertThatThrownBy(() -> service.enviar(
+                obraId,
+                null,
+                ArquivoTipo.FOTO,
+                null,
+                multipart,
+                usuarioId))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Arquivo inválido");
+
+        verify(authorization).exigirEdicao(obraId, usuarioId);
+        verify(uploadValidator).validar(multipart);
+        verifyNoInteractions(limites, storage);
+    }
+
+    @Test
+    void validaCompatibilidadeDaRevisaoAntesDeReservarCotaOuAcessarStorage() {
+        UUID arquivoId = UUID.randomUUID();
+        ArquivoUploadValidator.ArquivoValidado validado =
+                new ArquivoUploadValidator.ArquivoValidado(
+                        "projeto.jpg",
+                        "image/jpeg",
+                        ArquivoFormato.JPEG);
+        when(arquivos.findDetalhadoById(arquivoId)).thenReturn(Optional.of(detalhe));
+        when(detalhe.getArquivo()).thenReturn(arquivo);
+        when(arquivo.getObraId()).thenReturn(obraId);
+        when(arquivo.getNomeOriginal()).thenReturn("projeto.pdf");
+        when(arquivo.getContentType()).thenReturn("application/pdf");
+        when(uploadValidator.validar(multipart)).thenReturn(validado);
+        org.mockito.Mockito.doThrow(new IllegalArgumentException("Formato incompatível"))
+                .when(uploadValidator)
+                .validarCompatibilidadeRevisao(validado, "projeto.pdf", "application/pdf");
+
+        assertThatThrownBy(() -> service.enviarRevisao(arquivoId, multipart, usuarioId))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Formato incompatível");
+
+        verify(authorization).exigirEdicao(obraId, usuarioId);
+        verify(uploadValidator).validar(multipart);
+        verify(uploadValidator).validarCompatibilidadeRevisao(
+                validado,
+                "projeto.pdf",
+                "application/pdf");
+        verifyNoInteractions(limites, storage);
     }
 }

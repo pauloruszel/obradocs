@@ -61,7 +61,7 @@ class ApiExceptionHandler {
 	ProblemDetail uploadMuitoGrande() {
 		return ProblemDetail.forStatusAndDetail(
 				HttpStatus.CONTENT_TOO_LARGE,
-				"Arquivo muito grande; limite de 10 MB");
+				"Arquivo muito grande; limite de 100 MB");
 	}
 
 	@ExceptionHandler(TooManyRequestsException.class)

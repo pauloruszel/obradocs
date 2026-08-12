@@ -39,6 +39,7 @@ public enum ArquivoFormato {
     DXF(Set.of("dxf"), "image/vnd.dxf", AssinaturaEsperada.DXF_SECTION_MARKER, megabytes(100), false, "DXF");
 
     private static final Map<String, ArquivoFormato> POR_EXTENSAO = criarIndicePorExtensao();
+    private static final Map<String, ArquivoFormato> POR_MIME = criarIndicePorMime();
 
     private final Set<String> extensoes;
     private final String mimeCanonico;
@@ -77,6 +78,13 @@ public enum ArquivoFormato {
         return Optional.ofNullable(POR_EXTENSAO.get(extensao));
     }
 
+    public static Optional<ArquivoFormato> porMimeCanonico(String mime) {
+        if (mime == null || mime.isBlank()) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(POR_MIME.get(mime.toLowerCase(Locale.ROOT)));
+    }
+
     public boolean compativelComRevisao(ArquivoFormato outro) {
         return outro != null && familiaRevisao.equals(outro.familiaRevisao);
     }
@@ -87,6 +95,14 @@ public enum ArquivoFormato {
             for (String extensao : formato.extensoes) {
                 formatos.put(extensao, formato);
             }
+        }
+        return Collections.unmodifiableMap(formatos);
+    }
+
+    private static Map<String, ArquivoFormato> criarIndicePorMime() {
+        Map<String, ArquivoFormato> formatos = new HashMap<>();
+        for (ArquivoFormato formato : values()) {
+            formatos.put(formato.mimeCanonico.toLowerCase(Locale.ROOT), formato);
         }
         return Collections.unmodifiableMap(formatos);
     }
