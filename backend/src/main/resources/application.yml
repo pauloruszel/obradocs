@@ -28,8 +28,10 @@ spring:
     open-in-view: false
   servlet:
     multipart:
-      max-file-size: 100MB
-      max-request-size: 105MB
+      max-file-size: 105MB
+      max-request-size: 110MB
+      file-size-threshold: 0B
+      location: ${java.io.tmpdir}
 
 management:
   endpoint:

@@ -1,6 +1,5 @@
 package br.com.obradocs.api.arquivo;
 
-import java.text.Normalizer;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -118,7 +117,7 @@ class ArquivoService {
 						tipoLegado == null ? ArquivoTipo.FOTO : tipoLegado);
 		ArquivoUploadValidator.ArquivoValidado validado = uploadValidator.validar(multipart);
 		UUID reservaId = limitesPlano.reservarUpload(obraId, multipart.getSize());
-		String storagePath = obraId + "/" + UUID.randomUUID() + "-" + sanitizar(validado.nome());
+		String storagePath = novoStoragePath(obraId);
 
 		try {
 			storage.armazenar(storagePath, multipart, validado.contentType());
@@ -156,7 +155,7 @@ class ArquivoService {
 			});
 		} catch (RuntimeException exception) {
 			storage.excluirSilenciosamente(storagePath);
-			limitesPlano.liberarReserva(reservaId);
+			liberarReservaPreservandoErro(reservaId, exception);
 			throw exception;
 		}
 	}
@@ -171,7 +170,7 @@ class ArquivoService {
 				arquivoAnterior.getNomeOriginal(),
 				arquivoAnterior.getContentType());
 		UUID reservaId = limitesPlano.reservarUpload(arquivoAnterior.getObraId(), multipart.getSize());
-		String storagePath = arquivoAnterior.getObraId() + "/" + UUID.randomUUID() + "-" + sanitizar(validado.nome());
+		String storagePath = novoStoragePath(arquivoAnterior.getObraId());
 
 		try {
 			storage.armazenar(storagePath, multipart, validado.contentType());
@@ -203,7 +202,7 @@ class ArquivoService {
 			});
 		} catch (RuntimeException exception) {
 			storage.excluirSilenciosamente(storagePath);
-			limitesPlano.liberarReserva(reservaId);
+			liberarReservaPreservandoErro(reservaId, exception);
 			throw exception;
 		}
 	}
@@ -297,14 +296,16 @@ class ArquivoService {
 				.orElseThrow(() -> new NoSuchElementException("Arquivo não encontrado"));
 	}
 
-	private String sanitizar(String nome) {
-		String normalizado = Normalizer.normalize(nome, Normalizer.Form.NFD)
-				.replaceAll("\\p{M}", "");
-		String seguro = normalizado
-				.replaceAll("[^a-zA-Z0-9._-]", "-")
-				.replaceAll("-+", "-")
-				.replaceAll("^[-.]+|[-.]+$", "");
-		return seguro.isBlank() ? "arquivo" : seguro;
+	private String novoStoragePath(UUID obraId) {
+		return obraId + "/" + UUID.randomUUID();
+	}
+
+	private void liberarReservaPreservandoErro(UUID reservaId, RuntimeException erroOriginal) {
+		try {
+			limitesPlano.liberarReserva(reservaId);
+		} catch (RuntimeException erroCompensacao) {
+			erroOriginal.addSuppressed(erroCompensacao);
+		}
 	}
 
 	private String normalizarAmbiente(String ambiente) {

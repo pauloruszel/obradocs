@@ -29,6 +29,11 @@ import { useAuth } from "@context/AuthContext";
 import { toastError, toastSuccess } from "@utils/toast";
 import { getUpgradeLimitCode, UpgradeLimitCode } from "@utils/upgradeConversion";
 import { arquivoTipoLabel, formatFileName } from "@utils/display";
+import {
+  UploadFormat,
+  uploadFormatFor,
+  uploadLimitLabel,
+} from "@utils/uploadFormats";
 import AppButton from "@components/AppButton";
 import AppInput from "@components/AppInput";
 import UpgradeLimitDialog from "@components/UpgradeLimitDialog";
@@ -36,8 +41,6 @@ import ObradocsUploadMotion from "@components/motion/ObradocsUploadMotion";
 import { colors, layout, radius, spacing, typography } from "@theme/index";
 
 type Props = NativeStackScreenProps<RootStackParamList, "UploadArquivo">;
-
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 const typeIcon: Record<ArquivoTipo, React.ElementType> = {
   ORCAMENTO: ReceiptText,
@@ -102,24 +105,30 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
     };
   }, [categoriaIdInicial, isRevision, obraId, tipoInicial]);
 
-  const validateSize = (size?: number) => {
-    if (typeof size === "number" && size > MAX_FILE_SIZE) {
+  const validateFile = (name: string, size?: number): UploadFormat | undefined => {
+    const format = uploadFormatFor(name);
+    if (!format) {
       setFile(null);
-      toastError("Arquivo muito grande", "O limite para envio é de 10 MB.");
-      return false;
+      toastError("Formato não aceito", "Selecione PDF, imagem, DOCX, XLSX, CSV, DWG ou DXF.");
+      return undefined;
     }
-    return true;
+    if (typeof size === "number" && size > format.maxBytes) {
+      setFile(null);
+      toastError("Arquivo muito grande", `O limite para ${format.label} é de ${uploadLimitLabel(format)}.`);
+      return undefined;
+    }
+    return format;
   };
 
   const pickDocument = async () => {
     const result = await DocumentPicker.getDocumentAsync({
-      type: revisionContentType || ["application/pdf", "image/jpeg"],
+      type: "*/*",
       copyToCacheDirectory: true,
     });
     if (result.canceled) return;
 
     const asset = result.assets[0];
-    if (!asset?.uri || !validateSize(asset.size)) return;
+    if (!asset?.uri || !validateFile(asset.name || "", asset.size)) return;
     setFile({
       uri: asset.uri,
       name: formatFileName(asset.name || "arquivo.pdf"),
@@ -161,19 +170,9 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
     uploadLockRef.current = true;
     setUploading(true);
     try {
-      if (!validateSize(file.size)) return;
-      const lowerName = file.name.toLowerCase();
-      const isPdf = lowerName.endsWith(".pdf") || file.mime === "application/pdf";
-      const isJpeg =
-        lowerName.endsWith(".jpg") ||
-        lowerName.endsWith(".jpeg") ||
-        file.mime === "image/jpeg";
-      if (!isPdf && !isJpeg) {
-        toastError("Formato não aceito", "Selecione um arquivo PDF ou JPEG.");
-        return;
-      }
-
-      const contentType = isPdf ? "application/pdf" : "image/jpeg";
+      const format = validateFile(file.name, file.size);
+      if (!format) return;
+      const contentType = format.mime;
       if (arquivoId) {
         const revision = await uploadRevisao({
           arquivoId,
@@ -209,7 +208,7 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
       if (limitCode) {
         setUpgradeLimit(limitCode);
       } else if (error instanceof ApiError && error.status === 413) {
-        toastError("Arquivo muito grande", "O limite para envio é de 10 MB.");
+        toastError("Arquivo muito grande", "O arquivo ultrapassa o limite permitido para esse formato.");
       } else {
         const message = (error as Error)?.message || "";
         const timedOut = error instanceof Error && error.name === "AbortError";
@@ -298,10 +297,12 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
         )}
 
         <Text style={styles.sectionTitle}>Arquivo</Text>
-        <Text style={styles.helper}>Formatos aceitos: PDF ou JPEG, até 10 MB.</Text>
+        <Text style={styles.helper}>
+          PDF, imagens, Office, CSV, DWG ou DXF. Limite de até 100 MB conforme o formato.
+        </Text>
         {file ? (
           <View style={styles.preview}>
-            {file.mime === "image/jpeg" ? (
+            {uploadFormatFor(file.name)?.previewImage ? (
               <Image source={{ uri: file.uri }} style={styles.previewImage} />
             ) : (
               <View style={styles.fileIcon}>
@@ -311,7 +312,7 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
             <View style={styles.previewInfo}>
               <Text style={styles.fileName} numberOfLines={2}>{file.name}</Text>
               <Text style={styles.fileMeta}>
-                {[file.mime === "application/pdf" ? "PDF" : "JPEG", fileSize]
+                {[uploadFormatFor(file.name)?.label, fileSize]
                   .filter(Boolean)
                   .join(" · ")}
               </Text>
