@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { Animated, Easing, StyleSheet, ViewStyle } from "react-native";
+import { Animated, Easing, Platform, StyleSheet, ViewStyle } from "react-native";
 import ObradocsBrandMark from "@components/brand/ObradocsBrandMark";
 import useReducedMotion from "../../hooks/useReducedMotion";
 
@@ -50,13 +50,13 @@ const ObradocsLogo = ({
           toValue: 1,
           duration: 220,
           easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== "web",
         }),
         Animated.timing(reveal, {
           toValue: 1,
           duration: 320,
           easing: Easing.out(Easing.back(1.2)),
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== "web",
         }),
       ]),
     ]);
