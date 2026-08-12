@@ -242,6 +242,17 @@ interface ArquivoDetalhado {
 
 interface DocumentoRepository extends JpaRepository<Documento, UUID> {
 
+    @Query(value = """
+            select min(trim(ambiente))
+            from documentos
+            where obra_id = :obraId
+              and ambiente is not null
+              and trim(ambiente) <> ''
+            group by lower(trim(ambiente))
+            order by lower(trim(ambiente))
+            """, nativeQuery = true)
+    List<String> listarAmbientes(@Param("obraId") UUID obraId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select d from Documento d where d.id = :id")
     Optional<Documento> findByIdForUpdate(@Param("id") UUID id);

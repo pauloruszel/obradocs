@@ -494,6 +494,33 @@ class ArquivoIntegrationTests {
                 .isEqualTo(200);
     }
 
+    @Test
+    void listaAmbientesSemDuplicarVariacoesEProtegeAAutorizacao() throws Exception {
+        UsuarioAutenticado owner = registrar("Owner Ambientes", "owner-ambientes@example.com");
+        UsuarioAutenticado semAcesso = registrar("Sem Acesso", "sem-acesso-ambientes@example.com");
+        String obraId = criarObra(owner, "Obra com ambientes").path("id").stringValue();
+        byte[] pdf = "%PDF-1.4\nambiente".getBytes(StandardCharsets.UTF_8);
+
+        assertThat(uploadMultipart(
+                "/v1/obras/" + obraId + "/arquivos?tipo=PROJETO&ambiente=Sala",
+                "sala.pdf", "application/pdf", pdf, owner.token()).statusCode()).isEqualTo(201);
+        assertThat(uploadMultipart(
+                "/v1/obras/" + obraId + "/arquivos?tipo=PROJETO&ambiente=sala",
+                "sala-2.pdf", "application/pdf", pdf, owner.token()).statusCode()).isEqualTo(201);
+        assertThat(uploadMultipart(
+                "/v1/obras/" + obraId + "/arquivos?tipo=PROJETO&ambiente=Cozinha",
+                "cozinha.pdf", "application/pdf", pdf, owner.token()).statusCode()).isEqualTo(201);
+
+        JsonNode ambientes = json(get(
+                "/v1/obras/" + obraId + "/arquivos/ambientes", owner.token()));
+        assertThat(ambientes).hasSize(2);
+        assertThat(ambientes.get(0).stringValue()).isEqualTo("Cozinha");
+        assertThat(ambientes.get(1).stringValue()).isEqualTo("Sala");
+        assertThat(get(
+                "/v1/obras/" + obraId + "/arquivos/ambientes", semAcesso.token()).statusCode())
+                .isEqualTo(403);
+    }
+
     private HttpResponse<String> upload(
             String obraId,
             String tipo,
