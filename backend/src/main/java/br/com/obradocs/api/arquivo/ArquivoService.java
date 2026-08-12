@@ -167,7 +167,6 @@ class ArquivoService {
 		ArquivoUploadValidator.ArquivoValidado validado = uploadValidator.validar(multipart);
 		uploadValidator.validarCompatibilidadeRevisao(
 				validado,
-				arquivoAnterior.getNomeOriginal(),
 				arquivoAnterior.getContentType());
 		UUID reservaId = limitesPlano.reservarUpload(arquivoAnterior.getObraId(), multipart.getSize());
 		String storagePath = novoStoragePath(arquivoAnterior.getObraId());

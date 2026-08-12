@@ -149,17 +149,16 @@ class ArquivoUploadValidatorTests {
     }
 
     @Test
-    void permiteRevisaoDaMesmaFamiliaERejeitaFormatoDiferente() {
+    void comparaRevisaoPeloFormatoCanonicoDetectado() {
         ArquivoUploadValidator.ArquivoValidado heif = validator.validar(
                 arquivo("foto.heif", null, heif("mif1")));
         ArquivoUploadValidator.ArquivoValidado pdf = validator.validar(
-                arquivo("projeto.pdf", null, pdf()));
+                arquivo("projeto.pdf", "image/jpeg", pdf()));
 
-        validator.validarCompatibilidadeRevisao(heif, "foto.heic", "image/heic");
+        validator.validarCompatibilidadeRevisao(pdf, "application/pdf");
         assertThatThrownBy(() -> validator.validarCompatibilidadeRevisao(
-                pdf,
-                "foto.jpg",
-                "image/jpeg"))
+                heif,
+                "image/heic"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("manter o formato");
     }

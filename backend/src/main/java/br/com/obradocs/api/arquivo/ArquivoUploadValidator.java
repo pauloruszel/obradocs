@@ -82,12 +82,10 @@ class ArquivoUploadValidator {
 
     void validarCompatibilidadeRevisao(
             ArquivoValidado novaRevisao,
-            String nomeAnterior,
-            String mimeAnterior) {
-        ArquivoFormato formatoAnterior = ArquivoFormato.porNomeArquivo(nomeAnterior)
-                .or(() -> ArquivoFormato.porMimeCanonico(mimeAnterior))
+            String mimeCanonicoAnterior) {
+        ArquivoFormato formatoAnterior = ArquivoFormato.porMimeCanonico(mimeCanonicoAnterior)
                 .orElseThrow(() -> new IllegalArgumentException("Formato do documento original não reconhecido"));
-        if (!formatoAnterior.compativelComRevisao(novaRevisao.formato())) {
+        if (formatoAnterior != novaRevisao.formato()) {
             throw new IllegalArgumentException("Nova revisão deve manter o formato do documento");
         }
     }

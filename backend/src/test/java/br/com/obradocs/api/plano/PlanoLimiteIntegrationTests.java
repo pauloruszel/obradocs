@@ -121,20 +121,21 @@ class PlanoLimiteIntegrationTests {
     }
 
     @Test
-    void bloqueiaUploadQuandoArmazenamentoAcumuladoAtingiu500Mb() throws Exception {
+    void contabilizaTodasAsRevisoesNaCotaDeArmazenamento() throws Exception {
         UsuarioAutenticado owner = registrar("Owner Limite Storage", "owner-limite-storage@example.com");
         JsonNode obra = json(post("/v1/obras", "{\"nome\":\"Obra com arquivos\"}", owner.token()));
         UUID obraId = UUID.fromString(obra.path("id").stringValue());
 
         jdbc.update("""
-                insert into documentos (id, obra_id, tipo, nome, categoria_id)
-                select
+                insert into documentos (id, obra_id, tipo, nome, categoria_id, revisao_atual)
+                values (
                     gen_random_uuid(),
                     ?,
                     'PROJETO',
-                    'limite-' || serie || '.pdf',
-                    (select id from categorias_obra where obra_id = ? and tipo = 'PROJETO' limit 1)
-                from generate_series(1, 50) as serie
+                    'projeto-com-revisoes.pdf',
+                    (select id from categorias_obra where obra_id = ? and tipo = 'PROJETO' limit 1),
+                    50
+                )
                 """,
                 obraId,
                 obraId);
@@ -147,15 +148,16 @@ class PlanoLimiteIntegrationTests {
                     gen_random_uuid(),
                     d.obra_id,
                     d.id,
-                    1,
+                    revisao,
                     'PROJETO',
-                    d.nome,
-                    'test/' || gen_random_uuid() || '-' || d.nome,
+                    'projeto-r' || revisao || '.pdf',
+                    'test/' || gen_random_uuid() || '-projeto-r' || revisao || '.pdf',
                     'application/pdf',
                     10 * 1024 * 1024,
                     ?,
                     now()
                 from documentos d
+                cross join generate_series(1, 50) as revisao
                 where d.obra_id = ?
                 """,
                 owner.id(),

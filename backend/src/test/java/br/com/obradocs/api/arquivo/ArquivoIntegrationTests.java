@@ -182,7 +182,7 @@ class ArquivoIntegrationTests {
                 primeiraId, "estrutural-r2.jpg", "image/jpeg", jpeg, owner.token()).statusCode())
                 .isEqualTo(400);
         JsonNode segunda = json(uploadRevisao(
-                primeiraId, "estrutural-r2.pdf", "application/pdf", r2, owner.token()));
+                primeiraId, "estrutural-r2.pdf", "image/jpeg", r2, owner.token()));
 
         assertThat(segunda.path("documento_id").stringValue())
                 .isEqualTo(primeira.path("documento_id").stringValue());

@@ -191,12 +191,11 @@ class ArquivoServiceListagemTests {
         when(arquivos.findDetalhadoById(arquivoId)).thenReturn(Optional.of(detalhe));
         when(detalhe.getArquivo()).thenReturn(arquivo);
         when(arquivo.getObraId()).thenReturn(obraId);
-        when(arquivo.getNomeOriginal()).thenReturn("projeto.pdf");
         when(arquivo.getContentType()).thenReturn("application/pdf");
         when(uploadValidator.validar(multipart)).thenReturn(validado);
         org.mockito.Mockito.doThrow(new IllegalArgumentException("Formato incompatível"))
                 .when(uploadValidator)
-                .validarCompatibilidadeRevisao(validado, "projeto.pdf", "application/pdf");
+                .validarCompatibilidadeRevisao(validado, "application/pdf");
 
         assertThatThrownBy(() -> service.enviarRevisao(arquivoId, multipart, usuarioId))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -206,7 +205,6 @@ class ArquivoServiceListagemTests {
         verify(uploadValidator).validar(multipart);
         verify(uploadValidator).validarCompatibilidadeRevisao(
                 validado,
-                "projeto.pdf",
                 "application/pdf");
         verifyNoInteractions(limites, storage);
     }
@@ -254,7 +252,6 @@ class ArquivoServiceListagemTests {
         when(arquivos.findDetalhadoById(arquivoId)).thenReturn(Optional.of(detalhe));
         when(detalhe.getArquivo()).thenReturn(arquivo);
         when(arquivo.getObraId()).thenReturn(obraId);
-        when(arquivo.getNomeOriginal()).thenReturn("projeto-r1.pdf");
         when(arquivo.getContentType()).thenReturn("application/pdf");
         when(uploadValidator.validar(multipart)).thenReturn(validado);
         when(multipart.getSize()).thenReturn(50L * 1024 * 1024);
