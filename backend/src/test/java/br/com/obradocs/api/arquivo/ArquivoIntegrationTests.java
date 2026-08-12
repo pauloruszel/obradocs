@@ -42,7 +42,10 @@ import tools.jackson.databind.ObjectMapper;
 @ActiveProfiles("test")
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "app.jwt.secret=test-secret-with-at-least-32-bytes-long")
+        properties = {
+            "app.jwt.secret=test-secret-with-at-least-32-bytes-long",
+            "app.files.formats-extended-enabled=true"
+        })
 class ArquivoIntegrationTests {
 
     private static final String BUCKET = "obradocs-test";
@@ -434,6 +437,16 @@ class ArquivoIntegrationTests {
         JsonNode mimeCanonico = json(upload(
                 obraId, "PROJETO", "mime-do-celular.pdf", "image/jpeg", pdf, owner.token()));
         assertThat(mimeCanonico.path("content_type").stringValue()).isEqualTo("application/pdf");
+
+        byte[] png = {
+            (byte) 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+            0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52
+        };
+        HttpResponse<String> uploadPng = upload(
+                obraId, "FOTO", "planta.png", "image/png", png, owner.token());
+        assertThat(uploadPng.statusCode()).isEqualTo(201);
+        assertThat(json(uploadPng).path("content_type").stringValue()).isEqualTo("image/png");
+
         assertThat(upload(
                 obraId, "PROJETO", "extensao-errada.jpg", "application/pdf", pdf, owner.token()).statusCode())
                 .isEqualTo(400);
