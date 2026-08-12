@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { Animated, StyleSheet } from "react-native";
+import { Animated, Platform, StyleSheet } from "react-native";
 import { Check } from "lucide-react-native";
 import useReducedMotion from "../../hooks/useReducedMotion";
 import { colors } from "@theme/index";
@@ -17,7 +17,7 @@ const ObradocsSuccessIcon = () => {
       toValue: 1,
       speed: 24,
       bounciness: 6,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== "web",
     });
     animation.start();
     return () => animation.stop();

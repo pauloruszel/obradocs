@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { Animated, Easing, StyleSheet, View } from "react-native";
+import { Animated, Easing, Platform, StyleSheet, View } from "react-native";
 import ObradocsBrandMark from "@components/brand/ObradocsBrandMark";
 import useReducedMotion from "../../hooks/useReducedMotion";
 
@@ -27,13 +27,13 @@ const ObradocsUploadMotion = ({
           toValue: 1,
           duration: 560,
           easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== "web",
         }),
         Animated.delay(360),
         Animated.timing(progress, {
           toValue: 0,
           duration: 0,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== "web",
         }),
       ]),
     );

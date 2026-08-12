@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef } from "react";
-import { Animated, Easing, StyleSheet, View } from "react-native";
+import { Animated, Easing, Platform, StyleSheet, View } from "react-native";
 import Svg, { Circle } from "react-native-svg";
 import ObradocsLogo from "@components/motion/ObradocsLogo";
 import useReducedMotion from "../../hooks/useReducedMotion";
@@ -32,7 +32,7 @@ const ObradocsLoader = ({
         toValue: 1,
         duration: 1200,
         easing: Easing.linear,
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== "web",
       }),
     );
     const pulseAnimation = Animated.loop(
@@ -41,13 +41,13 @@ const ObradocsLoader = ({
           toValue: 1,
           duration: 650,
           easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== "web",
         }),
         Animated.timing(pulse, {
           toValue: 0,
           duration: 650,
           easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== "web",
         }),
       ]),
     );

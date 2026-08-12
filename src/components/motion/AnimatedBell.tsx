@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { Animated, Easing } from "react-native";
+import { Animated, Easing, Platform } from "react-native";
 import { Bell } from "lucide-react-native";
 import useReducedMotion from "../../hooks/useReducedMotion";
 import { colors } from "@theme/index";
@@ -30,31 +30,31 @@ const AnimatedBell = ({ trigger, size = 23 }: Props) => {
         toValue: -1,
         duration: 80,
         easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== "web",
       }),
       Animated.timing(swing, {
         toValue: 1,
         duration: 120,
         easing: Easing.inOut(Easing.quad),
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== "web",
       }),
       Animated.timing(swing, {
         toValue: -0.55,
         duration: 100,
         easing: Easing.inOut(Easing.quad),
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== "web",
       }),
       Animated.timing(swing, {
         toValue: 0.35,
         duration: 90,
         easing: Easing.inOut(Easing.quad),
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== "web",
       }),
       Animated.timing(swing, {
         toValue: 0,
         duration: 80,
         easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
+        useNativeDriver: Platform.OS !== "web",
       }),
     ]);
     animation.start();
