@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -88,6 +89,9 @@ class ArquivoUploadValidatorTests {
         assertThatThrownBy(() -> validator.validar(arquivo("documento.docx", null, zipDisfarcado)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Estrutura interna");
+        assertThatThrownBy(() -> validator.validar(arquivo("planilha.xlsx", null, zipDisfarcado)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Estrutura interna");
         assertThatThrownBy(() -> validator.validar(arquivo("documento.docx", null, docxComMacro)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("macros");
@@ -158,6 +162,21 @@ class ArquivoUploadValidatorTests {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("limite de 15 MB");
         verify(arquivo, never()).getInputStream();
+    }
+
+    @ParameterizedTest
+    @MethodSource("arquivosValidos")
+    void aceitaCadaFormatoExatamenteNoLimite(
+            String nome,
+            byte[] conteudo,
+            ArquivoFormato formato) throws IOException {
+        MultipartFile arquivo = mock(MultipartFile.class);
+        when(arquivo.isEmpty()).thenReturn(false);
+        when(arquivo.getSize()).thenReturn(formato.getLimiteBytes());
+        when(arquivo.getOriginalFilename()).thenReturn(nome);
+        when(arquivo.getInputStream()).thenAnswer(ignored -> new ByteArrayInputStream(conteudo));
+
+        assertThat(validator.validar(arquivo).formato()).isEqualTo(formato);
     }
 
     @Test

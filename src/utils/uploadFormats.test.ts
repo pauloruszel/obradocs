@@ -19,6 +19,12 @@ describe("uploadFormats", () => {
     expect(uploadLimitLabel(uploadFormatFor("planilha.xlsx")!)).toBe("25 MB");
   });
 
+  it("reconhece nomes recebidos no Android, iOS e Web", () => {
+    expect(uploadFormatFor("content://arquivo/PROJETO FINAL.PDF")).toMatchObject({ label: "PDF" });
+    expect(uploadFormatFor("Orçamento revisão 02.xlsx")).toMatchObject({ label: "XLSX" });
+    expect(uploadFormatFor(`${"Memorial descritivo ".repeat(8)}final.docx`)).toMatchObject({ label: "DOCX" });
+  });
+
   it("rejeita extensoes fora do catalogo", () => {
     expect(uploadFormatFor("arquivo.zip")).toBeUndefined();
     expect(uploadFormatFor("programa.exe")).toBeUndefined();
