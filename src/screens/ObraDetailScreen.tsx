@@ -541,18 +541,25 @@ const ObraDetailScreen = ({ route, navigation }: Props) => {
                         onPress={() => selectCategory(category)}
                         accessibilityRole="tab"
                         accessibilityState={{ selected: active }}
+                        accessibilityLabel={`${category.nome}, ${category.documentos} ${category.documentos === 1 ? "arquivo" : "arquivos"}`}
                       >
-                        <Icon size={17} color={active ? colors.white : colors.textMuted} />
-                        <Text
-                          style={[styles.categoryText, active && styles.categoryTextActive]}
-                          numberOfLines={1}
-                        >
-                          {category.nome} · {category.documentos}
+                        <View style={styles.categoryHeader}>
+                          <Icon size={17} color={active ? colors.white : colors.textMuted} />
+                          <Text
+                            style={[styles.categoryText, active && styles.categoryTextActive]}
+                            numberOfLines={2}
+                          >
+                            {category.nome}
+                          </Text>
+                        </View>
+                        <Text style={[styles.categoryCount, active && styles.categoryTextActive]}>
+                          {category.documentos} {category.documentos === 1 ? "arquivo" : "arquivos"}
                         </Text>
                         {category.documentos > 0 && (
                           <CheckCircle2
                             size={14}
                             color={active ? colors.white : colors.success}
+                            style={styles.categoryCheck}
                           />
                         )}
                       </Pressable>
@@ -767,28 +774,49 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     paddingVertical: spacing.md,
   },
-  categoriesScroll: { flexGrow: 0, flexShrink: 0, height: 80 },
+  categoriesScroll: { flexGrow: 0, flexShrink: 0, height: 104 },
   categories: {
     gap: spacing.sm,
     paddingVertical: spacing.md,
     alignItems: "center",
   },
   category: {
-    width: 148,
-    height: 56,
+    width: 168,
+    height: 80,
     flexShrink: 0,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
+    justifyContent: "center",
     paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: colors.borderStrong,
     backgroundColor: colors.surface,
   },
   categoryActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  categoryText: { color: colors.textMuted, fontWeight: "700", flexShrink: 1 },
+  categoryHeader: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+    paddingRight: spacing.md,
+  },
+  categoryText: {
+    color: colors.textMuted,
+    fontWeight: "700",
+    flex: 1,
+    lineHeight: 18,
+  },
   categoryTextActive: { color: colors.white },
+  categoryCount: {
+    color: colors.textMuted,
+    marginLeft: 25,
+    marginTop: spacing.xs,
+    fontSize: 12,
+  },
+  categoryCheck: {
+    position: "absolute",
+    right: spacing.sm,
+    top: spacing.sm,
+  },
   completeness: {
     backgroundColor: colors.surface,
     borderWidth: 1,
