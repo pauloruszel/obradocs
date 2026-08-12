@@ -44,7 +44,9 @@ class ApiExceptionHandler {
 
 	@ExceptionHandler(IllegalArgumentException.class)
 	ProblemDetail argumentoInvalido(IllegalArgumentException exception) {
-		return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
+		ProblemDetail detail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
+		detail.setProperty("code", "INVALID_REQUEST");
+		return detail;
 	}
 
 	@ExceptionHandler(NoSuchElementException.class)
@@ -59,9 +61,11 @@ class ApiExceptionHandler {
 
 	@ExceptionHandler(MaxUploadSizeExceededException.class)
 	ProblemDetail uploadMuitoGrande() {
-		return ProblemDetail.forStatusAndDetail(
+		ProblemDetail detail = ProblemDetail.forStatusAndDetail(
 				HttpStatus.CONTENT_TOO_LARGE,
 				"Arquivo muito grande; limite de 100 MB");
+		detail.setProperty("code", "UPLOAD_TOO_LARGE");
+		return detail;
 	}
 
 	@ExceptionHandler(TooManyRequestsException.class)

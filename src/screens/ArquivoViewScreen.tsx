@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 import WebView from "react-native-webview";
-import { FileCheck2, FileClock, FileText, MoreVertical, Pencil, ShieldAlert, Upload } from "lucide-react-native";
+import { Download, FileCheck2, FileClock, FileText, MoreVertical, Pencil, ShieldAlert, Upload } from "lucide-react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { Arquivo } from "@models/models";
 import { RootStackParamList } from "@navigation/AppNavigator";
@@ -26,6 +26,7 @@ import RenameObraModal from "@components/RenameObraModal";
 import ScreenState from "@components/ScreenState";
 import { colors, radius, spacing } from "@theme/index";
 import { aprovacaoLabel } from "@utils/aprovacao";
+import { canPreviewUpload, uploadFormatFor } from "@utils/uploadFormats";
 
 type Props = NativeStackScreenProps<RootStackParamList, "ArquivoView">;
 
@@ -38,6 +39,7 @@ const ArquivoViewScreen = ({ route, navigation }: Props) => {
   const [renameVisible, setRenameVisible] = useState(false);
   const [saving, setSaving] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   const displayName = formatFileName(
     meta?.documento_nome || meta?.nome_original || route.params.nome || "",
@@ -64,12 +66,13 @@ const ArquivoViewScreen = ({ route, navigation }: Props) => {
     setLoading(true);
     setLoadError(null);
     try {
-      const [signedUrl, file] = await Promise.all([
-        gerarUrlTemporaria(arquivoId),
-        buscarArquivo(arquivoId),
-      ]);
-      setUrl(signedUrl);
+      const file = await buscarArquivo(arquivoId);
+      const fileName = file.documento_nome || file.nome_original;
+      const signedUrl = canPreviewUpload(fileName, file.content_type)
+        ? await gerarUrlTemporaria(arquivoId)
+        : null;
       setMeta(file);
+      setUrl(signedUrl);
     } catch (error) {
       setLoadError((error as Error)?.message || "Não foi possível abrir o arquivo.");
     } finally {
@@ -103,6 +106,17 @@ const ArquivoViewScreen = ({ route, navigation }: Props) => {
     }
   };
 
+  const downloadFile = async () => {
+    setDownloading(true);
+    try {
+      await Linking.openURL(await gerarUrlTemporaria(arquivoId));
+    } catch {
+      toastError("Não foi possível baixar o arquivo", "Tente novamente.");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const menuItems: ActionMenuItem[] = [
     ...(canEdit
       ? [
@@ -126,7 +140,7 @@ const ArquivoViewScreen = ({ route, navigation }: Props) => {
   ];
 
   if (loading) return <ScreenState loading title="Carregando arquivo" />;
-  if (loadError || !url || !meta) {
+  if (loadError || !meta) {
     return (
       <ScreenState
         icon={<FileText size={44} color={colors.textMuted} />}
@@ -140,6 +154,10 @@ const ArquivoViewScreen = ({ route, navigation }: Props) => {
 
   const isPdf =
     meta.content_type === "application/pdf" || displayName.toLowerCase().endsWith(".pdf");
+  const format = uploadFormatFor(displayName);
+  const isImagePreview =
+    format?.previewImage === true ||
+    (!format && ["image/jpeg", "image/png", "image/webp"].includes(meta.content_type));
   const fileSize =
     meta.tamanho_bytes >= 1024 * 1024
       ? `${(meta.tamanho_bytes / (1024 * 1024)).toFixed(1)} MB`
@@ -216,7 +234,7 @@ const ArquivoViewScreen = ({ route, navigation }: Props) => {
       </View>
 
       <View style={styles.viewer}>
-        {isPdf && (Platform.OS === "android" || Platform.OS === "web") ? (
+        {isPdf && url && (Platform.OS === "android" || Platform.OS === "web") ? (
           <View style={styles.pdfFallback}>
             <View style={styles.pdfIcon}>
               <FileText size={34} color={colors.primary} />
@@ -227,18 +245,33 @@ const ArquivoViewScreen = ({ route, navigation }: Props) => {
             </Text>
             <AppButton
               label="Abrir PDF"
-              onPress={() =>
-                Linking.openURL(url).catch(() =>
-                  toastError("Não foi possível abrir o PDF", "Tente novamente."),
-                )
-              }
+              icon={<Download size={18} color={colors.white} />}
+              onPress={downloadFile}
+              loading={downloading}
               style={styles.openButton}
             />
           </View>
-        ) : isPdf ? (
+        ) : isPdf && url ? (
           <WebView source={{ uri: url }} style={styles.webView} />
-        ) : (
+        ) : isImagePreview && url ? (
           <Image source={{ uri: url }} style={styles.image} />
+        ) : (
+          <View style={styles.pdfFallback}>
+            <View style={styles.pdfIcon}>
+              <FileText size={34} color={colors.primary} />
+            </View>
+            <Text style={styles.pdfTitle}>Arquivo disponível para download</Text>
+            <Text style={styles.pdfDescription}>
+              Visualização indisponível. Baixe o arquivo para abri-lo em um aplicativo compatível.
+            </Text>
+            <AppButton
+              label="Baixar arquivo"
+              icon={<Download size={18} color={colors.white} />}
+              onPress={downloadFile}
+              loading={downloading}
+              style={styles.openButton}
+            />
+          </View>
         )}
       </View>
 

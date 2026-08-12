@@ -5,6 +5,11 @@ export type UploadFormat = {
   previewImage: boolean;
 };
 
+export type UploadErrorFeedback = {
+  title: string;
+  message: string;
+};
+
 const MB = 1024 * 1024;
 
 const FORMATS: Record<string, UploadFormat> = {
@@ -39,3 +44,31 @@ export const uploadFormatFor = (name: string): UploadFormat | undefined => {
 
 export const uploadLimitLabel = (format: UploadFormat): string =>
   `${Math.round(format.maxBytes / MB)} MB`;
+
+export const canPreviewUpload = (name: string, mime?: string): boolean => {
+  const format = uploadFormatFor(name);
+  if (format) return format.previewImage || format.mime === "application/pdf";
+  return mime === "application/pdf" || ["image/jpeg", "image/png", "image/webp"].includes(mime || "");
+};
+
+export const UPLOAD_FORMATS_DESCRIPTION =
+  "JPG, JPEG, PNG, WEBP, HEIC e HEIF: até 15 MB; DOCX, XLSX e CSV: até 25 MB; PDF: até 50 MB; DWG e DXF: até 100 MB.";
+
+export const uploadErrorFeedback = (
+  code?: string,
+  serverMessage?: string,
+): UploadErrorFeedback | undefined => {
+  if (code === "UPLOAD_TOO_LARGE") {
+    return {
+      title: "Arquivo muito grande",
+      message: "O arquivo ultrapassa o limite permitido para esse formato.",
+    };
+  }
+  if (code === "INVALID_REQUEST") {
+    return {
+      title: "Arquivo não aceito",
+      message: serverMessage || "Verifique o formato e tente novamente.",
+    };
+  }
+  return undefined;
+};

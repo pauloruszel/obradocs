@@ -11,6 +11,17 @@ import org.springframework.web.server.ResponseStatusException;
 class ApiExceptionHandlerTests {
 
 	@Test
+	void informaCodigoEstruturadoParaUploadInvalidoOuMuitoGrande() {
+		var handler = new ApiExceptionHandler();
+
+		ProblemDetail invalido = handler.argumentoInvalido(new IllegalArgumentException("Arquivo inválido"));
+		ProblemDetail muitoGrande = handler.uploadMuitoGrande();
+
+		assertThat(invalido.getProperties()).containsEntry("code", "INVALID_REQUEST");
+		assertThat(muitoGrande.getProperties()).containsEntry("code", "UPLOAD_TOO_LARGE");
+	}
+
+	@Test
 	void preservaStatusDeErroHttpConhecido() {
 		var response = new UnexpectedExceptionHandler().preserveHttpError(
 				new ResponseStatusException(HttpStatus.CONFLICT, "Conflito conhecido"));

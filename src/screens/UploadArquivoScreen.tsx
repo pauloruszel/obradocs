@@ -30,7 +30,9 @@ import { toastError, toastSuccess } from "@utils/toast";
 import { getUpgradeLimitCode, UpgradeLimitCode } from "@utils/upgradeConversion";
 import { arquivoTipoLabel, formatFileName } from "@utils/display";
 import {
+  UPLOAD_FORMATS_DESCRIPTION,
   UploadFormat,
+  uploadErrorFeedback,
   uploadFormatFor,
   uploadLimitLabel,
 } from "@utils/uploadFormats";
@@ -109,7 +111,7 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
     const format = uploadFormatFor(name);
     if (!format) {
       setFile(null);
-      toastError("Formato não aceito", "Selecione PDF, imagem, DOCX, XLSX, CSV, DWG ou DXF.");
+      toastError("Formato não aceito", UPLOAD_FORMATS_DESCRIPTION);
       return undefined;
     }
     if (typeof size === "number" && size > format.maxBytes) {
@@ -207,8 +209,12 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
       const limitCode = getUpgradeLimitCode(error);
       if (limitCode) {
         setUpgradeLimit(limitCode);
-      } else if (error instanceof ApiError && error.status === 413) {
-        toastError("Arquivo muito grande", "O arquivo ultrapassa o limite permitido para esse formato.");
+      } else if (error instanceof ApiError) {
+        const feedback = uploadErrorFeedback(error.code, error.message);
+        toastError(
+          feedback?.title || "Não foi possível enviar",
+          feedback?.message || "Tente novamente.",
+        );
       } else {
         const message = (error as Error)?.message || "";
         const timedOut = error instanceof Error && error.name === "AbortError";
@@ -298,7 +304,7 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
 
         <Text style={styles.sectionTitle}>Arquivo</Text>
         <Text style={styles.helper}>
-          PDF, imagens, Office, CSV, DWG ou DXF. Limite de até 100 MB conforme o formato.
+          {UPLOAD_FORMATS_DESCRIPTION}
         </Text>
         {file ? (
           <View style={styles.preview}>
@@ -344,7 +350,7 @@ const UploadArquivoScreen = ({ route, navigation }: Props) => {
             disabled={uploading}
             style={styles.sourceButton}
           />
-          {revisionContentType !== "application/pdf" && (
+          {(!isRevision || revisionContentType === "image/jpeg") && (
             <AppButton
               label="Tirar foto"
               variant="secondary"
