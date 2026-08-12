@@ -22,6 +22,7 @@ export type PageResponse<T> = {
 };
 
 const DEFAULT_TIMEOUT_MS = 20_000;
+const FILE_FORMATS_CAPABILITY = "extended-v1";
 let refreshPromise: Promise<Session> | null = null;
 let unauthorizedHandler: (() => void) | null = null;
 
@@ -138,6 +139,7 @@ export const apiRequest = async <T>(path: string, options: ApiOptions = {}): Pro
   const headers = new Headers(requestOptions.headers);
   const isFormData = requestOptions.body instanceof FormData;
 
+  headers.set("X-Obradocs-File-Formats", FILE_FORMATS_CAPABILITY);
   if (requestOptions.body && !isFormData && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }

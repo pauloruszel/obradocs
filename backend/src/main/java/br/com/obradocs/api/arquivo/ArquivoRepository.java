@@ -33,6 +33,7 @@ interface ArquivoRepository extends JpaRepository<Arquivo, UUID> {
               and (:tipo is null or a.tipo = :tipo)
               and (:busca is null or lower(d.nome) like lower(concat('%', cast(:busca as string), '%')))
               and (:ambiente is null or lower(d.ambiente) = lower(cast(:ambiente as string)))
+			  and (:formatosExpandidos = true or a.contentType in ('application/pdf', 'image/jpeg'))
             order by a.createdAt desc
             """, countQuery = """
             select count(a)
@@ -44,6 +45,7 @@ interface ArquivoRepository extends JpaRepository<Arquivo, UUID> {
               and (:tipo is null or a.tipo = :tipo)
               and (:busca is null or lower(d.nome) like lower(concat('%', cast(:busca as string), '%')))
               and (:ambiente is null or lower(d.ambiente) = lower(cast(:ambiente as string)))
+			  and (:formatosExpandidos = true or a.contentType in ('application/pdf', 'image/jpeg'))
             """)
     Page<ArquivoDetalhado> listarPaginado(
             @Param("obraId") UUID obraId,
@@ -51,6 +53,7 @@ interface ArquivoRepository extends JpaRepository<Arquivo, UUID> {
             @Param("tipo") ArquivoTipo tipo,
             @Param("busca") String busca,
             @Param("ambiente") String ambiente,
+			@Param("formatosExpandidos") boolean formatosExpandidos,
             Pageable pageable);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

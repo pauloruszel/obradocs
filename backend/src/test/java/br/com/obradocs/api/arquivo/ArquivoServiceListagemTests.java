@@ -95,7 +95,7 @@ class ArquivoServiceListagemTests {
     void listaTodosQuandoTipoEBuscaNaoForamInformados() {
         when(arquivos.listarTodos(obraId)).thenReturn(List.of());
 
-        service.listar(obraId, null, null, null, null, usuarioId);
+        service.listar(obraId, null, null, null, null, true, usuarioId);
 
         verify(authorization).exigirLeitura(obraId, usuarioId);
         verify(arquivos).listarTodos(obraId);
@@ -107,7 +107,7 @@ class ArquivoServiceListagemTests {
     void listaPorTipoSemEnviarBuscaNulaAoRepository() {
         when(arquivos.listarPorTipo(obraId, ArquivoTipo.PROJETO)).thenReturn(List.of());
 
-        service.listar(obraId, null, ArquivoTipo.PROJETO, null, null, usuarioId);
+        service.listar(obraId, null, ArquivoTipo.PROJETO, null, null, true, usuarioId);
 
         verify(authorization).exigirLeitura(obraId, usuarioId);
         verify(arquivos).listarPorTipo(obraId, ArquivoTipo.PROJETO);
@@ -118,7 +118,7 @@ class ArquivoServiceListagemTests {
     void pesquisaPorNomeSemEnviarTipoNuloAoRepository() {
         when(arquivos.pesquisarPorNome(obraId, "estrutural")).thenReturn(List.of());
 
-        service.listar(obraId, null, null, "  estrutural  ", null, usuarioId);
+        service.listar(obraId, null, null, "  estrutural  ", null, true, usuarioId);
 
         verify(authorization).exigirLeitura(obraId, usuarioId);
         verify(arquivos).pesquisarPorNome(obraId, "estrutural");
@@ -130,7 +130,7 @@ class ArquivoServiceListagemTests {
         when(arquivos.pesquisarPorTipoENome(obraId, ArquivoTipo.NOTA_FISCAL, "plano"))
                 .thenReturn(List.of());
 
-        service.listar(obraId, null, ArquivoTipo.NOTA_FISCAL, " plano ", null, usuarioId);
+        service.listar(obraId, null, ArquivoTipo.NOTA_FISCAL, " plano ", null, true, usuarioId);
 
         verify(authorization).exigirLeitura(obraId, usuarioId);
         verify(arquivos).pesquisarPorTipoENome(obraId, ArquivoTipo.NOTA_FISCAL, "plano");
@@ -141,7 +141,7 @@ class ArquivoServiceListagemTests {
     void trataBuscaEmBrancoComoAusente() {
         when(arquivos.listarPorTipo(obraId, ArquivoTipo.FOTO)).thenReturn(List.of());
 
-        service.listar(obraId, null, ArquivoTipo.FOTO, "   ", null, usuarioId);
+        service.listar(obraId, null, ArquivoTipo.FOTO, "   ", null, true, usuarioId);
 
         verify(authorization).exigirLeitura(obraId, usuarioId);
         verify(arquivos).listarPorTipo(obraId, ArquivoTipo.FOTO);
@@ -152,7 +152,7 @@ class ArquivoServiceListagemTests {
     void rejeitaBuscaAcimaDoLimiteSemConsultarArquivos() {
         String busca = "a".repeat(101);
 
-        assertThatThrownBy(() -> service.listar(obraId, null, null, busca, null, usuarioId))
+        assertThatThrownBy(() -> service.listar(obraId, null, null, busca, null, true, usuarioId))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Busca muito longa; limite de 100 caracteres");
 
