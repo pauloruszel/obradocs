@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -49,8 +50,9 @@ class ArquivoUploadValidatorTests {
 
     @Test
     void rejeitaPacoteOfficeComEstruturaErradaOuCaminhoPerigoso() throws IOException {
-        byte[] docxComXl = pacoteOffice("xl/workbook.xml");
-        byte[] docxComTraversal = pacoteOffice("word/../../arquivo.xml");
+        byte[] docxComXl = pacoteOffice(ArquivoFormato.XLSX);
+        byte[] docxComTraversal = pacoteOffice(ArquivoFormato.DOCX, "word/../../arquivo.xml");
+        byte[] xlsxComRelacionamentoIncorreto = pacoteXlsxComRelacionamento("rIdInexistente");
 
         assertThatThrownBy(() -> validator.validar(arquivo("documento.docx", null, docxComXl)))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -58,6 +60,66 @@ class ArquivoUploadValidatorTests {
         assertThatThrownBy(() -> validator.validar(arquivo("documento.docx", null, docxComTraversal)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("caminho inválido");
+        assertThatThrownBy(() -> validator.validar(arquivo("planilha.xlsx", null, xlsxComRelacionamentoIncorreto)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Estrutura interna");
+    }
+
+    @Test
+    void rejeitaZipComumRenomeadoParaOfficeEMacroOculta() throws IOException {
+        byte[] zipDisfarcado = pacoteZipGenerico();
+        byte[] docxComMacro = pacoteOffice(ArquivoFormato.DOCX, "word/vbaProject.bin");
+        byte[] docxComVbaDeclarado = pacoteOfficeComContentType(
+                ArquivoFormato.DOCX,
+                "application/vnd.ms-office.vbaProject");
+
+        assertThatThrownBy(() -> validator.validar(arquivo("documento.docx", null, zipDisfarcado)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Estrutura interna");
+        assertThatThrownBy(() -> validator.validar(arquivo("documento.docx", null, docxComMacro)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("macros");
+        assertThatThrownBy(() -> validator.validar(arquivo("documento.docx", null, docxComVbaDeclarado)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("macros");
+    }
+
+    @Test
+    void rejeitaConteudoAtivoDentroDoPacoteOffice() throws IOException {
+        byte[] docxComExecutavel = pacoteOffice(ArquivoFormato.DOCX, "word/embeddings/programa.exe");
+
+        assertThatThrownBy(() -> validator.validar(arquivo("documento.docx", null, docxComExecutavel)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("conteúdo ativo");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "arquivo.zip", "arquivo.rar", "arquivo.7z", "arquivo.tar", "arquivo.gz",
+            "arquivo.exe", "arquivo.dll", "arquivo.msi", "arquivo.apk", "arquivo.jar",
+            "arquivo.bat", "arquivo.ps1", "arquivo.sh", "arquivo.js",
+            "arquivo.docm", "arquivo.xlsm"
+    })
+    void rejeitaExplicitamenteExtensoesPerigosas(String nome) {
+        assertThatThrownBy(() -> validator.validar(arquivo(nome, null, pdf())))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("não são permitidos");
+    }
+
+    @Test
+    void rejeitaExtensaoDuplaEByteNuloSemBloquearNomeComPontos() {
+        assertThatThrownBy(() -> validator.validar(arquivo("projeto.jpg.pdf", null, pdf())))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Extensões duplas");
+        assertThatThrownBy(() -> validator.validar(arquivo("programa.exe.final.pdf", null, pdf())))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Extensões duplas");
+        assertThatThrownBy(() -> validator.validar(arquivo("projeto\0.pdf", null, pdf())))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("byte nulo");
+
+        assertThat(validator.validar(arquivo("projeto.final.pdf", null, pdf())).nome())
+                .isEqualTo("projeto.final.pdf");
     }
 
     @Test
@@ -67,10 +129,10 @@ class ArquivoUploadValidatorTests {
                 .hasMessageContaining("Nome do arquivo inválido");
         assertThatThrownBy(() -> validator.validar(arquivo("projeto.exe", null, pdf())))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Extensão de arquivo não permitida");
+                .hasMessageContaining("Executáveis");
         assertThatThrownBy(() -> validator.validar(arquivo("documentos.zip", null, new byte[] {'P', 'K', 3, 4})))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Extensão de arquivo não permitida");
+                .hasMessageContaining("compactados");
     }
 
     @Test
@@ -119,8 +181,8 @@ class ArquivoUploadValidatorTests {
                 Arguments.of("imagem.webp", webp(), ArquivoFormato.WEBP),
                 Arguments.of("foto.heic", heif("heic"), ArquivoFormato.HEIC),
                 Arguments.of("foto.heif", heif("mif1"), ArquivoFormato.HEIF),
-                Arguments.of("memorial.docx", pacoteOffice("word/document.xml"), ArquivoFormato.DOCX),
-                Arguments.of("orcamento.xlsx", pacoteOffice("xl/workbook.xml"), ArquivoFormato.XLSX),
+                Arguments.of("memorial.docx", pacoteOffice(ArquivoFormato.DOCX), ArquivoFormato.DOCX),
+                Arguments.of("orcamento.xlsx", pacoteOffice(ArquivoFormato.XLSX), ArquivoFormato.XLSX),
                 Arguments.of("itens.csv", "item,valor\nCimento,42\n".getBytes(StandardCharsets.UTF_8), ArquivoFormato.CSV),
                 Arguments.of("planta.dwg", "AC1032dados".getBytes(StandardCharsets.US_ASCII), ArquivoFormato.DWG),
                 Arguments.of("planta.dxf", "0\nSECTION\n2\nHEADER\n0\nEOF\n".getBytes(StandardCharsets.US_ASCII), ArquivoFormato.DXF),
@@ -171,11 +233,86 @@ class ArquivoUploadValidatorTests {
         return header;
     }
 
-    private static byte[] pacoteOffice(String entradaObrigatoria) throws IOException {
+    private static byte[] pacoteOffice(ArquivoFormato formato, String... entradasExtras) throws IOException {
+        return pacoteOffice(formato, null, "rId1", entradasExtras);
+    }
+
+    private static byte[] pacoteOfficeComContentType(ArquivoFormato formato, String contentTypeExtra)
+            throws IOException {
+        return pacoteOffice(formato, contentTypeExtra, "rId1", new String[0]);
+    }
+
+    private static byte[] pacoteXlsxComRelacionamento(String relacionamento) throws IOException {
+        return pacoteOffice(ArquivoFormato.XLSX, null, relacionamento, new String[0]);
+    }
+
+    private static byte[] pacoteOffice(
+            ArquivoFormato formato,
+            String contentTypeExtra,
+            String relacionamentoPlanilha,
+            String... entradasExtras) throws IOException {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (ZipOutputStream zip = new ZipOutputStream(bytes)) {
+            String contentType = formato == ArquivoFormato.DOCX
+                    ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"
+                    : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml";
+            String parte = formato == ArquivoFormato.DOCX ? "/word/document.xml" : "/xl/workbook.xml";
+            String alvo = formato == ArquivoFormato.DOCX ? "word/document.xml" : "xl/workbook.xml";
+            adicionarEntrada(zip, "[Content_Types].xml", """
+                    <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+                      <Override PartName="%s" ContentType="%s"/>
+                      %s
+                    </Types>
+                    """.formatted(
+                            parte,
+                            contentType,
+                            contentTypeExtra == null
+                                    ? ""
+                                    : "<Override PartName=\"/conteudo.bin\" ContentType=\"%s\"/>"
+                                            .formatted(contentTypeExtra)));
+            adicionarEntrada(zip, "_rels/.rels", """
+                    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+                      <Relationship Id="rId1"
+                        Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument"
+                        Target="%s"/>
+                    </Relationships>
+                    """.formatted(alvo));
+            if (formato == ArquivoFormato.DOCX) {
+                adicionarEntrada(zip, "word/document.xml", """
+                        <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+                          <w:body><w:p/></w:body>
+                        </w:document>
+                        """);
+            } else {
+                adicionarEntrada(zip, "xl/workbook.xml", """
+                        <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+                                  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+                          <sheets><sheet name="Planilha1" sheetId="1" r:id="%s"/></sheets>
+                        </workbook>
+                        """.formatted(relacionamentoPlanilha));
+                adicionarEntrada(zip, "xl/_rels/workbook.xml.rels", """
+                        <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+                          <Relationship Id="rId1"
+                            Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet"
+                            Target="worksheets/sheet1.xml"/>
+                        </Relationships>
+                        """);
+                adicionarEntrada(zip, "xl/worksheets/sheet1.xml", """
+                        <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"/>
+                        """);
+            }
+            for (String entrada : entradasExtras) {
+                adicionarEntrada(zip, entrada, "conteudo");
+            }
+        }
+        return bytes.toByteArray();
+    }
+
+    private static byte[] pacoteZipGenerico() throws IOException {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         try (ZipOutputStream zip = new ZipOutputStream(bytes)) {
             adicionarEntrada(zip, "[Content_Types].xml", "<Types/>");
-            adicionarEntrada(zip, entradaObrigatoria, "conteudo");
+            adicionarEntrada(zip, "word/arquivo.txt", "não é um documento Office");
         }
         return bytes.toByteArray();
     }
