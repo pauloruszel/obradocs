@@ -40,6 +40,7 @@ class ArquivoService {
 			ArquivoTipo tipo,
 			String busca,
 			String ambiente,
+			boolean formatosExpandidos,
 			UUID usuarioId) {
 		authorization.exigirLeitura(obraId, usuarioId);
 		String termo = busca == null || busca.isBlank() ? null : busca.trim();
@@ -62,11 +63,12 @@ class ArquivoService {
 			resultado = arquivos.pesquisarPorTipoENome(obraId, tipo, termo);
 		}
 		String ambienteNormalizado = normalizarAmbiente(ambiente);
-		return ambienteNormalizado == null
+		List<ArquivoDetalhado> filtrado = ambienteNormalizado == null
 				? resultado
 				: resultado.stream()
 						.filter(item -> ambienteNormalizado.equalsIgnoreCase(item.getAmbiente()))
 						.toList();
+		return formatosExpandidos ? filtrado : apenasFormatosLegados(filtrado);
 	}
 
 	@Transactional(readOnly = true)
@@ -76,6 +78,7 @@ class ArquivoService {
 			ArquivoTipo tipo,
 			String busca,
 			String ambiente,
+			boolean formatosExpandidos,
 			UUID usuarioId,
 			Pageable pageable) {
 		authorization.exigirLeitura(obraId, usuarioId);
@@ -92,13 +95,15 @@ class ArquivoService {
 				tipo,
 				termo,
 				normalizarAmbiente(ambiente),
+				formatosExpandidos,
 				pageable);
 	}
 
 	@Transactional(readOnly = true)
-	ArquivoDetalhado buscar(UUID arquivoId, UUID usuarioId) {
+	ArquivoDetalhado buscar(UUID arquivoId, boolean formatosExpandidos, UUID usuarioId) {
 		ArquivoDetalhado detalhe = buscarDetalhadoPorId(arquivoId);
 		authorization.exigirLeitura(detalhe.getArquivo().getObraId(), usuarioId);
+		exigirFormatoCompativel(detalhe.getArquivo(), formatosExpandidos);
 		return detalhe;
 	}
 
@@ -207,10 +212,12 @@ class ArquivoService {
 	}
 
 	@Transactional(readOnly = true)
-	List<ArquivoDetalhado> listarRevisoes(UUID arquivoId, UUID usuarioId) {
+	List<ArquivoDetalhado> listarRevisoes(UUID arquivoId, boolean formatosExpandidos, UUID usuarioId) {
 		Arquivo arquivo = buscarDetalhadoPorId(arquivoId).getArquivo();
 		authorization.exigirLeitura(arquivo.getObraId(), usuarioId);
-		return arquivos.listarRevisoes(arquivo.getDocumentoId());
+		exigirFormatoCompativel(arquivo, formatosExpandidos);
+		List<ArquivoDetalhado> revisoes = arquivos.listarRevisoes(arquivo.getDocumentoId());
+		return formatosExpandidos ? revisoes : apenasFormatosLegados(revisoes);
 	}
 
 	@Transactional
@@ -266,9 +273,10 @@ class ArquivoService {
 	}
 
 	@Transactional(readOnly = true)
-	S3Storage.DownloadTemporario criarDownload(UUID arquivoId, UUID usuarioId) {
+	S3Storage.DownloadTemporario criarDownload(UUID arquivoId, boolean formatosExpandidos, UUID usuarioId) {
 		Arquivo arquivo = buscarDetalhadoPorId(arquivoId).getArquivo();
 		authorization.exigirLeitura(arquivo.getObraId(), usuarioId);
+		exigirFormatoCompativel(arquivo, formatosExpandidos);
 		return storage.criarDownload(arquivo.getStoragePath(), arquivo.getContentType());
 	}
 
@@ -297,6 +305,23 @@ class ArquivoService {
 
 	private String novoStoragePath(UUID obraId) {
 		return obraId + "/" + UUID.randomUUID();
+	}
+
+	private List<ArquivoDetalhado> apenasFormatosLegados(List<ArquivoDetalhado> arquivos) {
+		return arquivos.stream()
+				.filter(item -> formatoLegado(item.getArquivo()))
+				.toList();
+	}
+
+	private void exigirFormatoCompativel(Arquivo arquivo, boolean formatosExpandidos) {
+		if (!formatosExpandidos && !formatoLegado(arquivo)) {
+			throw new NoSuchElementException("Arquivo nao encontrado");
+		}
+	}
+
+	private boolean formatoLegado(Arquivo arquivo) {
+		return "application/pdf".equals(arquivo.getContentType())
+				|| "image/jpeg".equals(arquivo.getContentType());
 	}
 
 	private void liberarReservaPreservandoErro(UUID reservaId, RuntimeException erroOriginal) {

@@ -25,6 +25,7 @@ import br.com.obradocs.api.PageResponse;
 @RequiredArgsConstructor
 class ArquivoController {
 
+	private static final String FORMATOS_EXPANDIDOS = "extended-v1";
 	private final ArquivoService service;
 
 	@GetMapping("/obras/{obraId}/arquivos")
@@ -34,8 +35,10 @@ class ArquivoController {
 			@RequestParam(required = false) ArquivoTipo tipo,
 			@RequestParam(required = false) String busca,
 			@RequestParam(required = false) String ambiente,
+			@RequestHeader(value = "X-Obradocs-File-Formats", required = false) String formatos,
 			@AuthenticationPrincipal Jwt jwt) {
-		return service.listar(obraId, categoriaId, tipo, busca, ambiente, usuarioId(jwt)).stream()
+		return service.listar(
+				obraId, categoriaId, tipo, busca, ambiente, formatosExpandidos(formatos), usuarioId(jwt)).stream()
 				.map(ArquivoResponse::from)
 				.toList();
 	}
@@ -49,6 +52,7 @@ class ArquivoController {
 			@RequestParam(required = false) String ambiente,
 			@RequestParam(defaultValue = "0") int page,
 			@RequestParam(defaultValue = "20") int size,
+			@RequestHeader(value = "X-Obradocs-File-Formats", required = false) String formatos,
 			@AuthenticationPrincipal Jwt jwt) {
 		return PageResponse.from(
 				service.listarPaginado(
@@ -57,21 +61,26 @@ class ArquivoController {
 						tipo,
 						busca,
 						ambiente,
+						formatosExpandidos(formatos),
 						usuarioId(jwt),
 						PageResponse.pageable(page, size)),
 				ArquivoResponse::from);
 	}
 
 	@GetMapping("/arquivos/{arquivoId}")
-	ArquivoResponse buscar(@PathVariable UUID arquivoId, @AuthenticationPrincipal Jwt jwt) {
-		return ArquivoResponse.from(service.buscar(arquivoId, usuarioId(jwt)));
+	ArquivoResponse buscar(
+			@PathVariable UUID arquivoId,
+			@RequestHeader(value = "X-Obradocs-File-Formats", required = false) String formatos,
+			@AuthenticationPrincipal Jwt jwt) {
+		return ArquivoResponse.from(service.buscar(arquivoId, formatosExpandidos(formatos), usuarioId(jwt)));
 	}
 
 	@GetMapping("/arquivos/{arquivoId}/revisoes")
 	List<ArquivoResponse> listarRevisoes(
 			@PathVariable UUID arquivoId,
+			@RequestHeader(value = "X-Obradocs-File-Formats", required = false) String formatos,
 			@AuthenticationPrincipal Jwt jwt) {
-		return service.listarRevisoes(arquivoId, usuarioId(jwt)).stream()
+		return service.listarRevisoes(arquivoId, formatosExpandidos(formatos), usuarioId(jwt)).stream()
 				.map(ArquivoResponse::from)
 				.toList();
 	}
@@ -125,13 +134,21 @@ class ArquivoController {
 	}
 
 	@GetMapping("/arquivos/{arquivoId}/download-url")
-	DownloadResponse download(@PathVariable UUID arquivoId, @AuthenticationPrincipal Jwt jwt) {
-		S3Storage.DownloadTemporario download = service.criarDownload(arquivoId, usuarioId(jwt));
+	DownloadResponse download(
+			@PathVariable UUID arquivoId,
+			@RequestHeader(value = "X-Obradocs-File-Formats", required = false) String formatos,
+			@AuthenticationPrincipal Jwt jwt) {
+		S3Storage.DownloadTemporario download = service.criarDownload(
+				arquivoId, formatosExpandidos(formatos), usuarioId(jwt));
 		return new DownloadResponse(download.url(), download.expiresAt());
 	}
 
 	private UUID usuarioId(Jwt jwt) {
 		return UUID.fromString(jwt.getSubject());
+	}
+
+	private boolean formatosExpandidos(String formatos) {
+		return FORMATOS_EXPANDIDOS.equals(formatos);
 	}
 
 	record RenomearArquivoRequest(@NotBlank @Size(max = 255) String nome) {

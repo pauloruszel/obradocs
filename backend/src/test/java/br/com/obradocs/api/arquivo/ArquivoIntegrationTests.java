@@ -460,6 +460,40 @@ class ArquivoIntegrationTests {
                 .isEqualTo(400);
     }
 
+    @Test
+    void ocultaFormatosExpandidosDeClientesAntigos() throws Exception {
+        UsuarioAutenticado owner = registrar("Owner Compatibilidade", "owner-compatibilidade@example.com");
+        String obraId = criarObra(owner, "Obra compatibilidade").path("id").stringValue();
+        byte[] pdf = "%PDF-1.4\nlegado".getBytes(StandardCharsets.UTF_8);
+        byte[] png = {
+            (byte) 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+            0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52
+        };
+
+        JsonNode arquivoPdf = json(upload(
+                obraId, "PROJETO", "legado.pdf", "application/pdf", pdf, owner.token()));
+        JsonNode arquivoPng = json(upload(
+                obraId, "FOTO", "expandido.png", "image/png", png, owner.token()));
+
+        JsonNode listagemAntiga = json(get("/v1/obras/" + obraId + "/arquivos", owner.token()));
+        assertThat(listagemAntiga).hasSize(1);
+        assertThat(listagemAntiga.get(0).path("id").stringValue())
+                .isEqualTo(arquivoPdf.path("id").stringValue());
+
+        String pngId = arquivoPng.path("id").stringValue();
+        assertThat(get("/v1/arquivos/" + pngId, owner.token()).statusCode()).isEqualTo(404);
+        assertThat(get("/v1/arquivos/" + pngId + "/download-url", owner.token()).statusCode()).isEqualTo(404);
+
+        JsonNode listagemNova = json(getComFormatosExpandidos(
+                "/v1/obras/" + obraId + "/arquivos", owner.token()));
+        assertThat(listagemNova).hasSize(2);
+        assertThat(getComFormatosExpandidos("/v1/arquivos/" + pngId, owner.token()).statusCode())
+                .isEqualTo(200);
+        assertThat(getComFormatosExpandidos(
+                "/v1/arquivos/" + pngId + "/download-url", owner.token()).statusCode())
+                .isEqualTo(200);
+    }
+
     private HttpResponse<String> upload(
             String obraId,
             String tipo,
@@ -536,6 +570,15 @@ class ArquivoIntegrationTests {
 
     private HttpResponse<String> get(String path, String token) throws Exception {
         return send(path, token, "GET", null);
+    }
+
+    private HttpResponse<String> getComFormatosExpandidos(String path, String token) throws Exception {
+        HttpRequest request = HttpRequest.newBuilder(uri(path))
+                .header("Authorization", "Bearer " + token)
+                .header("X-Obradocs-File-Formats", "extended-v1")
+                .GET()
+                .build();
+        return http.send(request, HttpResponse.BodyHandlers.ofString());
     }
 
     private HttpResponse<String> post(String path, String body, String token) throws Exception {

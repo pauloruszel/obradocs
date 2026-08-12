@@ -20,9 +20,12 @@ describe("apiRequest", () => {
   });
 
   it("aceita resposta 200 sem corpo", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
 
     await expect(apiRequest<void>("/v1/test", { authenticated: false })).resolves.toBeUndefined();
+    expect(new Headers(fetchMock.mock.calls[0][1]?.headers).get("X-Obradocs-File-Formats"))
+      .toBe("extended-v1");
   });
 
   it("cancela uma requisicao que ultrapassa o tempo limite", async () => {
