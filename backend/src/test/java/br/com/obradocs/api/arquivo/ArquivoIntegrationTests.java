@@ -182,7 +182,7 @@ class ArquivoIntegrationTests {
                 primeiraId, "estrutural-r2.jpg", "image/jpeg", jpeg, owner.token()).statusCode())
                 .isEqualTo(400);
         JsonNode segunda = json(uploadRevisao(
-                primeiraId, "estrutural-r2.pdf", "application/pdf", r2, owner.token()));
+                primeiraId, "estrutural-r2.pdf", "image/jpeg", r2, owner.token()));
 
         assertThat(segunda.path("documento_id").stringValue())
                 .isEqualTo(primeira.path("documento_id").stringValue());
@@ -419,7 +419,7 @@ class ArquivoIntegrationTests {
     }
 
     @Test
-    void rejeitaConteudoExtensaoETamanhoInvalidos() throws Exception {
+    void validaConteudoExtensaoMimeInformativoETamanhoPorFormato() throws Exception {
         UsuarioAutenticado owner = registrar("Owner Validacao", "owner-validacao-arquivo@example.com");
         String obraId = criarObra(owner, "Obra validacao arquivos").path("id").stringValue();
         byte[] pdf = "%PDF-1.4\nvalido".getBytes(StandardCharsets.UTF_8);
@@ -431,18 +431,20 @@ class ArquivoIntegrationTests {
                 "application/pdf",
                 "nao e pdf".getBytes(StandardCharsets.UTF_8),
                 owner.token()).statusCode()).isEqualTo(400);
-        assertThat(upload(
-                obraId, "PROJETO", "tipo-errado.pdf", "image/jpeg", pdf, owner.token()).statusCode())
-                .isEqualTo(400);
+        JsonNode mimeCanonico = json(upload(
+                obraId, "PROJETO", "mime-do-celular.pdf", "image/jpeg", pdf, owner.token()));
+        assertThat(mimeCanonico.path("content_type").stringValue()).isEqualTo("application/pdf");
         assertThat(upload(
                 obraId, "PROJETO", "extensao-errada.jpg", "application/pdf", pdf, owner.token()).statusCode())
                 .isEqualTo(400);
 
-        byte[] grande = new byte[10 * 1024 * 1024 + 1];
-        System.arraycopy(pdf, 0, grande, 0, pdf.length);
+        byte[] grande = new byte[15 * 1024 * 1024 + 1];
+        grande[0] = (byte) 0xff;
+        grande[1] = (byte) 0xd8;
+        grande[2] = (byte) 0xff;
         assertThat(upload(
-                obraId, "PROJETO", "grande.pdf", "application/pdf", grande, owner.token()).statusCode())
-                .isEqualTo(413);
+                obraId, "FOTO", "grande.jpg", "image/jpeg", grande, owner.token()).statusCode())
+                .isEqualTo(400);
     }
 
     private HttpResponse<String> upload(

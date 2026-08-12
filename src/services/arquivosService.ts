@@ -89,7 +89,7 @@ const uploadMultipart = async ({
   return apiRequest(path, {
     method: "POST",
     body: form,
-    timeoutMs: 120_000,
+    timeoutMs: 10 * 60_000,
   });
 };
 

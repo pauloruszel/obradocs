@@ -17,6 +17,7 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import br.com.obradocs.api.auth.AuthService.EmailJaCadastradoException;
 import br.com.obradocs.api.auth.AuthService.PasswordChangeRequiredException;
 import br.com.obradocs.api.auth.AuthRateLimiter.TooManyRequestsException;
+import br.com.obradocs.api.arquivo.FormatosExpandidosDesabilitadosException;
 
 @RestControllerAdvice
 @Order(Ordered.HIGHEST_PRECEDENCE)
@@ -44,7 +45,9 @@ class ApiExceptionHandler {
 
 	@ExceptionHandler(IllegalArgumentException.class)
 	ProblemDetail argumentoInvalido(IllegalArgumentException exception) {
-		return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
+		ProblemDetail detail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
+		detail.setProperty("code", "INVALID_REQUEST");
+		return detail;
 	}
 
 	@ExceptionHandler(NoSuchElementException.class)
@@ -59,9 +62,18 @@ class ApiExceptionHandler {
 
 	@ExceptionHandler(MaxUploadSizeExceededException.class)
 	ProblemDetail uploadMuitoGrande() {
-		return ProblemDetail.forStatusAndDetail(
+		ProblemDetail detail = ProblemDetail.forStatusAndDetail(
 				HttpStatus.CONTENT_TOO_LARGE,
-				"Arquivo muito grande; limite de 10 MB");
+				"Arquivo muito grande; limite de 100 MB");
+		detail.setProperty("code", "UPLOAD_TOO_LARGE");
+		return detail;
+	}
+
+	@ExceptionHandler(FormatosExpandidosDesabilitadosException.class)
+	ProblemDetail formatosExpandidosDesabilitados(FormatosExpandidosDesabilitadosException exception) {
+		ProblemDetail detail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, exception.getMessage());
+		detail.setProperty("code", "FILE_FORMATS_EXTENDED_DISABLED");
+		return detail;
 	}
 
 	@ExceptionHandler(TooManyRequestsException.class)

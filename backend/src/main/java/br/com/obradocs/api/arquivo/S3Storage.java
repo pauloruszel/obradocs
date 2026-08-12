@@ -68,7 +68,7 @@ class S3Storage {
 	void excluirSilenciosamente(String path) {
 		try {
 			excluir(path);
-		} catch (SdkException ignored) {
+		} catch (RuntimeException ignored) {
 			// A falha de compensação não deve esconder o erro original da transação.
 		}
 	}

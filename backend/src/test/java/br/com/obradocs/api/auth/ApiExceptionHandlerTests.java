@@ -8,7 +8,24 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.server.ResponseStatusException;
 
+import br.com.obradocs.api.arquivo.FormatosExpandidosDesabilitadosException;
+
 class ApiExceptionHandlerTests {
+
+	@Test
+	void informaCodigoEstruturadoParaUploadInvalidoOuMuitoGrande() {
+		var handler = new ApiExceptionHandler();
+
+		ProblemDetail invalido = handler.argumentoInvalido(new IllegalArgumentException("Arquivo inválido"));
+		ProblemDetail muitoGrande = handler.uploadMuitoGrande();
+		ProblemDetail formatosDesabilitados = handler.formatosExpandidosDesabilitados(
+				new FormatosExpandidosDesabilitadosException());
+
+		assertThat(invalido.getProperties()).containsEntry("code", "INVALID_REQUEST");
+		assertThat(muitoGrande.getProperties()).containsEntry("code", "UPLOAD_TOO_LARGE");
+		assertThat(formatosDesabilitados.getProperties())
+				.containsEntry("code", "FILE_FORMATS_EXTENDED_DISABLED");
+	}
 
 	@Test
 	void preservaStatusDeErroHttpConhecido() {

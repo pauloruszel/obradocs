@@ -28,8 +28,10 @@ spring:
     open-in-view: false
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 11MB
+      max-file-size: 105MB
+      max-request-size: 110MB
+      file-size-threshold: 0B
+      location: ${java.io.tmpdir}
 
 management:
   endpoint:
@@ -41,6 +43,8 @@ management:
         include: health
 
 app:
+  files:
+    formats-extended-enabled: ${FILE_FORMATS_EXTENDED_ENABLED:false}
   admin:
     emails: ${ADMIN_EMAILS:}
   cors:

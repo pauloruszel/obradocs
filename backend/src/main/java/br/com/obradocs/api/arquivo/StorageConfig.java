@@ -29,10 +29,10 @@ class StorageConfig {
 				.serviceConfiguration(properties.s3Configuration())
 				.httpClientBuilder(UrlConnectionHttpClient.builder()
 						.connectionTimeout(Duration.ofSeconds(10))
-						.socketTimeout(Duration.ofSeconds(30)))
+						.socketTimeout(Duration.ofMinutes(3)))
 				.overrideConfiguration(config -> config
-						.apiCallAttemptTimeout(Duration.ofSeconds(30))
-						.apiCallTimeout(Duration.ofSeconds(45)))
+						.apiCallAttemptTimeout(Duration.ofMinutes(3))
+						.apiCallTimeout(Duration.ofMinutes(5)))
 				.build();
 	}
 
