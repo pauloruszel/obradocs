@@ -7,6 +7,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -41,6 +42,15 @@ class ApiExceptionHandler {
 	@ExceptionHandler(MethodArgumentNotValidException.class)
 	ProblemDetail dadosInvalidos() {
 		return ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Dados inválidos");
+	}
+
+	@ExceptionHandler(HttpMessageNotReadableException.class)
+	ProblemDetail corpoInvalido() {
+		ProblemDetail detail = ProblemDetail.forStatusAndDetail(
+				HttpStatus.BAD_REQUEST,
+				"Corpo da requisição inválido");
+		detail.setProperty("code", "INVALID_REQUEST");
+		return detail;
 	}
 
 	@ExceptionHandler(IllegalArgumentException.class)

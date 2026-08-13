@@ -102,6 +102,21 @@ class ObraIntegrationTests {
 	}
 
 	@Test
+	void rejeitaTemplateInexistenteComoRequisicaoInvalida() throws Exception {
+		UsuarioAutenticado owner = registrar("Owner Template Invalido", "owner-template-invalido@example.com");
+
+		HttpResponse<String> response = post("/v1/obras", """
+				{"nome":"Obra invalida","template_codigo":"ENGENHARIA_CIVIL"}
+				""", owner.token());
+
+		assertThat(response.statusCode()).isEqualTo(400);
+		assertThat(response.headers().firstValue("X-Request-ID")).isPresent();
+		JsonNode problema = objectMapper.readTree(response.body());
+		assertThat(problema.path("code").stringValue()).isEqualTo("INVALID_REQUEST");
+		assertThat(problema.path("detail").stringValue()).isEqualTo("Corpo da requisição inválido");
+	}
+
+	@Test
 	void conviteProtegeEmailExpiracaoDuplicidadeEReutilizacao() throws Exception {
 		UsuarioAutenticado owner = registrar("Owner Convite", "owner-convite@example.com");
 		UsuarioAutenticado convidado = registrar("Pessoa Convidada", "convidado@example.com");

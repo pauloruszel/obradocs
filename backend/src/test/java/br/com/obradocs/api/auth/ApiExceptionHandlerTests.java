@@ -28,6 +28,15 @@ class ApiExceptionHandlerTests {
 	}
 
 	@Test
+	void rejeitaCorpoJsonInvalidoComoRequisicaoInvalida() {
+		ProblemDetail detail = new ApiExceptionHandler().corpoInvalido();
+
+		assertThat(detail.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST.value());
+		assertThat(detail.getDetail()).isEqualTo("Corpo da requisição inválido");
+		assertThat(detail.getProperties()).containsEntry("code", "INVALID_REQUEST");
+	}
+
+	@Test
 	void preservaStatusDeErroHttpConhecido() {
 		var response = new UnexpectedExceptionHandler().preserveHttpError(
 				new ResponseStatusException(HttpStatus.CONFLICT, "Conflito conhecido"));
